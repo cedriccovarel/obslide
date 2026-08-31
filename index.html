@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#06402B" />
+  <title>Générateur de slides - Observatoire</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">OBSERVATOIRE DU BÂTIMENT DURABLE</p>
+      <h1>Générateur de slides</h1>
+      <p class="app-subtitle">5 modèles réutilisables · saisie libre · export PNG 4K 16:9</p>
+    </div>
+    <div class="header-actions">
+      <button id="loadSaveBtn" class="btn btn-secondary" type="button">Charger</button>
+      <button id="saveProjectBtn" class="btn btn-save" type="button">Sauvegarder</button>
+      <button id="resetBtn" class="btn btn-secondary" type="button">Réinit.</button>
+      <button id="exportBtn" class="btn btn-primary" type="button" title="Export PNG 4K standard">PNG 4K</button>
+      <button id="exportOfflineBtn" class="btn btn-secondary" type="button" title="Export PNG hors ligne sans dépendance Internet">PNG hors-ligne</button>
+      <button id="exportFallbackBtn" class="btn btn-secondary" type="button" title="Méthode d’export alternative">PNG secours</button>
+      <button id="exportSvgBtn" class="btn btn-secondary" type="button" title="Export hors ligne vectoriel compatible présentation">SVG</button>
+      <button id="printPdfBtn" class="btn btn-secondary" type="button" title="Alternative hors connexion via l’impression du navigateur">PDF</button>
+      <button id="openCaptureBtn" class="btn btn-secondary" type="button" title="Ouvre la slide seule en grand format, prête pour une capture d’écran propre">Capture 16:9</button>
+      <input id="loadSaveInput" type="file" accept="application/json,.json" hidden />
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Slides">
+    <button class="tab active" data-tab="labels">1. Labels & performances</button>
+    <button class="tab" data-tab="equipments">2. Équipements</button>
+    <button class="tab" data-tab="envelope">3. Construction & isolation</button>
+    <button class="tab" data-tab="carbon">4. Indicateurs carbone</button>
+    <button class="tab" data-tab="map">5. Cartographie départements</button>
+  </nav>
+
+  <main class="workspace">
+    <aside class="control-panel">
+      <div class="control-panel-title">
+        <span>PARAMÈTRES</span>
+        <span id="saveStatus">Enregistré automatiquement</span>
+      </div>
+      <div id="controls"></div>
+    </aside>
+
+    <section class="preview-area">
+      <div class="preview-toolbar">
+        <div>
+          <strong>Aperçu 16:9</strong>
+          <span>Export : 3840 × 2160 px</span>
+        </div>
+        <div class="zoom-control">
+          <label for="zoomRange">Zoom</label>
+          <input id="zoomRange" type="range" min="30" max="100" value="52" />
+          <span id="zoomValue">52 %</span>
+        </div>
+      </div>
+      <div id="slideViewport" class="slide-viewport">
+        <div id="slideStage" class="slide-stage">
+          <section id="slide" class="slide" aria-label="Aperçu de la slide"></section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
