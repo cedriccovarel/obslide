@@ -141,3 +141,9 @@ Les matrices Chauffage et ECS ont également été recadrées en partie haute et
 - Équipements et Construction & isolation utilisent le même dessin bâtiment avec proportions conservées ;
 - Couverture, Tunnel, Évolution, matrices, DPE, carbone et labels disposent d'un rendu Canvas autonome ;
 - classeur PDF s'appuie sur le même moteur PNG validé page par page.
+
+
+## Correctif V26.1 - écran de connexion
+- après authentification, l'écran de connexion est retiré du DOM ;
+- protection supplémentaire par attribut `hidden` et styles inline ;
+- cache-busting sur CSS/JS pour GitHub Pages afin d'éviter un mélange ancienne/nouvelle version.

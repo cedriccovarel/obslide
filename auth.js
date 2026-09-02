@@ -14,8 +14,24 @@
     try { sessionStorage.setItem(AUTH_KEY, '1'); } catch (_) {}
     body.classList.remove('auth-locked');
     body.classList.add('auth-granted');
-    if (screen) screen.setAttribute('aria-hidden', 'true');
-    if (shell) shell.setAttribute('aria-hidden', 'false');
+    body.style.removeProperty('overflow');
+    if (screen) {
+      screen.setAttribute('aria-hidden', 'true');
+      screen.hidden = true;
+      screen.style.setProperty('display', 'none', 'important');
+      screen.style.setProperty('visibility', 'hidden', 'important');
+      screen.style.setProperty('pointer-events', 'none', 'important');
+      // Retire complètement l'écran de connexion après authentification afin
+      // qu'aucun ancien CSS mis en cache ne puisse le réafficher en bandeau.
+      requestAnimationFrame(() => {
+        if (screen.isConnected) screen.remove();
+      });
+    }
+    if (shell) {
+      shell.setAttribute('aria-hidden', 'false');
+      shell.style.setProperty('visibility', 'visible', 'important');
+      shell.style.setProperty('pointer-events', 'auto', 'important');
+    }
     setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
   }
 

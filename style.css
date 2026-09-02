@@ -1114,3 +1114,6 @@ body.presentation-mode .preview-area{height:100%;padding:0!important;background:
 body.presentation-mode .slide-viewport{height:calc(100vh - 58px)!important;min-height:0!important;display:flex;align-items:center;justify-content:center;padding:0!important;overflow:auto;background:#071b18}
 body.presentation-mode .slide-stage{flex:0 0 auto;margin:auto}
 body.presentation-mode .slide{transform:scale(1)!important;transform-origin:top left!important}
+
+/* Auth V26.1: garde-fou contre cache CSS incoherent */
+.auth-screen[hidden], .auth-screen[aria-hidden="true"]{display:none!important;visibility:hidden!important;pointer-events:none!important}
