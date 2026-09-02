@@ -4,21 +4,14 @@ Site statique prêt pour GitHub Pages. Aucun build, aucune base de données et a
 
 ## Fonctions
 
-- 5 onglets correspondant aux 5 slides :
-  1. Labels & performances
-  2. Production de chaleur / ECS / refroidissement / ventilation
-  3. Mode constructif / isolations
-  4. Indicateurs carbone
-  5. Cartographie par département
-- Listes déroulantes enrichies pour les principaux systèmes de chauffage, ECS, refroidissement et ventilation, avec option personnalisée.
-- Saisie manuelle des occurrences, pourcentages et indicateurs.
-- Mise à jour instantanée des barres, donuts et curseurs.
-- Repères des labels et performances entièrement éditables.
-- Données conservées localement dans le navigateur via `localStorage`.
-- Export de la slide active en PNG 4K 16:9 : **3840 × 2160 px**.
-- Bouton de réinitialisation indépendant pour chaque onglet.
-- Cartographie France par département sur fond blanc, contours vert forêt, bulles proportionnelles aux projets et zoom Île-de-France.
-- Saisie cartographique par copier-coller ou directement dans la liste des départements. Les données sont mémorisées dans le navigateur.
+- 11 onglets, de la couverture au DPE avant/après.
+- Onglet **0. Couverture** conforme au modèle fourni : logo client remplaçable et date/période modifiable.
+- Mode **Présentation** plein écran : seules les slides et les onglets restent visibles.
+- **Export classeur** : génération d’un PDF 16:9 multi-pages contenant tous les onglets.
+- Export de la slide active en PNG 4K 16:9 : **3840 × 2160 px**, avec moteur de secours Canvas.
+- Sauvegarde/chargement JSON et mémorisation locale via `localStorage`.
+- Import Google Sheets pour l’onglet Évolution des projets.
+- Cartographie France par département, matrices de transition chauffage/ECS, tunnel de certification, équipements, enveloppe, carbone et DPE.
 
 ## Mise en ligne sur GitHub Pages
 
@@ -100,3 +93,51 @@ En mode Ubat, trois valeurs peuvent être saisies : **Ubat initial**, **Ubat moy
 ## V13 — export robuste
 
 Les slides 1 à 4 sont maintenant redessinées directement dans un canvas 4K natif au moment de l’export. Le PNG ne dépend donc plus de `html2canvas`, du réseau ou de la conversion du DOM en image. Le bouton **Capture 16:9** ouvre exactement la même image générée dans une zone fixe de **1600 × 900 px**, donc au ratio 16:9.
+
+## V19
+- Nouvel onglet « Tunnel de certification » avec volumes modifiables, pourcentages automatiques, période, dossiers annulés/abandonnés et nombre de dossiers soldés.
+- Pictogrammes de la frise repris de la slide de référence.
+- Équipements : affichage/masquage de chaque thématique par case à cocher.
+- Construction & isolation : affichage/masquage de chaque encart et ajout « Menuiseries extérieures ».
+- Jauges TIC et DH : borne confortable à gauche, valeur mesurée sur le curseur, référence/max à droite.
+
+### Correctif export PNG V19
+
+L’export PNG 4K tente désormais systématiquement, pour **tous les onglets** :
+1. un **rendu SVG → PNG** (méthode prioritaire, la plus fiable),
+2. un **rendu canvas natif** en secours,
+3. puis `html2canvas` en dernier recours si nécessaire.
+
+Cette logique renforce la compatibilité des onglets 1 à 4, du tunnel, du DPE et de la cartographie.
+
+## Nouveaux onglets — matrices de transition énergétique
+
+Deux onglets permettent de visualiser les changements de vecteur énergétique avant / après travaux :
+- **Transition chauffage**
+- **Transition ECS**
+
+Les valeurs numériques sont éditables directement dans les cellules de la matrice. Les pourcentages sont recalculés automatiquement **par ligne** (part du vecteur initial), les couleurs s'intensifient avec le volume du flux, et les totaux / indicateurs latéraux se mettent à jour automatiquement. Les cinq vecteurs sont renommables dans le panneau de paramètres.
+
+
+### Réorganisation des onglets
+Ordre retenu : Évolution des projets, Cartographie, Labels & performances, Tunnel de certification, Construction & isolation, Équipements, Transition chauffage, Transition ECS, Indicateurs carbone, DPE avant/après.
+
+Les matrices Chauffage et ECS ont également été recadrées en partie haute et les pourcentages de cellule ont été agrandis.
+
+### Ajustements de mise en page
+- Évolution des projets : suppression de l'encart vert supérieur, légende replacée sous le graphique en grille 2 × 2 et agrandie.
+- Transition chauffage / ECS : suppression du bandeau vert supérieur de la matrice, recentrage de la partie haute et agrandissement de la légende d'intensité.
+
+
+## V21
+- Ajout d’un écran d’accueil protégé par mot de passe avant l’accès au générateur.
+- Session d’accès conservée uniquement pour l’onglet de navigateur courant.
+- Tunnel de certification : suppression de la bulle « Phase exécution » (64) et de ses éléments associés ; la frise des phases reste inchangée.
+
+
+## V26 — base V22 consolidée
+- reprise intégrale de la V22 comme base ;
+- export PNG 4K sécurisé onglet par onglet ;
+- Équipements et Construction & isolation utilisent le même dessin bâtiment avec proportions conservées ;
+- Couverture, Tunnel, Évolution, matrices, DPE, carbone et labels disposent d'un rendu Canvas autonome ;
+- classeur PDF s'appuie sur le même moteur PNG validé page par page.

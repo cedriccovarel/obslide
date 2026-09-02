@@ -69,10 +69,15 @@
     floor: [
       'PSE / XPS / Polystyrène', 'Polyuréthane (PUR/PIR)', 'Laine de roche / Flocage',
       'Laine de verre', 'Fibre de bois', 'Non précisé / Sans isolant'
-    ]
+    ],
+    windows: ['PVC double vitrage','Aluminium double vitrage','Bois double vitrage','Mixte bois / aluminium','Triple vitrage','Menuiseries existantes conservées','Non précisé','Autre']
   };
 
   const defaults = {
+    cover: {
+      dateText: 'Septembre 2026',
+      logoDataUrl: ''
+    },
     labels: {
       labels: [
         { name: 'BBCA Standard V4.1', value: 25 },
@@ -108,6 +113,7 @@
       ]
     },
     equipments: {
+      visible: { heat:true, ecs:true, cooling:true, ventilation:true, performance:true },
       heat: [
         { name: 'Chauffage électrique direct', value: 93.75 },
         { name: 'Réseau de chaleur urbain', value: 6.25 }
@@ -133,8 +139,10 @@
         ubat: 0.42,
         ubatRef: 0.60,
         dh: 818.12,
+        dhComfort: 0,
         dhMax: 1250,
         tic: 27.2,
+        ticComfort: 26,
         ticRef: 30.0,
         cep: 64.31,
         cepMax: 82.18,
@@ -145,6 +153,7 @@
       }
     },
     envelope: {
+      visible: { mode:true, roof:true, facade:true, floor:true, windows:true },
       mode: [
         { name: 'Brique', value: 93.75 },
         { name: 'Bloc béton / Parpaing', value: 6.25 }
@@ -164,7 +173,22 @@
         { name: 'Polyuréthane (PUR/PIR)', value: 43.75 },
         { name: 'Laine de roche / Flocage', value: 12.5 }
       ],
+      windows: [
+        { name: 'PVC double vitrage', value: 62.5 },
+        { name: 'Aluminium double vitrage', value: 31.25 },
+        { name: 'Bois double vitrage', value: 6.25 }
+      ],
       r: { roof: 7.9, facade: 4.4, floor: 5.8 }
+    },
+    tunnel: {
+      period: '2019-2026', cancelled: 69, sold: 20,
+      statuses: [
+        {key:'notStarted',value:54,label:'Non démarrés / incomplets'},
+        {key:'complete',value:28,label:'Dossiers complets / analyse planifiée'},
+        {key:'analysis',value:18,label:'Analyses réalisées'},
+        {key:'visit',value:54,label:'Analyse réalisée + visite planifiée / réalisée'},
+        {key:'compliant',value:46,label:'Dossiers conformes'}
+      ]
     },
     carbon: {
       energyAvg: 88.41,
@@ -176,6 +200,78 @@
       showThreshold2028: true,
       showThreshold2031: true
     },
+    dpe: {
+      before: {
+        label: 'Avant travaux',
+        energy: 268,
+        energyClassText: 'D/E',
+        energyScore: 4.44,
+        ges: 40,
+        gesClassText: 'E',
+        gesScore: 4.63
+      },
+      after: {
+        label: 'Après travaux',
+        energy: 112,
+        energyClassText: 'B/C',
+        energyScore: 2.60,
+        ges: 14,
+        gesClassText: 'C',
+        gesScore: 2.62
+      },
+      summary: {
+        energyClassGain: 1.7,
+        energyDelta: 156,
+        energyPercent: 58,
+        gesClassGain: 2.1,
+        gesDelta: 26,
+        gesPercent: 65,
+        note: 'Les travaux améliorent fortement la performance moyenne des opérations : le parc passe d’un niveau énergie proche de D/E à B/C, et les émissions de GES reculent d’environ 65 %.'
+      }
+    },
+
+
+    heatingMatrix: {
+      title: 'TRANSITION DES VECTEURS ÉNERGÉTIQUES — CHAUFFAGE',
+      subtitle: 'Évolution des systèmes de production avant / après travaux',
+      vectors: ['Gaz', 'Électricité', 'RCU', 'Hybride', 'Bois / autre'],
+      values: [
+        [42, 118, 31, 9, 6],
+        [3, 76, 7, 11, 2],
+        [1, 18, 54, 4, 1],
+        [2, 24, 8, 19, 3],
+        [0, 6, 1, 2, 12]
+      ],
+      note: 'Chaque pourcentage correspond à la part des opérations du vecteur initial (ligne) allant vers le vecteur final (colonne). La diagonale représente les opérations qui conservent leur vecteur énergétique.'
+    },
+    ecsMatrix: {
+      title: 'TRANSITION DES VECTEURS ÉNERGÉTIQUES — ECS',
+      subtitle: 'Évolution des systèmes de production d’eau chaude sanitaire avant / après travaux',
+      vectors: ['Gaz', 'Électricité', 'RCU', 'Hybride', 'Bois / autre'],
+      values: [
+        [36, 132, 24, 8, 4],
+        [2, 88, 5, 7, 1],
+        [1, 20, 47, 3, 0],
+        [1, 28, 5, 16, 1],
+        [0, 7, 1, 1, 9]
+      ],
+      note: 'Chaque pourcentage correspond à la part des opérations du vecteur initial (ligne) allant vers le vecteur final (colonne). La diagonale représente les opérations qui conservent leur vecteur énergétique.'
+    },
+    evolution: {
+      title: 'ÉVOLUTION DES PROJETS',
+      subtitle: 'Nombre de projets par année et par référentiel',
+      note: 'Lecture : chaque courbe représente le nombre de projets suivis sur une année pour un référentiel donné. Le panneau de droite met en évidence le volume total, le pic d’activité et le dernier niveau observé.',
+      visible: { ln: true, lr: true, tn: true, tr: true },
+      importPaste: '',
+      rows: [
+        { year: 2020, ln: 18, lr: 6, tn: 5, tr: 2 },
+        { year: 2021, ln: 24, lr: 8, tn: 7, tr: 3 },
+        { year: 2022, ln: 29, lr: 12, tn: 9, tr: 4 },
+        { year: 2023, ln: 34, lr: 16, tn: 11, tr: 5 },
+        { year: 2024, ln: 38, lr: 19, tn: 13, tr: 7 },
+        { year: 2025, ln: 43, lr: 22, tn: 15, tr: 8 }
+      ]
+    },
     map: {
       values: {},
       paste: '',
@@ -184,7 +280,10 @@
   };
 
   let state = loadState();
-  let activeTab = 'labels';
+  if (state.tunnel && Array.isArray(state.tunnel.statuses)) {
+    state.tunnel.statuses = state.tunnel.statuses.filter(item => item && item.key !== 'execution');
+  }
+  let activeTab = 'cover';
   let mapGeoJSON = null;
   let mapLoadPromise = null;
 
@@ -197,6 +296,8 @@
   const printPdfBtn = document.getElementById('printPdfBtn');
   const exportSvgBtn = document.getElementById('exportSvgBtn');
   const openCaptureBtn = document.getElementById('openCaptureBtn');
+  const presentationBtn = document.getElementById('presentationBtn');
+  const exportWorkbookBtn = document.getElementById('exportWorkbookBtn');
   const saveProjectBtn = document.getElementById('saveProjectBtn');
   const loadSaveBtn = document.getElementById('loadSaveBtn');
   const loadSaveInput = document.getElementById('loadSaveInput');
@@ -383,9 +484,10 @@
   function field(label, path, type = 'number', opts = {}) {
     const value = getByPath(state, path);
     const step = opts.step ?? (type === 'number' ? '0.01' : undefined);
+    const displayValue = value === null || value === undefined ? '' : value;
     return `<div class="field">
       <label>${esc(label)}</label>
-      <input type="${type}" data-bind="${esc(path)}" value="${esc(value)}" ${step ? `step="${step}"` : ''} ${opts.min !== undefined ? `min="${opts.min}"` : ''} />
+      <input type="${type}" data-bind="${esc(path)}" value="${esc(displayValue)}" ${step ? `step="${step}"` : ''} ${opts.min !== undefined ? `min="${opts.min}"` : ''} ${opts.max !== undefined ? `max="${opts.max}"` : ''} ${opts.allowBlank ? 'data-allow-blank="1"' : ''} />
     </div>`;
   }
 
@@ -483,7 +585,429 @@
     </div>`;
   }
 
+  function toggleField(label, path) {
+    const checked = getByPath(state, path) !== false;
+    return `<label class="topic-toggle"><input type="checkbox" data-toggle-bind="${esc(path)}" ${checked ? 'checked' : ''}><span>${esc(label)}</span></label>`;
+  }
+
+  function tunnelTotal() {
+    return (state.tunnel?.statuses || []).reduce((total, item) => total + Math.max(0, num(item.value)), 0);
+  }
+
+  function tunnelPercent(value) {
+    const total = tunnelTotal();
+    return total > 0 ? num(value) / total * 100 : 0;
+  }
+
+  const EVOLUTION_SERIES_META = [
+    { key: 'ln', short: 'LN', label: 'Logement neuf', color: '#0f7b47' },
+    { key: 'lr', short: 'LR', label: 'Logement rénovation', color: '#75aa43' },
+    { key: 'tn', short: 'TN', label: 'Tertiaire neuf', color: '#0f6771' },
+    { key: 'tr', short: 'TR', label: 'Tertiaire rénovation', color: '#f2a000' }
+  ];
+
+  function evolutionRowsSorted() {
+    return [...(state.evolution?.rows || [])]
+      .map(row => ({ year: String(row.year ?? '').trim(), ln: num(row.ln), lr: num(row.lr), tn: num(row.tn), tr: num(row.tr) }))
+      .filter(row => row.year)
+      .sort((a, b) => {
+        const na = Number(rowYearNumeric(a.year));
+        const nb = Number(rowYearNumeric(b.year));
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return String(a.year).localeCompare(String(b.year), 'fr', { numeric: true });
+      });
+  }
+
+  function rowYearNumeric(value) {
+    const m = String(value || '').match(/\d{4}/);
+    return m ? Number(m[0]) : NaN;
+  }
+
+  function evolutionVisibleMeta() {
+    const visible = state.evolution?.visible || {};
+    return EVOLUTION_SERIES_META.filter(meta => visible[meta.key] !== false);
+  }
+
+  function evolutionSeriesTotal(key) {
+    return evolutionRowsSorted().reduce((sum, row) => sum + Math.max(0, num(row[key])), 0);
+  }
+
+  function evolutionTotalForRow(row) {
+    return evolutionVisibleMeta().reduce((sum, meta) => sum + Math.max(0, num(row?.[meta.key])), 0);
+  }
+
+  function evolutionGlobalTotal() {
+    return evolutionRowsSorted().reduce((sum, row) => sum + evolutionTotalForRow(row), 0);
+  }
+
+  function evolutionPeakRow() {
+    const rows = evolutionRowsSorted();
+    return rows.reduce((best, row) => !best || evolutionTotalForRow(row) > evolutionTotalForRow(best) ? row : best, null);
+  }
+
+  function evolutionLatestRow() {
+    const rows = evolutionRowsSorted();
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  function evolutionTrendPercent() {
+    const rows = evolutionRowsSorted();
+    if (rows.length < 2) return null;
+    const first = evolutionTotalForRow(rows[0]);
+    const last = evolutionTotalForRow(rows[rows.length - 1]);
+    if (first <= 0) return null;
+    return ((last - first) / first) * 100;
+  }
+
+  function evolutionTopSeries() {
+    return [...EVOLUTION_SERIES_META]
+      .map(meta => ({ ...meta, total: evolutionSeriesTotal(meta.key) }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  function evolutionNiceMax(value) {
+    const v = Math.max(5, num(value));
+    if (v <= 10) return 10;
+    if (v <= 20) return 20;
+    if (v <= 50) return 50;
+    if (v <= 100) return 100;
+    return Math.ceil(v / 25) * 25;
+  }
+
+  function evolutionInsightText() {
+    const rows = evolutionRowsSorted();
+    const latest = evolutionLatestRow();
+    const top = evolutionTopSeries().filter(item => item.total > 0);
+    if (!rows.length) return 'Ajoute au moins une année de données pour générer automatiquement le commentaire de lecture.';
+    const pieces = [];
+    if (top[0]) pieces.push(`la dynamique est d’abord portée par ${top[0].label.toLowerCase()} (${frSmart(top[0].total)} projet${top[0].total > 1 ? 's' : ''} sur la période)`);
+    if (top[1]) pieces.push(`suivi de ${top[1].label.toLowerCase()} (${frSmart(top[1].total)})`);
+    if (latest) pieces.push(`le dernier point observé (${esc(latest.year)}) atteint ${frSmart(evolutionTotalForRow(latest))} projet${evolutionTotalForRow(latest) > 1 ? 's' : ''}`);
+    return pieces.length ? `${pieces[0].charAt(0).toUpperCase()}${pieces[0].slice(1)}${pieces[1] ? ', ' + pieces[1] : ''} ; ${pieces[2] || ''}.` : 'Complète les données pour enrichir automatiquement la clé de lecture.';
+  }
+
+  function normalizeEvolutionImportLabel(value) {
+    return String(value ?? '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function evolutionSeriesKeyFromLabel(label) {
+    const s = normalizeEvolutionImportLabel(label);
+    if (!s) return null;
+    if (/^(ln|bee ln)$/.test(s) || (s.includes('logement') && s.includes('neuf'))) return 'ln';
+    if (/^(lr|bee lr)$/.test(s) || (s.includes('logement') && (s.includes('renovation') || s.includes('reno')))) return 'lr';
+    if (/^(tn|bee tn)$/.test(s) || (s.includes('tertiaire') && s.includes('neuf'))) return 'tn';
+    if (/^(tr|bee tr)$/.test(s) || (s.includes('tertiaire') && (s.includes('renovation') || s.includes('reno')))) return 'tr';
+    return null;
+  }
+
+  function evolutionParseNumber(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return 0;
+    const cleaned = raw.replace(/\s/g, '').replace(',', '.').replace(/[^0-9+\-.]/g, '');
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+
+  function parseEvolutionSheetPaste(rawText) {
+    const raw = String(rawText || '').trim();
+    if (!raw) throw new Error('Colle d’abord le tableau copié depuis Google Sheets.');
+
+    let lines = raw.split(/\r?\n/).map(line => line.trimEnd()).filter(line => line.trim() !== '');
+    if (lines.length < 2) throw new Error('Le tableau doit contenir une ligne d’en-tête et au moins une ligne de référentiel.');
+
+    // Google Sheets copie nativement en TSV. On accepte aussi ; ou , si nécessaire.
+    const detectDelimiter = line => {
+      const tabs = (line.match(/\t/g) || []).length;
+      const semis = (line.match(/;/g) || []).length;
+      if (tabs) return '\t';
+      if (semis) return ';';
+      return ',';
+    };
+    const delimiter = detectDelimiter(lines[0]);
+    const splitLine = line => delimiter === ','
+      ? line.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(v => v.replace(/^\"|\"$/g, '').trim())
+      : line.split(delimiter).map(v => v.trim());
+
+    const header = splitLine(lines[0]);
+    const years = header.slice(1).map(cell => {
+      const match = String(cell).match(/(?:19|20)\d{2}/);
+      return match ? Number(match[0]) : null;
+    });
+    const validYearIndexes = years.map((year, i) => ({ year, i })).filter(item => Number.isFinite(item.year));
+    if (!validYearIndexes.length) throw new Error('Aucune année reconnue dans la première ligne.');
+
+    const seriesRows = {};
+    const ignored = [];
+    for (const line of lines.slice(1)) {
+      const cells = splitLine(line);
+      const label = cells[0] || '';
+      const key = evolutionSeriesKeyFromLabel(label);
+      if (!key) {
+        if (label.trim()) ignored.push(label.trim());
+        continue;
+      }
+      seriesRows[key] = cells;
+    }
+    const importedKeys = Object.keys(seriesRows);
+    if (!importedKeys.length) {
+      throw new Error('Aucun référentiel reconnu. Utilise par exemple BEE Logement Neuf, BEE Logement Rénovation, BEE Tertiaire Neuf ou BEE Tertiaire Rénovation.');
+    }
+
+    const rows = validYearIndexes.map(({ year, i }) => {
+      const row = { year, ln: 0, lr: 0, tn: 0, tr: 0 };
+      importedKeys.forEach(key => {
+        row[key] = evolutionParseNumber(seriesRows[key][i + 1]);
+      });
+      return row;
+    }).sort((a,b) => Number(a.year) - Number(b.year));
+
+    return { rows, importedKeys, ignored };
+  }
+
+  function importEvolutionSheetPaste() {
+    try {
+      const parsed = parseEvolutionSheetPaste(state.evolution.importPaste || '');
+      state.evolution.rows = parsed.rows;
+      const present = new Set(parsed.importedKeys);
+      ['ln','lr','tn','tr'].forEach(key => { state.evolution.visible[key] = present.has(key); });
+      saveState();
+      renderControls();
+      renderSlide();
+      const years = parsed.rows.length ? `${parsed.rows[0].year}–${parsed.rows[parsed.rows.length - 1].year}` : '';
+      const ignored = parsed.ignored.length ? ` · ${parsed.ignored.length} ligne(s) ignorée(s)` : '';
+      toast(`Import réussi : ${parsed.rows.length} années (${years}) · ${parsed.importedKeys.length} référentiel(s)${ignored}.`);
+    } catch (error) {
+      toast(error.message || 'Impossible d’importer ce tableau.');
+    }
+  }
+
+  function renderEvolutionChart() {
+    const rows = evolutionRowsSorted();
+    const visibleMeta = evolutionVisibleMeta();
+    if (!rows.length || !visibleMeta.length) {
+      return `<div class="evolution-empty">Renseigne au moins une année et garde au moins un référentiel visible pour afficher le graphique.</div>`;
+    }
+    const width = 1220, height = 470;
+    const pad = { left: 68, right: 26, top: 22, bottom: 56 };
+    const innerW = width - pad.left - pad.right;
+    const innerH = height - pad.top - pad.bottom;
+    const maxValue = evolutionNiceMax(Math.max(...rows.flatMap(row => visibleMeta.map(meta => Math.max(0, num(row[meta.key]))))));
+    const tickValues = [0, 0.25, 0.5, 0.75, 1].map(ratio => Math.round(maxValue * ratio));
+    const xFor = index => rows.length === 1 ? pad.left + innerW / 2 : pad.left + index * (innerW / (rows.length - 1));
+    const yFor = value => pad.top + innerH - (Math.max(0, num(value)) / maxValue) * innerH;
+    const grid = tickValues.map(tick => {
+      const y = yFor(tick);
+      return `<g><line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#d6e1dd" stroke-width="1" stroke-dasharray="4 6"></line><text x="${pad.left - 12}" y="${y + 4}" fill="#607277" font-size="16" text-anchor="end" font-family="Arial, Helvetica, sans-serif">${frSmart(tick)}</text></g>`;
+    }).join('');
+    const xLabels = rows.map((row, index) => `<text x="${xFor(index)}" y="${height - 10}" fill="#607277" font-size="16" text-anchor="middle" font-family="Arial, Helvetica, sans-serif">${esc(row.year)}</text>`).join('');
+    const series = visibleMeta.map(meta => {
+      const points = rows.map((row, index) => `${xFor(index).toFixed(1)},${yFor(row[meta.key]).toFixed(1)}`).join(' ');
+      const dots = rows.map((row, index) => {
+        const x = xFor(index), y = yFor(row[meta.key]);
+        return `<g><circle cx="${x}" cy="${y}" r="4.5" fill="${meta.color}" stroke="#ffffff" stroke-width="2"></circle><text x="${x}" y="${y - 12}" fill="${meta.color}" font-size="15" font-weight="700" text-anchor="middle" font-family="Arial, Helvetica, sans-serif">${frSmart(row[meta.key])}</text></g>`;
+      }).join('');
+      return `<polyline points="${points}" fill="none" stroke="${meta.color}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></polyline>${dots}`;
+    }).join('');
+    return `<svg class="evolution-chart-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" aria-label="Graphique d’évolution">
+      <rect x="0" y="0" width="${width}" height="${height}" rx="16" fill="#ffffff"></rect>
+      ${grid}
+      <line x1="${pad.left}" y1="${pad.top + innerH}" x2="${width - pad.right}" y2="${pad.top + innerH}" stroke="#9fb7ae" stroke-width="1.5"></line>
+      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + innerH}" stroke="#9fb7ae" stroke-width="1.5"></line>
+      ${series}
+      ${xLabels}
+    </svg>`;
+  }
+
+
+  function matrixState(kind) {
+    return kind === 'ecsMatrix' ? state.ecsMatrix : state.heatingMatrix;
+  }
+
+  function matrixNormalize(model) {
+    if (!model) return;
+    if (!Array.isArray(model.vectors)) model.vectors = ['Gaz','Électricité','RCU','Hybride','Bois / autre'];
+    while (model.vectors.length < 5) model.vectors.push(`Vecteur ${model.vectors.length + 1}`);
+    model.vectors = model.vectors.slice(0,5);
+    if (!Array.isArray(model.values)) model.values = [];
+    while (model.values.length < 5) model.values.push([]);
+    model.values = model.values.slice(0,5).map(row => {
+      const r = Array.isArray(row) ? row.slice(0,5) : [];
+      while (r.length < 5) r.push(0);
+      return r.map(value => Math.max(0, Math.round(num(value))));
+    });
+  }
+
+  function matrixRowTotal(model, rowIndex) {
+    matrixNormalize(model);
+    return model.values[rowIndex].reduce((sum, value) => sum + Math.max(0, num(value)), 0);
+  }
+
+  function matrixColTotal(model, colIndex) {
+    matrixNormalize(model);
+    return model.values.reduce((sum, row) => sum + Math.max(0, num(row[colIndex])), 0);
+  }
+
+  function matrixGrandTotal(model) {
+    matrixNormalize(model);
+    return model.values.reduce((sum, row) => sum + row.reduce((s, value) => s + Math.max(0, num(value)), 0), 0);
+  }
+
+  function matrixCellPercent(model, rowIndex, colIndex) {
+    const total = matrixRowTotal(model, rowIndex);
+    return total > 0 ? Math.max(0, num(model.values[rowIndex][colIndex])) / total * 100 : 0;
+  }
+
+  function matrixMaxCell(model) {
+    matrixNormalize(model);
+    return Math.max(1, ...model.values.flat().map(value => Math.max(0, num(value))));
+  }
+
+  function matrixCellStyle(model, rowIndex, colIndex) {
+    const value = Math.max(0, num(model.values[rowIndex][colIndex]));
+    if (value <= 0) return { background:'#fbfdfc', color:'#607277', border: rowIndex === colIndex ? '#9bc5ab' : '#d7e3df' };
+    const ratio = Math.max(0, Math.min(1, value / matrixMaxCell(model)));
+    const alpha = 0.10 + ratio * 0.78;
+    const background = `rgba(6,64,43,${alpha.toFixed(3)})`;
+    const color = ratio > 0.48 ? '#ffffff' : '#0d4a35';
+    const border = rowIndex === colIndex ? '#06402B' : `rgba(6,64,43,${Math.max(.18, alpha).toFixed(3)})`;
+    return { background, color, border };
+  }
+
+  function matrixDominantTransition(model) {
+    matrixNormalize(model);
+    let best = null;
+    model.values.forEach((row, i) => row.forEach((value, j) => {
+      if (i === j) return;
+      const v = Math.max(0, num(value));
+      if (!best || v > best.value) best = { row:i, col:j, value:v };
+    }));
+    return best;
+  }
+
+  function matrixPreserved(model) {
+    matrixNormalize(model);
+    const total = matrixGrandTotal(model);
+    const preserved = model.values.reduce((sum, row, i) => sum + Math.max(0, num(row[i])), 0);
+    return { value:preserved, percent:total > 0 ? preserved / total * 100 : 0 };
+  }
+
+  function matrixChanged(model) {
+    const total = matrixGrandTotal(model);
+    const preserved = matrixPreserved(model).value;
+    const changed = Math.max(0, total - preserved);
+    return { value:changed, percent:total > 0 ? changed / total * 100 : 0 };
+  }
+
+  function matrixInputCell(kind, rowIndex, colIndex) {
+    const model = matrixState(kind);
+    const value = Math.max(0, num(model.values[rowIndex][colIndex]));
+    const percent = matrixCellPercent(model, rowIndex, colIndex);
+    const style = matrixCellStyle(model, rowIndex, colIndex);
+    return `<div class="transition-cell ${rowIndex === colIndex ? 'is-diagonal' : ''}" data-matrix-box="${kind}:${rowIndex}:${colIndex}" style="background:${style.background};color:${style.color};border-color:${style.border}">
+      <div class="transition-cell-value" contenteditable="true" spellcheck="false" inputmode="numeric" data-matrix-kind="${kind}" data-matrix-row="${rowIndex}" data-matrix-col="${colIndex}" aria-label="Nombre d'opérations ${esc(model.vectors[rowIndex])} vers ${esc(model.vectors[colIndex])}">${frSmart(value)}</div>
+      <div class="transition-cell-percent" data-matrix-pct="${kind}:${rowIndex}:${colIndex}">${fr(percent,1)} %</div>
+    </div>`;
+  }
+
+  function matrixLegendLabel(index) {
+    return ['très faible','faible','moyen','fort'][index] || '';
+  }
+
+  function renderTransitionMatrixSlide(kind) {
+    const model = matrixState(kind);
+    matrixNormalize(model);
+    const dominant = matrixDominantTransition(model);
+    const preserved = matrixPreserved(model);
+    const changed = matrixChanged(model);
+    const total = matrixGrandTotal(model);
+    const dominantText = dominant ? `${model.vectors[dominant.row]} → ${model.vectors[dominant.col]}` : '—';
+    const dominantValue = dominant ? dominant.value : 0;
+    const matrixRows = model.vectors.map((vector, rowIndex) => {
+      const cells = model.vectors.map((_, colIndex) => matrixInputCell(kind, rowIndex, colIndex)).join('');
+      return `<div class="transition-row">
+        <div class="transition-row-label"><span class="transition-vector-dot"></span><b>${esc(vector)}</b></div>
+        ${cells}
+        <div class="transition-total-cell"><b data-matrix-row-total="${kind}:${rowIndex}">${frSmart(matrixRowTotal(model,rowIndex))}</b><span>100 %</span></div>
+      </div>`;
+    }).join('');
+    const columnTotals = model.vectors.map((vector, colIndex) => `<div class="transition-col-total"><b data-matrix-col-total="${kind}:${colIndex}">${frSmart(matrixColTotal(model,colIndex))}</b><span>${total > 0 ? fr(matrixColTotal(model,colIndex)/total*100,1) : fr(0,1)} %</span></div>`).join('');
+    return `${head(model.title, model.subtitle, '', 'Les nombres sont modifiables directement dans la matrice ; les pourcentages et les couleurs se recalculent automatiquement.')}
+      <div class="transition-matrix-dashboard">
+        <section class="card transition-matrix-card">
+          <div class="transition-axis-top"><span>APRÈS TRAVAUX</span></div>
+          <div class="transition-table">
+            <div class="transition-header-row">
+              <div class="transition-corner"><b>AVANT TRAVAUX</b><span>↓</span></div>
+              ${model.vectors.map(vector => `<div class="transition-col-label">${esc(vector)}</div>`).join('')}
+              <div class="transition-col-label total">Total ligne</div>
+            </div>
+            ${matrixRows}
+            <div class="transition-footer-row">
+              <div class="transition-row-label total"><b>Total colonne</b></div>
+              ${columnTotals}
+              <div class="transition-grand-total"><b data-matrix-grand-total="${kind}">${frSmart(total)}</b><span>opérations</span></div>
+            </div>
+          </div>
+          <div class="transition-heat-legend"><span>Intensité du flux</span>${[.12,.32,.56,.86].map((alpha,index)=>`<i style="background:rgba(6,64,43,${alpha})"></i><small>${matrixLegendLabel(index)}</small>`).join('')}</div>
+        </section>
+        <aside class="transition-matrix-side">
+          <section class="card transition-side-card"><div class="transition-side-icon">↗</div><div><span>TRANSITION DOMINANTE</span><strong data-matrix-dominant="${kind}">${esc(dominantText)}</strong><b data-matrix-dominant-value="${kind}">${frSmart(dominantValue)} opérations</b></div></section>
+          <section class="card transition-side-card"><div class="transition-side-icon">✓</div><div><span>VECTEUR CONSERVÉ</span><strong data-matrix-preserved="${kind}">${fr(preserved.percent,1)} %</strong><b data-matrix-preserved-value="${kind}">${frSmart(preserved.value)} opérations</b></div></section>
+          <section class="card transition-side-card"><div class="transition-side-icon">⇄</div><div><span>CHANGEMENT DE VECTEUR</span><strong data-matrix-changed="${kind}">${fr(changed.percent,1)} %</strong><b data-matrix-changed-value="${kind}">${frSmart(changed.value)} opérations</b></div></section>
+          <section class="card transition-reading-card"><div class="transition-reading-icon">i</div><div><b>Clé de lecture</b><p>${esc(model.note)}</p></div></section>
+        </aside>
+      </div>`;
+  }
+
+  function updateTransitionMatrixDom(kind) {
+    const model = matrixState(kind);
+    if (!model) return;
+    matrixNormalize(model);
+    const total = matrixGrandTotal(model);
+    const maxCell = matrixMaxCell(model);
+    model.values.forEach((row,rowIndex)=>row.forEach((value,colIndex)=>{
+      const box = slide.querySelector(`[data-matrix-box="${kind}:${rowIndex}:${colIndex}"]`);
+      const pctEl = slide.querySelector(`[data-matrix-pct="${kind}:${rowIndex}:${colIndex}"]`);
+      const style = matrixCellStyle(model,rowIndex,colIndex);
+      if (box) { box.style.background = style.background; box.style.color = style.color; box.style.borderColor = style.border; }
+      if (pctEl) pctEl.textContent = `${fr(matrixCellPercent(model,rowIndex,colIndex),1)} %`;
+    }));
+    model.vectors.forEach((_,rowIndex)=>{
+      const el=slide.querySelector(`[data-matrix-row-total="${kind}:${rowIndex}"]`); if(el) el.textContent=frSmart(matrixRowTotal(model,rowIndex));
+    });
+    model.vectors.forEach((_,colIndex)=>{
+      const el=slide.querySelector(`[data-matrix-col-total="${kind}:${colIndex}"]`); if(el) el.textContent=frSmart(matrixColTotal(model,colIndex));
+      if(el && el.nextElementSibling) el.nextElementSibling.textContent=`${total>0?fr(matrixColTotal(model,colIndex)/total*100,1):fr(0,1)} %`;
+    });
+    const grand=slide.querySelector(`[data-matrix-grand-total="${kind}"]`); if(grand) grand.textContent=frSmart(total);
+    const dominant=matrixDominantTransition(model); const preserved=matrixPreserved(model); const changed=matrixChanged(model);
+    const d=slide.querySelector(`[data-matrix-dominant="${kind}"]`); if(d) d.textContent=dominant?`${model.vectors[dominant.row]} → ${model.vectors[dominant.col]}`:'—';
+    const dv=slide.querySelector(`[data-matrix-dominant-value="${kind}"]`); if(dv) dv.textContent=`${frSmart(dominant?dominant.value:0)} opérations`;
+    const p=slide.querySelector(`[data-matrix-preserved="${kind}"]`); if(p) p.textContent=`${fr(preserved.percent,1)} %`;
+    const pv=slide.querySelector(`[data-matrix-preserved-value="${kind}"]`); if(pv) pv.textContent=`${frSmart(preserved.value)} opérations`;
+    const c=slide.querySelector(`[data-matrix-changed="${kind}"]`); if(c) c.textContent=`${fr(changed.percent,1)} %`;
+    const cv=slide.querySelector(`[data-matrix-changed-value="${kind}"]`); if(cv) cv.textContent=`${frSmart(changed.value)} opérations`;
+  }
+
   function renderControls() {
+    if (activeTab === 'cover') {
+      controls.innerHTML = `
+        <div class="control-section">
+          <h3>Couverture</h3>
+          <p class="help">La mise en page reprend le modèle fourni. Le logo client et la date restent modifiables.</p>
+          ${field('Date / période', 'cover.dateText', 'text')}
+        </div>
+        <div class="control-section">
+          <h3>Logo client</h3>
+          <p class="help">Importe un logo PNG, JPG ou WebP. Il remplace le logo Action Logement sans modifier la mise en page.</p>
+          <div class="field"><label>Choisir une image</label><input type="file" accept="image/png,image/jpeg,image/webp" data-cover-logo-input="1"></div>
+          <button class="btn btn-secondary btn-small" type="button" data-cover-logo-reset="1">Rétablir Action Logement</button>
+        </div>`;
+    }
     if (activeTab === 'labels') {
       controls.innerHTML = `
         <div class="control-section">
@@ -503,53 +1027,61 @@
 
     if (activeTab === 'equipments') {
       controls.innerHTML = `
-        <div class="control-section"><h3>Production de chaleur</h3>
-          <p class="help">Saisissez les parts en %. Le donut se recalcule automatiquement.</p>
-          ${listEditor('equipments.heat', lists.heat, '%', 6)}
-          ${sumWarning(state.equipments.heat)}
-        </div>
-        <div class="control-section"><h3>ECS</h3>
-          ${listEditor('equipments.ecs', lists.ecs, '%', 6)}
-          ${sumWarning(state.equipments.ecs)}
-        </div>
-        <div class="control-section"><h3>Refroidissement</h3>
-          ${listEditor('equipments.cooling', lists.cooling, '%', 6)}
-          ${sumWarning(state.equipments.cooling)}
-        </div>
-        <div class="control-section"><h3>Ventilation</h3>
-          ${listEditor('equipments.ventilation', lists.ventilation, '%', 6)}
-          ${sumWarning(state.equipments.ventilation)}
-        </div>
+        <div class="control-section"><h3>Affichage des thématiques</h3><div class="toggle-grid">
+          ${toggleField('Production de chaleur','equipments.visible.heat')}${toggleField('ECS','equipments.visible.ecs')}${toggleField('Refroidissement','equipments.visible.cooling')}${toggleField('Ventilation','equipments.visible.ventilation')}${toggleField('Performance énergétique','equipments.visible.performance')}
+        </div><p class="help">Décoche un encart si tu ne disposes pas de la donnée.</p></div>
+        <div class="control-section"><h3>Production de chaleur</h3>${listEditor('equipments.heat', lists.heat, '%', 6)}${sumWarning(state.equipments.heat)}</div>
+        <div class="control-section"><h3>ECS</h3>${listEditor('equipments.ecs', lists.ecs, '%', 6)}${sumWarning(state.equipments.ecs)}</div>
+        <div class="control-section"><h3>Refroidissement</h3>${listEditor('equipments.cooling', lists.cooling, '%', 6)}${sumWarning(state.equipments.cooling)}</div>
+        <div class="control-section"><h3>Ventilation</h3>${listEditor('equipments.ventilation', lists.ventilation, '%', 6)}${sumWarning(state.equipments.ventilation)}</div>
         <div class="control-section"><h3>Performance énergétique moyenne</h3>
-          <div class="fields-2">
-            ${selectField('Indicateur enveloppe', 'equipments.metrics.thermalMetric', [
-              { value: 'bbio', label: 'BBio' },
-              { value: 'ubat', label: 'Ubat' }
-            ])}
-            ${selectField('Confort d’été', 'equipments.metrics.summerMetric', [
-              { value: 'dh', label: 'DH' },
-              { value: 'tic', label: 'Tic' }
-            ])}
-          </div>
-          ${(state.equipments.metrics.thermalMetric || 'bbio') === 'ubat'
-            ? `<div class="fields-3">${field('Ubat initial (W/m².K)', 'equipments.metrics.ubatInitial')}${field('Ubat moyen (W/m².K)', 'equipments.metrics.ubat')}${field('Ubat référence (W/m².K)', 'equipments.metrics.ubatRef')}</div>`
-            : `<div class="fields-3">${field('Bbio initial', 'equipments.metrics.bbioInitial')}${field('Bbio max', 'equipments.metrics.bbioMax')}${field('Gain Bbio', 'equipments.metrics.bbioGain')}</div>`}
-          ${(state.equipments.metrics.summerMetric || 'dh') === 'tic'
-            ? `<div class="fields-2">${field('Tic (°C)', 'equipments.metrics.tic')}${field('Tic ref (°C)', 'equipments.metrics.ticRef')}</div>`
-            : `<div class="fields-2">${field('DH (°C.h)', 'equipments.metrics.dh')}${field('DH max (°C.h)', 'equipments.metrics.dhMax')}</div>`}
-          <div class="fields-3">${field('Cep', 'equipments.metrics.cep')}${field('Cep max', 'equipments.metrics.cepMax')}${field('Gain Cep', 'equipments.metrics.cepGain')}</div>
-          <div class="fields-3">${field('Coût énergie', 'equipments.metrics.financeActual')}${field('Coût max', 'equipments.metrics.financeMax')}${field('Gain €/m²/an', 'equipments.metrics.financeGain')}</div>
-          <div class="inline-note">BBio/Ubat et DH/Tic sont alternatifs. Les clés de lecture de la slide se mettent à jour automatiquement.</div>
+          <div class="fields-2">${selectField('Indicateur enveloppe','equipments.metrics.thermalMetric',[{value:'bbio',label:'BBio'},{value:'ubat',label:'Ubat'}])}${selectField('Confort d’été','equipments.metrics.summerMetric',[{value:'dh',label:'DH'},{value:'tic',label:'Tic'}])}</div>
+          ${(state.equipments.metrics.thermalMetric || 'bbio') === 'ubat' ? `<div class="fields-3">${field('Ubat initial (W/m².K)','equipments.metrics.ubatInitial')}${field('Ubat moyen (W/m².K)','equipments.metrics.ubat')}${field('Ubat référence (W/m².K)','equipments.metrics.ubatRef')}</div>` : `<div class="fields-3">${field('Bbio initial','equipments.metrics.bbioInitial')}${field('Bbio max','equipments.metrics.bbioMax')}${field('Gain Bbio','equipments.metrics.bbioGain')}</div>`}
+          ${(state.equipments.metrics.summerMetric || 'dh') === 'tic' ? `<div class="fields-3">${field('Tic confortable (°C)','equipments.metrics.ticComfort')}${field('Tic (°C)','equipments.metrics.tic')}${field('Tic ref (°C)','equipments.metrics.ticRef')}</div>` : `<div class="fields-3">${field('DH confortable','equipments.metrics.dhComfort')}${field('DH (°C.h)','equipments.metrics.dh')}${field('DH max (°C.h)','equipments.metrics.dhMax')}</div>`}
+          <div class="fields-3">${field('Cep','equipments.metrics.cep')}${field('Cep max','equipments.metrics.cepMax')}${field('Gain Cep','equipments.metrics.cepGain')}</div>
+          <div class="fields-3">${field('Coût énergie','equipments.metrics.financeActual')}${field('Coût max','equipments.metrics.financeMax')}${field('Gain €/m²/an','equipments.metrics.financeGain')}</div>
         </div>`;
     }
 
     if (activeTab === 'envelope') {
       controls.innerHTML = `
+        <div class="control-section"><h3>Affichage des encarts</h3><div class="toggle-grid">
+          ${toggleField('Mode constructif','envelope.visible.mode')}${toggleField('Menuiseries extérieures','envelope.visible.windows')}${toggleField('Isolation toiture','envelope.visible.roof')}${toggleField('Isolation façade','envelope.visible.facade')}${toggleField('Plancher bas','envelope.visible.floor')}
+        </div></div>
         <div class="control-section"><h3>Mode constructif principal</h3>${listEditor('envelope.mode', lists.mode, '%', 5)}${sumWarning(state.envelope.mode)}</div>
-        <div class="control-section"><h3>Isolation toiture</h3>${listEditor('envelope.roof', lists.roof, '%', 5)}${sumWarning(state.envelope.roof)}${field('R moyen toiture', 'envelope.r.roof')}</div>
-        <div class="control-section"><h3>Isolation façade</h3>${listEditor('envelope.facade', lists.facade, '%', 5)}${sumWarning(state.envelope.facade)}${field('R moyen façade', 'envelope.r.facade')}</div>
-        <div class="control-section"><h3>Isolation plancher bas</h3>${listEditor('envelope.floor', lists.floor, '%', 5)}${sumWarning(state.envelope.floor)}${field('R moyen plancher bas', 'envelope.r.floor')}</div>
-        <div class="inline-note">Les appréciations de R sont des repères visuels indicatifs. Elles ne constituent pas des seuils réglementaires RE2020 génériques.</div>`;
+        <div class="control-section"><h3>Menuiseries extérieures</h3>${listEditor('envelope.windows', lists.windows, '%', 5)}${sumWarning(state.envelope.windows)}</div>
+        <div class="control-section"><h3>Isolation toiture</h3>${listEditor('envelope.roof', lists.roof, '%', 5)}${sumWarning(state.envelope.roof)}${field('R moyen toiture','envelope.r.roof')}</div>
+        <div class="control-section"><h3>Isolation façade</h3>${listEditor('envelope.facade', lists.facade, '%', 5)}${sumWarning(state.envelope.facade)}${field('R moyen façade','envelope.r.facade')}</div>
+        <div class="control-section"><h3>Isolation plancher bas</h3>${listEditor('envelope.floor', lists.floor, '%', 5)}${sumWarning(state.envelope.floor)}${field('R moyen plancher bas','envelope.r.floor')}</div>`;
+    }
+
+    if (activeTab === 'dpe') {
+      const before = state.dpe.before || {};
+      const after = state.dpe.after || {};
+      controls.innerHTML = `
+        <div class="control-section">
+          <h3>Avant travaux</h3>
+          <p class="help">Renseigne les valeurs moyennes avant travaux. Les champs « classe affichée » servent à retrouver exactement la présentation du mockup (par exemple D/E).</p>
+          <div class="fields-3">${field('Libellé','dpe.before.label','text')}${field('Consommation énergie (kWhEP/m².an)','dpe.before.energy')}${field('Score énergie /7','dpe.before.energyScore','number',{min:1,max:7,allowBlank:true})}</div>
+          <div class="fields-2">${field('Émissions GES (kgCO₂e/m².an)','dpe.before.ges')}${field('Score GES /7','dpe.before.gesScore','number',{min:1,max:7,allowBlank:true})}</div>
+          <div class="inline-note">Étiquette calculée automatiquement : énergie <strong>${esc(dpeAutoClassLabel(before.energyScore, dpeEnergyClass(before.energy).letter))}</strong> · GES <strong>${esc(dpeAutoClassLabel(before.gesScore, dpeGesClass(before.ges).letter))}</strong>. Priorité au score /7 lorsqu’il est renseigné.</div>
+        </div>
+        <div class="control-section">
+          <h3>Après travaux</h3>
+          <p class="help">Renseigne les valeurs cibles ou observées après travaux.</p>
+          <div class="fields-3">${field('Libellé','dpe.after.label','text')}${field('Consommation énergie (kWhEP/m².an)','dpe.after.energy')}${field('Score énergie /7','dpe.after.energyScore','number',{min:1,max:7,allowBlank:true})}</div>
+          <div class="fields-2">${field('Émissions GES (kgCO₂e/m².an)','dpe.after.ges')}${field('Score GES /7','dpe.after.gesScore','number',{min:1,max:7,allowBlank:true})}</div>
+          <div class="inline-note">Étiquette calculée automatiquement : énergie <strong>${esc(dpeAutoClassLabel(after.energyScore, dpeEnergyClass(after.energy).letter))}</strong> · GES <strong>${esc(dpeAutoClassLabel(after.gesScore, dpeGesClass(after.ges).letter))}</strong>. Priorité au score /7 lorsqu’il est renseigné.</div>
+        </div>
+        <div class="control-section">
+          <h3>Bandeau de synthèse — automatique</h3>
+          ${(() => { const d = dpeSummaryState(); return `<div class="dpe-control-summary">
+            <div><span>Gain classe énergie</span><b>≈ ${frSmart(d.energyClassGain)} classe${d.energyClassGain > 1.05 ? 's' : ''}</b></div>
+            <div><span>Consommation d’énergie</span><b>− ${frSmart(d.energyDelta)} kWhEP/m².an · ≈ −${frSmart(d.energyPercent)} %</b></div>
+            <div><span>Gain classe GES</span><b>≈ ${frSmart(d.gesClassGain)} classe${d.gesClassGain > 1.05 ? 's' : ''}</b></div>
+            <div><span>Émissions GES</span><b>− ${frSmart(d.gesDelta)} kgCO₂e/m².an · ≈ −${frSmart(d.gesPercent)} %</b></div>
+          </div><div class="inline-note">Le bandeau se recalcule automatiquement à chaque modification. Pour le gain de classe, les scores /7 sont prioritaires lorsqu’ils sont renseignés ; sinon les classes issues des consommations et émissions sont utilisées.</div>`; })()}
+        </div>`;
     }
 
     if (activeTab === 'carbon') {
@@ -573,9 +1105,89 @@
         </div>`;
     }
 
+    if (activeTab === 'heatingMatrix' || activeTab === 'ecsMatrix') {
+      const kind = activeTab;
+      const model = matrixState(kind);
+      matrixNormalize(model);
+      controls.innerHTML = `
+        <div class="control-section">
+          <h3>${kind === 'ecsMatrix' ? 'Matrice ECS' : 'Matrice chauffage'}</h3>
+          <p class="help"><strong>Les nombres se modifient directement dans la slide.</strong> Clique sur une valeur de la matrice, saisis le nouveau nombre : pourcentages, couleurs, totaux et indicateurs se recalculent automatiquement.</p>
+          ${field('Titre', `${kind}.title`, 'text')}
+          ${field('Sous-titre', `${kind}.subtitle`, 'text')}
+        </div>
+        <div class="control-section">
+          <h3>Vecteurs énergétiques</h3>
+          <p class="help">Tu peux renommer les cinq catégories. La matrice reste automatiquement synchronisée.</p>
+          ${model.vectors.map((vector,index)=>`<div class="field"><label>Vecteur ${index+1}</label><input type="text" data-matrix-vector-kind="${kind}" data-matrix-vector-index="${index}" value="${esc(vector)}"></div>`).join('')}
+        </div>
+        <div class="control-section">
+          <h3>Clé de lecture</h3>
+          <div class="field"><label>Texte</label><textarea data-bind="${kind}.note">${esc(model.note || '')}</textarea></div>
+          <div class="inline-note">Pourcentage affiché dans chaque case = part du flux dans son <strong>vecteur initial</strong> (total de la ligne = 100 %).</div>
+        </div>`;
+    }
+
+    if (activeTab === 'evolution') {
+      controls.innerHTML = `
+        <div class="control-section">
+          <h3>Textes de la slide</h3>
+          ${field('Titre', 'evolution.title', 'text')}
+          ${field('Sous-titre', 'evolution.subtitle', 'text')}
+        </div>
+        <div class="control-section">
+          <h3>Référentiels affichés</h3>
+          <div class="toggle-grid">
+            ${toggleField('Logement neuf', 'evolution.visible.ln')}
+            ${toggleField('Logement rénovation', 'evolution.visible.lr')}
+            ${toggleField('Tertiaire neuf', 'evolution.visible.tn')}
+            ${toggleField('Tertiaire rénovation', 'evolution.visible.tr')}
+          </div>
+          <p class="help">Décoche un référentiel pour le masquer complètement de la slide.</p>
+        </div>
+        <div class="control-section evolution-import-section">
+          <h3>Importer depuis Google Sheets</h3>
+          <p class="help">Dans Google Sheets, sélectionne le tableau complet, copie-le puis colle-le ci-dessous. La première colonne doit contenir le nom du référentiel et la première ligne les années.</p>
+          <div class="evolution-import-example"><strong>Format reconnu :</strong> Référentiel | 2019 | 2020 | 2021…<br>BEE Logement Neuf · BEE Logement Rénovation · BEE Tertiaire Neuf · BEE Tertiaire Rénovation</div>
+          <div class="field">
+            <label>Coller le tableau</label>
+            <textarea class="evolution-import-paste" data-evolution-import-paste="1" placeholder="Référentiel: Nom du référentiel\t2019\t2020\t2021\nBEE Logement Neuf\t11\t43\t31\nBEE Logement Rénovation\t5\t18\t11">${esc(state.evolution.importPaste || '')}</textarea>
+          </div>
+          <div class="evolution-import-actions">
+            <button type="button" class="btn btn-primary" data-evolution-import="1">Importer / remplacer les données</button>
+            <button type="button" class="btn btn-secondary btn-small" data-evolution-import-clear="1">Vider la zone</button>
+          </div>
+          <p class="help">Les cellules vides sont interprétées comme 0. Les référentiels absents du tableau sont automatiquement masqués, mais tu peux les réactiver ensuite.</p>
+        </div>
+        <div class="control-section">
+          <h3>Saisie manuelle</h3>
+          <p class="help">Tu peux aussi modifier chaque valeur directement ici. Les années sont triées automatiquement dans la slide.</p>
+          <div class="evolution-control-table">
+            <div class="evolution-control-header">
+              <span>Année</span><span>LN</span><span>LR</span><span>TN</span><span>TR</span><span></span>
+            </div>
+            ${(state.evolution.rows || []).map((row, index) => `
+              <div class="evolution-control-row">
+                <input type="text" value="${esc(row.year ?? '')}" data-evolution-year="${index}" placeholder="2026">
+                <input type="number" min="0" step="1" value="${esc(row.ln ?? 0)}" data-evolution-value="${index}" data-series="ln">
+                <input type="number" min="0" step="1" value="${esc(row.lr ?? 0)}" data-evolution-value="${index}" data-series="lr">
+                <input type="number" min="0" step="1" value="${esc(row.tn ?? 0)}" data-evolution-value="${index}" data-series="tn">
+                <input type="number" min="0" step="1" value="${esc(row.tr ?? 0)}" data-evolution-value="${index}" data-series="tr">
+                <button type="button" class="btn btn-danger btn-small" data-evolution-remove="${index}">Suppr.</button>
+              </div>`).join('')}
+          </div>
+          <div class="map-control-actions">
+            <button type="button" class="btn btn-primary btn-small" data-evolution-add="1">Ajouter une année</button>
+          </div>
+        </div>`;
+    }
+
     if (activeTab === 'map') {
       controls.innerHTML = renderMapControls();
       requestAnimationFrame(applyMapSearchFilter);
+    }
+    if (activeTab === 'tunnel') {
+      controls.innerHTML = `<div class="control-section"><h3>Tunnel de certification</h3><p class="help">Les pourcentages se recalculent automatiquement sur le total des bulles.</p><div class="tunnel-total-control"><span>Total dossiers</span><strong>${frSmart(tunnelTotal())}</strong></div>${state.tunnel.statuses.map((item,i)=>`<div class="tunnel-status-editor"><div class="field"><label>${i+1}. ${esc(item.label)}</label><input type="number" min="0" step="1" data-tunnel-value="${i}" value="${esc(item.value)}"></div><div class="auto-percent">${fr(tunnelPercent(item.value),1)} %</div></div>`).join('')}</div><div class="control-section"><h3>Informations complémentaires</h3>${field('Période d’étude','tunnel.period','text')}${field('Annulés / abandonnés','tunnel.cancelled')}${field('Dont soldés','tunnel.sold')}</div>`;
     }
   }
 
@@ -587,13 +1199,41 @@
   }
 
   function renderSlide() {
+    if (activeTab === 'cover') slide.innerHTML = renderCoverSlide();
     if (activeTab === 'labels') slide.innerHTML = renderLabelsSlide();
     if (activeTab === 'equipments') slide.innerHTML = renderEquipmentSlide();
     if (activeTab === 'envelope') slide.innerHTML = renderEnvelopeSlide();
+    if (activeTab === 'dpe') slide.innerHTML = renderDpeSlide();
     if (activeTab === 'carbon') slide.innerHTML = renderCarbonSlide();
     if (activeTab === 'map') slide.innerHTML = renderMapSlide();
-    slide.className = `slide ${activeTab === 'labels' ? 'labels-slide' : activeTab === 'equipments' ? 'equipment-slide' : activeTab === 'envelope' ? 'envelope-slide' : activeTab === 'carbon' ? 'carbon-slide' : 'map-slide'}`;
+    if (activeTab === 'tunnel') slide.innerHTML = renderTunnelSlide();
+    if (activeTab === 'evolution') slide.innerHTML = renderEvolutionSlide();
+    if (activeTab === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
+    if (activeTab === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
+    const slideClasses = {
+      cover: 'cover-slide',
+      labels: 'labels-slide',
+      equipments: 'equipment-slide',
+      envelope: 'envelope-slide',
+      dpe: 'dpe-slide',
+      carbon: 'carbon-slide',
+      map: 'map-slide',
+      tunnel: 'tunnel-slide',
+      evolution: 'evolution-slide',
+      heatingMatrix: 'transition-matrix-slide',
+      ecsMatrix: 'transition-matrix-slide'
+    };
+    slide.className = `slide ${slideClasses[activeTab] || ''}`;
     if (activeTab === 'map') requestAnimationFrame(renderDepartmentMap);
+  }
+
+  function renderCoverSlide() {
+    const logoSrc = state.cover.logoDataUrl || 'assets/cover_action_logement.png';
+    return `<div class="cover-layout">
+      <img class="cover-background" src="assets/cover_template_base.png" alt="Fond de couverture">
+      <img class="cover-client-logo" src="${esc(logoSrc)}" alt="Logo client">
+      <div class="cover-date-text">${esc(state.cover.dateText || '')}</div>
+    </div>`;
   }
 
   function head(title, subtitle, note = '', tip = '') {
@@ -709,17 +1349,341 @@
 
   function perfCell(letter, title, values, value, max, options = {}) {
     const showGauge = options.showGauge !== false;
-    const pos = markerPos(value, max);
-    return `<div class="perf-cell ${showGauge ? '' : 'no-gauge'}">
+    const gaugeMinValue = num(options.gaugeMinValue ?? 0);
+    const gaugeMaxValue = Math.max(gaugeMinValue + 0.0001, num(max));
+    const pos = Math.max(0, Math.min(100, ((num(value) - gaugeMinValue) / (gaugeMaxValue - gaugeMinValue)) * 100));
+    const gaugeMinLabel = options.gaugeMinLabel || '';
+    const gaugeMaxLabel = options.gaugeMaxLabel || '';
+    const markerLabel = options.markerLabel || '';
+    const headerHtml = options.gaugeHeaderItems
+      ? `<div class="perf-header-line">${options.gaugeHeaderItems.map(item => `<div class="perf-header-item ${esc(item.align || 'center')}" style="left:${item.pos != null ? item.pos : 50}%"><span>${esc(item.label || '')}</span><b>${esc(item.value || '')}</b></div>`).join('')}</div>`
+      : `<div class="perf-values">${values.map(v => `<div class="perf-value"><span>${esc(v.label)}</span><b>${esc(v.value)}</b></div>`).join('')}</div>`;
+    const extraHtml = options.extraValue ? `<div class="perf-extra">${esc(options.extraValue)}</div>` : '';
+    return `<div class="perf-cell ${showGauge ? '' : 'no-gauge'} ${options.gaugeHeaderItems ? 'gauge-layout' : ''}">
       <div class="head"><span class="repere-dot">${letter}</span>${esc(title)}</div>
-      <div class="perf-values">${values.map(v => `<div class="perf-value"><span>${esc(v.label)}</span><b>${esc(v.value)}</b></div>`).join('')}</div>
-      ${showGauge ? `<div class="mini-gauge"><div class="track"></div><div class="marker" style="left:${pos}%"></div></div>` : ''}
-      ${options.note ? `<div class="perf-key"><strong>Clé de lecture :</strong> ${esc(options.note)}</div>` : ''}
+      ${headerHtml}
+      ${showGauge ? `<div class="mini-gauge with-labels">
+        ${markerLabel ? `<div class="marker-label" style="left:${pos}%">${esc(markerLabel)}</div>` : ''}
+        <div class="track"></div>
+        <div class="marker" style="left:${pos}%"></div>
+        ${(gaugeMinLabel || gaugeMaxLabel) ? `<div class="gauge-labels"><span>${esc(gaugeMinLabel)}</span><span>${esc(gaugeMaxLabel)}</span></div>` : ''}
+      </div>` : ''}
+      ${extraHtml}
+      ${options.note ? `<div class="perf-key"><strong>Lecture :</strong> ${esc(options.note)}</div>` : ''}
     </div>`;
+  }
+
+  function visibleNumbering(visible, keys) {
+    const numbers = {};
+    let index = 1;
+    keys.forEach(key => {
+      if ((visible || {})[key] !== false) numbers[key] = index++;
+    });
+    return numbers;
+  }
+
+
+  const DPE_ENERGY_SCALE = [
+    { letter: 'A', min: 0, max: 50, label: '≤ 50', footer: 'Logement économe', color: '#0b8f4b', width: 57 },
+    { letter: 'B', min: 51, max: 90, label: '51 à 90', color: '#52b84e', width: 63 },
+    { letter: 'C', min: 91, max: 150, label: '91 à 150', color: '#a7ca3b', width: 69 },
+    { letter: 'D', min: 151, max: 230, label: '151 à 230', color: '#f1d234', width: 75 },
+    { letter: 'E', min: 231, max: 330, label: '231 à 330', color: '#efb120', width: 81 },
+    { letter: 'F', min: 331, max: 450, label: '331 à 450', color: '#e7771d', width: 87 },
+    { letter: 'G', min: 451, max: Infinity, label: '> 450', footer: 'Logement énergivore', color: '#df2b27', width: 93 }
+  ];
+
+  const DPE_GES_SCALE = [
+    { letter: 'A', min: 0, max: 5, label: '≤ 5', footer: 'Faible émission de GES', color: '#f0dff9', width: 57, textColor: '#28124c' },
+    { letter: 'B', min: 6, max: 10, label: '6 à 10', color: '#e2c4f6', width: 63, textColor: '#28124c' },
+    { letter: 'C', min: 11, max: 20, label: '11 à 20', color: '#d2a5f3', width: 69, textColor: '#28124c' },
+    { letter: 'D', min: 21, max: 35, label: '21 à 35', color: '#bb7eec', width: 75, textColor: '#28124c' },
+    { letter: 'E', min: 36, max: 55, label: '36 à 55', color: '#a55de3', width: 81, textColor: '#ffffff' },
+    { letter: 'F', min: 56, max: 80, label: '56 à 80', color: '#8433d4', width: 87, textColor: '#ffffff' },
+    { letter: 'G', min: 81, max: Infinity, label: '> 80', footer: 'Forte émission de GES', color: '#6d00c8', width: 93, textColor: '#ffffff' }
+  ];
+
+  function dpeClassFromScale(value, scale) {
+    const v = Math.max(0, num(value));
+    return scale.find(item => v >= item.min && v <= item.max) || scale[scale.length - 1];
+  }
+
+  function dpeEnergyClass(value) {
+    return dpeClassFromScale(value, DPE_ENERGY_SCALE);
+  }
+
+  function dpeGesClass(value) {
+    return dpeClassFromScale(value, DPE_GES_SCALE);
+  }
+
+  function dpeLetterIndex(letter) {
+    return ['A','B','C','D','E','F','G'].indexOf(String(letter || '').toUpperCase());
+  }
+
+  function dpeDeltaText(beforeLetter, afterLetter) {
+    const delta = dpeLetterIndex(beforeLetter) - dpeLetterIndex(afterLetter);
+    if (delta > 1) return `gain de ${delta} classes`;
+    if (delta === 1) return 'gain d’1 classe';
+    if (delta === 0) return 'classe inchangée';
+    if (delta === -1) return 'recul d’1 classe';
+    return `recul de ${Math.abs(delta)} classes`;
+  }
+
+  function dpeHasScore(raw) {
+    if (raw === undefined || raw === null || String(raw).trim() === '') return false;
+    const score = Number(String(raw).replace(',', '.'));
+    return Number.isFinite(score) && score >= 1 && score <= 7;
+  }
+
+  function dpeClassFromScore(raw) {
+    if (!dpeHasScore(raw)) return null;
+    const letters = ['A','B','C','D','E','F','G'];
+    const score = Math.max(1, Math.min(7, Number(String(raw).replace(',', '.'))));
+    const lower = Math.floor(score);
+    const upper = Math.ceil(score);
+    if (lower === upper) return letters[lower - 1];
+    const fraction = score - lower;
+    // Zone intermédiaire : on affiche deux classes pour traduire une moyenne réellement située entre deux niveaux.
+    // Exemples : 4,44 -> D/E ; 2,60 -> B/C ; 4,63 -> E ; 2,62 -> C.
+    if (fraction < 0.35) return letters[lower - 1];
+    if (fraction <= 0.60) return `${letters[lower - 1]}/${letters[upper - 1]}`;
+    return letters[upper - 1];
+  }
+
+  function dpeAutoClassLabel(score, fallbackLetter) {
+    return dpeClassFromScore(score) || fallbackLetter;
+  }
+
+  function dpeApproxLabel(score, fallbackLetter) {
+    return `≈ ${dpeAutoClassLabel(score, fallbackLetter)}`;
+  }
+
+  function dpeScoreLabel(raw) {
+    return dpeHasScore(raw) ? `${fr(raw, 2)} / 7` : '—';
+  }
+
+  function dpeMetricDelta(beforeValue, afterValue) {
+    return Math.max(0, num(beforeValue) - num(afterValue));
+  }
+
+  function dpeMetricPercent(beforeValue, afterValue) {
+    const before = num(beforeValue);
+    return before > 0 ? Math.max(0, (before - num(afterValue)) / before * 100) : 0;
+  }
+
+  function dpeAutomaticClassGain(beforeScore, afterScore, beforeLetter, afterLetter) {
+    if (dpeHasScore(beforeScore) && dpeHasScore(afterScore)) {
+      return Math.max(0, num(beforeScore) - num(afterScore));
+    }
+    const beforeIndex = dpeLetterIndex(beforeLetter);
+    const afterIndex = dpeLetterIndex(afterLetter);
+    if (beforeIndex < 0 || afterIndex < 0) return 0;
+    return Math.max(0, beforeIndex - afterIndex);
+  }
+
+  function dpeSummaryState() {
+    const before = state.dpe.before || {};
+    const after = state.dpe.after || {};
+    const summary = state.dpe.summary || {};
+    const beforeEnergyMeta = dpeEnergyClass(before.energy);
+    const afterEnergyMeta = dpeEnergyClass(after.energy);
+    const beforeGesMeta = dpeGesClass(before.ges);
+    const afterGesMeta = dpeGesClass(after.ges);
+    const energyApproxBefore = dpeApproxLabel(before.energyScore, beforeEnergyMeta.letter);
+    const energyApproxAfter = dpeApproxLabel(after.energyScore, afterEnergyMeta.letter);
+    const gesApproxBefore = dpeApproxLabel(before.gesScore, beforeGesMeta.letter);
+    const gesApproxAfter = dpeApproxLabel(after.gesScore, afterGesMeta.letter);
+    const energyDelta = dpeMetricDelta(before.energy, after.energy);
+    const gesDelta = dpeMetricDelta(before.ges, after.ges);
+    const energyPercent = dpeMetricPercent(before.energy, after.energy);
+    const gesPercent = dpeMetricPercent(before.ges, after.ges);
+    const energyClassGain = dpeAutomaticClassGain(before.energyScore, after.energyScore, beforeEnergyMeta.letter, afterEnergyMeta.letter);
+    const gesClassGain = dpeAutomaticClassGain(before.gesScore, after.gesScore, beforeGesMeta.letter, afterGesMeta.letter);
+    const note = `Les travaux améliorent fortement la performance moyenne des opérations : le parc passe d’un niveau énergie proche de ${energyApproxBefore.replace(/^≈\s*/, '')} à ${energyApproxAfter.replace(/^≈\s*/, '')}, et les émissions de GES reculent d’environ ${frSmart(gesPercent)} %.`;
+    return {
+      before,
+      after,
+      summary,
+      beforeEnergyMeta,
+      afterEnergyMeta,
+      beforeGesMeta,
+      afterGesMeta,
+      energyApproxBefore,
+      energyApproxAfter,
+      gesApproxBefore,
+      gesApproxAfter,
+      energyScoreBefore: dpeScoreLabel(before.energyScore),
+      energyScoreAfter: dpeScoreLabel(after.energyScore),
+      gesScoreBefore: dpeScoreLabel(before.gesScore),
+      gesScoreAfter: dpeScoreLabel(after.gesScore),
+      energyDelta,
+      gesDelta,
+      energyPercent,
+      gesPercent,
+      energyClassGain,
+      gesClassGain,
+      note
+    };
+  }
+
+  function dpeScaleStack(type) {
+    const scale = type === 'energy' ? DPE_ENERGY_SCALE : DPE_GES_SCALE;
+    return `<div class="dpe-scale-stack ${type}">${scale.map((item, index) => {
+      const width = 92 + index * 14;
+      return `<div class="dpe-stack-row" style="width:${width}px;--row-color:${item.color};--row-text:${item.textColor || '#ffffff'}">
+        <span class="dpe-stack-bar">${item.letter}</span>
+        <span class="dpe-stack-tip"></span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function dpeMetricBlock(options) {
+    return `<article class="dpe-metric-card ${esc(options.type)}">
+      <div class="dpe-metric-title">${esc(options.title)}</div>
+      <div class="dpe-metric-subtitle">${esc(options.subtitle)}</div>
+      <div class="dpe-metric-body">
+        ${dpeScaleStack(options.type)}
+        <div class="dpe-score-card ${esc(options.type)}">
+          <div class="dpe-score-label">Classe moyenne</div>
+          <div class="dpe-score-class">${esc(options.classText)}</div>
+          <div class="dpe-score-divider"></div>
+          <div class="dpe-score-label lower">Score moyen</div>
+          <div class="dpe-score-value">${esc(options.scoreText)}</div>
+        </div>
+      </div>
+      <div class="dpe-value-banner ${esc(options.type)}">
+        <div class="dpe-banner-icon">${esc(options.icon)}</div>
+        <div class="dpe-banner-copy"><span>${esc(options.bannerLabel)}</span><strong>${esc(options.valueText)}</strong></div>
+      </div>
+    </article>`;
+  }
+
+  function dpePeriodCard(label, energyData, gesData) {
+    return `<section class="dpe-period-card">
+      <div class="dpe-period-pill">${esc(label)}</div>
+      <div class="dpe-period-grid">
+        ${dpeMetricBlock(energyData)}
+        ${dpeMetricBlock(gesData)}
+      </div>
+    </section>`;
+  }
+
+  function dpeEvolutionTile(icon, title, mainValue, footText, pillText = '') {
+    return `<div class="dpe-evolution-tile">
+      <div class="dpe-evolution-icon">${esc(icon)}</div>
+      <div class="dpe-evolution-copy">
+        <div class="dpe-evolution-title">${esc(title)}</div>
+        <div class="dpe-evolution-main">${esc(mainValue)}</div>
+        <div class="dpe-evolution-foot">${esc(footText)}</div>
+        ${pillText ? `<div class="dpe-evolution-pill">${esc(pillText)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function renderDpeSlide() {
+    const data = dpeSummaryState();
+    return `
+      ${head('DPE avant / après travaux', 'Lecture synthétique de l’amélioration énergétique et carbone moyenne')}
+      <div class="dpe-dashboard">
+        <div class="dpe-periods">
+          ${dpePeriodCard(data.before.label || 'Avant travaux', {
+            type: 'energy',
+            title: 'Énergie (DPE)',
+            subtitle: 'Consommation d’énergie',
+            classText: data.energyApproxBefore,
+            scoreText: data.energyScoreBefore,
+            icon: '⌂',
+            bannerLabel: 'Consommation moyenne',
+            valueText: `≈ ${frSmart(data.before.energy)} kWhEP/m².an`
+          }, {
+            type: 'ges',
+            title: 'Émissions de GES',
+            subtitle: 'Émissions de gaz à effet de serre',
+            classText: data.gesApproxBefore,
+            scoreText: data.gesScoreBefore,
+            icon: 'CO₂',
+            bannerLabel: 'Émissions moyennes',
+            valueText: `≈ ${frSmart(data.before.ges)} kgCO₂e/m².an`
+          })}
+          ${dpePeriodCard(data.after.label || 'Après travaux', {
+            type: 'energy',
+            title: 'Énergie (DPE)',
+            subtitle: 'Consommation d’énergie',
+            classText: data.energyApproxAfter,
+            scoreText: data.energyScoreAfter,
+            icon: '⌂',
+            bannerLabel: 'Consommation moyenne',
+            valueText: `≈ ${frSmart(data.after.energy)} kWhEP/m².an`
+          }, {
+            type: 'ges',
+            title: 'Émissions de GES',
+            subtitle: 'Émissions de gaz à effet de serre',
+            classText: data.gesApproxAfter,
+            scoreText: data.gesScoreAfter,
+            icon: 'CO₂',
+            bannerLabel: 'Émissions moyennes',
+            valueText: `≈ ${frSmart(data.after.ges)} kgCO₂e/m².an`
+          })}
+        </div>
+        <div class="dpe-summary-strip">
+          ${dpeEvolutionTile('↗', 'Classe énergie', `≈ ${frSmart(data.energyClassGain)}`, data.energyClassGain > 1.05 ? 'classes gagnées' : 'classe gagnée')}
+          ${dpeEvolutionTile('⚡', 'Consommation d’énergie', `− ${frSmart(data.energyDelta)} kWhEP/m².an`, '', `≈ −${frSmart(data.energyPercent)} %`)}
+          ${dpeEvolutionTile('CO₂', 'Classe GES', `≈ ${frSmart(data.gesClassGain)}`, data.gesClassGain > 1.05 ? 'classes gagnées' : 'classe gagnée')}
+          ${dpeEvolutionTile('↓', 'Émissions GES', `− ${frSmart(data.gesDelta)} kgCO₂e/m².an`, '', `≈ −${frSmart(data.gesPercent)} %`)}
+        </div>
+        <div class="dpe-reading-box">
+          <div class="dpe-reading-icon">i</div>
+          <div class="dpe-reading-text"><strong>Clé de lecture :</strong> ${esc(data.note)}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderEvolutionSlide() {
+    const rows = evolutionRowsSorted();
+    const visibleMeta = evolutionVisibleMeta();
+    const latest = evolutionLatestRow();
+    const peak = evolutionPeakRow();
+    const trend = evolutionTrendPercent();
+    const total = evolutionGlobalTotal();
+    const cardTitle = state.evolution.title || 'ÉVOLUTION DES PROJETS';
+    const cardSubtitle = state.evolution.subtitle || 'Nombre de projets par année et par référentiel';
+    return `
+      ${head(cardTitle, cardSubtitle)}
+      <div class="evolution-dashboard evolution-dashboard-centered">
+        <div class="evolution-top-metrics">
+          <section class="card evolution-kpi-card compact">
+            <div class="evolution-kpi-label">Total période</div>
+            <div class="evolution-kpi-value">${frSmart(total)}</div>
+            <div class="evolution-kpi-note">projets cumulés</div>
+          </section>
+          <section class="card evolution-kpi-card compact">
+            <div class="evolution-kpi-label">Année pic</div>
+            <div class="evolution-kpi-value">${peak ? esc(peak.year) : '—'}</div>
+            <div class="evolution-kpi-note">${peak ? frSmart(evolutionTotalForRow(peak)) + ' projets' : 'non disponible'}</div>
+          </section>
+          <section class="card evolution-kpi-card compact">
+            <div class="evolution-kpi-label">Dernière année</div>
+            <div class="evolution-kpi-value">${latest ? esc(latest.year) : '—'}</div>
+            <div class="evolution-kpi-note">${latest ? frSmart(evolutionTotalForRow(latest)) + ' projets' : 'à renseigner'}</div>
+          </section>
+          <section class="card evolution-kpi-card compact">
+            <div class="evolution-kpi-label">Tendance</div>
+            <div class="evolution-kpi-value">${trend === null ? '—' : (trend >= 0 ? '+' : '') + frSmart(trend) + ' %'}</div>
+            <div class="evolution-kpi-note">du 1er au dernier point</div>
+          </section>
+        </div>
+        <section class="card evolution-chart-card evolution-chart-card-large">
+          <div class="evolution-chart-card-title">Nombre de projets par année</div>
+          <div class="evolution-chart-wrap">${renderEvolutionChart()}</div>
+          <div class="evolution-legend evolution-legend-grid">${visibleMeta.map(meta => `<span><i style="background:${meta.color}"></i>${esc(meta.label)}</span>`).join('')}</div>
+        </section>
+      </div>`;
   }
 
   function renderEquipmentSlide() {
     const m = state.equipments.metrics;
+    const ev = state.equipments.visible || {};
+    const nums = visibleNumbering(ev, ['heat','ecs','cooling','ventilation','performance']);
     const thermalMode = m.thermalMetric || 'bbio';
     const summerMode = m.summerMetric || 'dh';
     const ubatInitial = num(m.ubatInitial);
@@ -760,8 +1724,12 @@
             { label: 'Tic ref', value: `${fr(m.ticRef,1)} °C` }
           ],
           value: m.tic,
-          max: Math.max(num(m.ticRef), num(m.tic), 0.01),
-          note: 'La Tic est la température intérieure conventionnelle atteinte en période chaude. Elle se compare à Tic ref ; plus elle est basse, mieux c’est.'
+          min: m.ticComfort,
+          max: Math.max(num(m.ticRef), num(m.tic), num(m.ticComfort)+0.01),
+          gaugeMinLabel: `${fr(m.ticComfort,1)} °C · confortable`,
+          gaugeMaxLabel: `Tic ref · ${fr(m.ticRef,1)} °C`,
+          markerLabel: `Tic · ${fr(m.tic,1)} °C`,
+          note: 'Gauche = confortable · curseur = Tic · droite = Tic ref.'
         }
       : {
           title: 'CONFORT D’ÉTÉ · DH',
@@ -770,30 +1738,41 @@
             { label: 'DH max', value: `${fr(m.dhMax)} °C.h` }
           ],
           value: m.dh,
+          min: m.dhComfort,
           max: m.dhMax,
-          note: 'Les DH cumulent l’intensité et la durée de l’inconfort estival. Plus le nombre de degrés-heures est faible, meilleur est le confort d’été.'
+          gaugeMinLabel: `${frSmart(m.dhComfort)} · très confortable`,
+          gaugeMaxLabel: `DH max · ${fr(m.dhMax)}`,
+          markerLabel: `DH · ${fr(m.dh)}`,
+          note: 'Gauche = faible inconfort · curseur = DH · droite = DH max.'
         };
 
     return `
       ${head('TYPOLOGIE DES ÉQUIPEMENTS', 'Répartition des systèmes et performance énergétique moyenne')}
-      ${equipCard('1. PRODUCTION DE CHALEUR', '♨', state.equipments.heat, 'heat-card')}
-      ${equipCard('2. ECS', '◉', state.equipments.ecs, 'ecs-card')}
-      ${equipCard('3. REFROIDISSEMENT', '❄', state.equipments.cooling, 'cool-card')}
-      ${equipCard('4. VENTILATION', '✣', state.equipments.ventilation, 'vent-card')}
+      ${ev.heat !== false ? equipCard(`${nums.heat}. PRODUCTION DE CHALEUR`, '♨', state.equipments.heat, 'heat-card') : ''}
+      ${ev.ecs !== false ? equipCard(`${nums.ecs}. ECS`, '◉', state.equipments.ecs, 'ecs-card') : ''}
+      ${ev.cooling !== false ? equipCard(`${nums.cooling}. REFROIDISSEMENT`, '❄', state.equipments.cooling, 'cool-card') : ''}
+      ${ev.ventilation !== false ? equipCard(`${nums.ventilation}. VENTILATION`, '✣', state.equipments.ventilation, 'vent-card') : ''}
       <div class="building-zone">${buildingSVG()}</div>
-      <section class="performance-card">
-        ${cardTab('5. PERFORMANCE ÉNERGÉTIQUE MOYENNE', '▥')}
+      ${ev.performance !== false ? `<section class="performance-card">
+        ${cardTab(`${nums.performance}. PERFORMANCE ÉNERGÉTIQUE MOYENNE`, '▥')}
         <div class="metrics-grid">
           ${perfCell('A', thermal.title, thermal.values, thermal.value, thermal.max, { note: thermal.note })}
-          ${perfCell('B', summer.title, summer.values, summer.value, summer.max, { note: summer.note })}
-          ${perfCell('C','CEP',[
-            {label:'Cep', value:fr(m.cep)}, {label:'Cep max', value:fr(m.cepMax)}, {label:'Gain Cep', value:fr(m.cepGain)}
-          ],m.cep,m.cepMax, { note: 'Le Cep représente la consommation conventionnelle d’énergie primaire. Plus il est faible, plus le bâtiment est sobre.' })}
+          ${perfCell('B', summer.title, summer.values, summer.value, summer.max, { gaugeMinValue: summer.min ?? 0, gaugeMinLabel: summer.gaugeMinLabel, gaugeMaxLabel: summer.gaugeMaxLabel, markerLabel: summer.markerLabel, note: summer.note })}
+          ${perfCell('C','CEP',[],m.cep,m.cepMax, {
+            gaugeMinValue: 0,
+            gaugeHeaderItems: [
+              { label: 'Référence basse', value: '0 / BEPOS', align: 'left', pos: 0 },
+              { label: 'CEP moyen', value: fr(m.cep), align: 'center', pos: Math.max(0, Math.min(100, num(m.cepMax) > 0 ? num(m.cep) / num(m.cepMax) * 100 : 0)) },
+              { label: 'CEP max', value: fr(m.cepMax), align: 'right', pos: 100 }
+            ],
+            extraValue: `Gain CEP : ${fr(m.cepGain)}`,
+            note: 'Vert = conso très faible · curseur = CEP moyen · droite = CEP max.'
+          })}
           ${perfCell('D','GAIN FINANCIER MOYEN',[
             {label:'Coût énergie', value:`${fr(m.financeActual)} €`}, {label:'Coût max', value:`${fr(m.financeMax)} €`}, {label:'Gain', value:`${fr(m.financeGain)} €`}
           ],m.financeActual,m.financeMax, { showGauge: false, note: 'Économie annuelle estimée par m² par rapport au coût de référence saisi.' })}
         </div>
-      </section>`;
+      </section>` : ''}`;
   }
 
   const R_BENCHMARKS = {
@@ -852,19 +1831,19 @@
   }
 
   function renderEnvelopeSlide() {
+    const v = state.envelope.visible || {};
+    const nums = visibleNumbering(v, ['mode','windows','roof','facade','floor']);
     return `
-      ${head('MODE CONSTRUCTIF & ISOLATION', 'Lecture synthétique des solutions constructives et des résistances thermiques moyennes')}
-      ${envelopeCard('1. MODE CONSTRUCTIF', '▥', state.envelope.mode, 'mode-card')}
-      ${envelopeCard('2. ISOLATION DE TOITURE', '⌃', state.envelope.roof, 'roof-card', 'roof', state.envelope.r.roof)}
-      ${envelopeCard('3. ISOLATION DE FAÇADE', '▦', state.envelope.facade, 'facade-card', 'facade', state.envelope.r.facade)}
+      ${head('MODE CONSTRUCTIF & ISOLATION', 'Lecture synthétique des solutions constructives, des menuiseries et des résistances thermiques moyennes')}
+      ${v.mode !== false ? envelopeCard(`${nums.mode}. MODE CONSTRUCTIF`, '▥', state.envelope.mode, 'mode-card') : ''}
+      ${v.windows !== false ? envelopeCard(`${nums.windows}. MENUISERIES EXTÉRIEURES`, '▣', state.envelope.windows, 'windows-card') : ''}
+      ${v.roof !== false ? envelopeCard(`${nums.roof}. ISOLATION DE TOITURE`, '⌃', state.envelope.roof, 'roof-card', 'roof', state.envelope.r.roof) : ''}
+      ${v.facade !== false ? envelopeCard(`${nums.facade}. ISOLATION DE FAÇADE`, '▦', state.envelope.facade, 'facade-card', 'facade', state.envelope.r.facade) : ''}
       <div class="building-zone">${buildingSVG()}</div>
-      <section class="card floor-card">
-        ${cardTab('4. ISOLATION DU PLANCHER BAS', '◇')}
-        <div class="floor-layout">
-          <div><div class="equip-title">RÉPARTITION DES MATÉRIAUX</div>${renderDonut(state.envelope.floor, 3)}</div>
-          <div><div class="equip-title">PERFORMANCE THERMIQUE</div>${rGauge('floor', state.envelope.r.floor)}</div>
-        </div>
-      </section>`;
+      ${v.floor !== false ? `<section class="card floor-card">
+        ${cardTab(`${nums.floor}. ISOLATION DU PLANCHER BAS`, '◇')}
+        <div class="floor-layout"><div><div class="equip-title">RÉPARTITION DES MATÉRIAUX</div>${renderDonut(state.envelope.floor, 3)}</div><div><div class="equip-title">PERFORMANCE THERMIQUE</div>${rGauge('floor', state.envelope.r.floor)}</div></div>
+      </section>` : ''}`;
   }
 
   function niceScale(v, base) {
@@ -945,6 +1924,22 @@
         <div><b>Rappel</b><br>Les indicateurs IC évaluent l’impact carbone du bâtiment. Résultats exprimés en kg éq CO₂/m² de surface de référence.</div>
         <div class="legend-inline"><span><i class="legend-pin" style="background:#06402B"></i> IC MOYEN</span><span><i class="legend-pin" style="background:#f2a000"></i> IC MAX MOYEN</span></div>
       </div>`;
+  }
+
+  function renderTunnelSlide() {
+    const phases = [
+      {cls:'project',name:'PROJET',desc:'1. Prise en charge de la demande de certification',icon:'assets/tunnel_project.png'},
+      {cls:'design',name:'CONCEPTION',desc:'2. Évaluation en phase conception',icon:'assets/tunnel_conception.png'},
+      {cls:'execution',name:'EXÉCUTION',desc:'3. Évaluation en phase exécution',icon:'assets/tunnel_execution.png'},
+      {cls:'delivery',name:'LIVRAISON',desc:'4. Contrôle et délivrance de la certification',icon:'assets/tunnel_delivery.png'}
+    ];
+    const colors=['blue','blue2','green1','mint','mint2'];
+    return `${head('ÉTAT D’AVANCEMENT DES OPÉRATIONS EN COURS','PAR ÉTAPE DE LA CERTIFICATION')}
+      <div class="tunnel-phase-wrap"><div class="tunnel-arrow">→</div><div class="tunnel-phase-row">${phases.map(p=>`<div class="phase-arrow ${p.cls}"><div><small>PHASE</small><b>${p.name}</b></div><img src="${p.icon}" alt=""></div>`).join('')}</div></div>
+      <div class="tunnel-phase-desc">${phases.map(p=>`<div>${esc(p.desc)}</div>`).join('')}</div>
+      <div class="tunnel-dotted"></div>
+      <div class="tunnel-bubbles">${state.tunnel.statuses.map((item,i)=>`<div class="tunnel-status ${colors[i]||'green1'}"><div class="status-bubble">${frSmart(item.value)}${item.key==='compliant'?'<sup>*</sup>':''}</div><div class="status-label">${esc(item.label)}</div><div class="status-pct">${fr(tunnelPercent(item.value),1)} %</div>${item.key==='compliant'?`<div class="sold-note">* dont ${frSmart(state.tunnel.sold)} soldés</div>`:''}</div>`).join('')}</div>
+      <div class="tunnel-footer"><div class="period-box"><b>${esc(state.tunnel.period)}</b><span>PÉRIODE D’ÉTUDE</span></div><div class="cancelled-box">Sur la période <b>${frSmart(state.tunnel.cancelled)}</b> dossiers ont été annulés ou abandonnés</div></div>`;
   }
 
   function renderMapSlide() {
@@ -1333,6 +2328,43 @@
 
   controls.addEventListener('input', e => {
     const t = e.target;
+    if (t.dataset.toggleBind) {
+      setByPath(state, t.dataset.toggleBind, !!t.checked);
+      saveState(); renderSlide();
+      return;
+    }
+    if (t.dataset.tunnelValue !== undefined) {
+      const idx = Number(t.dataset.tunnelValue);
+      if (state.tunnel.statuses[idx]) state.tunnel.statuses[idx].value = Math.max(0, num(t.value));
+      saveState(); renderControls(); renderSlide();
+      return;
+    }
+    if (t.dataset.matrixVectorKind !== undefined) {
+      const kind = t.dataset.matrixVectorKind;
+      const idx = Number(t.dataset.matrixVectorIndex);
+      const model = matrixState(kind);
+      if (model && model.vectors[idx] !== undefined) model.vectors[idx] = t.value;
+      saveState(); renderSlide();
+      return;
+    }
+    if (t.dataset.evolutionImportPaste !== undefined) {
+      state.evolution.importPaste = t.value;
+      saveState();
+      return;
+    }
+    if (t.dataset.evolutionYear !== undefined) {
+      const idx = Number(t.dataset.evolutionYear);
+      if (state.evolution.rows[idx]) state.evolution.rows[idx].year = t.value;
+      saveState(); renderSlide();
+      return;
+    }
+    if (t.dataset.evolutionValue !== undefined) {
+      const idx = Number(t.dataset.evolutionValue);
+      const key = t.dataset.series;
+      if (state.evolution.rows[idx] && key) state.evolution.rows[idx][key] = Math.max(0, num(t.value));
+      saveState(); renderSlide();
+      return;
+    }
     if (t.dataset.thresholdToggle !== undefined) {
       const year = t.dataset.thresholdToggle;
       state.carbon[`showThreshold${year}`] = !!t.checked;
@@ -1340,7 +2372,9 @@
       return;
     }
     if (t.dataset.bind) {
-      const value = t.type === 'number' ? num(t.value) : t.value;
+      const value = t.type === 'number'
+        ? (t.dataset.allowBlank === '1' && String(t.value).trim() === '' ? null : num(t.value))
+        : t.value;
       setByPath(state, t.dataset.bind, value);
       saveState();
       if (t.dataset.bind === 'equipments.metrics.thermalMetric' || t.dataset.bind === 'equipments.metrics.summerMetric') {
@@ -1385,6 +2419,16 @@
 
   controls.addEventListener('change', e => {
     const t = e.target;
+    if (t.dataset.coverLogoInput !== undefined) {
+      const file = t.files && t.files[0];
+      if (!file) return;
+      if (!/^image\/(png|jpeg|webp)$/i.test(file.type || '')) { toast('Format de logo non pris en charge.'); return; }
+      const reader = new FileReader();
+      reader.onload = () => { state.cover.logoDataUrl = String(reader.result || ''); saveState(); renderSlide(); toast('Logo de couverture remplacé.'); };
+      reader.onerror = () => toast('Impossible de lire cette image.');
+      reader.readAsDataURL(file);
+      return;
+    }
     if (t.dataset.arraySelect) {
       const items = getByPath(state, t.dataset.path);
       const idx = Number(t.dataset.index);
@@ -1398,6 +2442,11 @@
   controls.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.coverLogoReset !== undefined) {
+      state.cover.logoDataUrl = '';
+      saveState(); renderControls(); renderSlide(); toast('Logo Action Logement rétabli.');
+      return;
+    }
     if (t.dataset.remove) {
       const items = getByPath(state, t.dataset.path);
       items.splice(Number(t.dataset.index), 1);
@@ -1407,6 +2456,30 @@
       const items = getByPath(state, t.dataset.path);
       items.push({ name: 'À préciser', value: 0 });
       saveState(); renderControls(); renderSlide();
+    }
+    if (t.dataset.evolutionImport !== undefined) {
+      importEvolutionSheetPaste();
+      return;
+    }
+    if (t.dataset.evolutionImportClear !== undefined) {
+      state.evolution.importPaste = '';
+      saveState(); renderControls();
+      toast('Zone d’import vidée.');
+      return;
+    }
+    if (t.dataset.evolutionAdd !== undefined) {
+      const nextYear = (() => {
+        const years = (state.evolution.rows || []).map(row => rowYearNumeric(row.year)).filter(v => !Number.isNaN(v));
+        return years.length ? Math.max(...years) + 1 : new Date().getFullYear();
+      })();
+      state.evolution.rows.push({ year: nextYear, ln: 0, lr: 0, tn: 0, tr: 0 });
+      saveState(); renderControls(); renderSlide();
+      return;
+    }
+    if (t.dataset.evolutionRemove !== undefined) {
+      state.evolution.rows.splice(Number(t.dataset.evolutionRemove), 1);
+      saveState(); renderControls(); renderSlide();
+      return;
     }
     if (t.dataset.mapImport !== undefined) importMapPaste();
     if (t.dataset.mapClear !== undefined) {
@@ -1418,6 +2491,39 @@
       toast('Données cartographiques effacées.');
     }
   });
+
+  slide.addEventListener('keydown', e => {
+    const cell = e.target.closest('[data-matrix-kind]');
+    if (!cell) return;
+    if (e.key === 'Enter') { e.preventDefault(); cell.blur(); }
+  });
+
+  slide.addEventListener('input', e => {
+    const cell = e.target.closest('[data-matrix-kind]');
+    if (!cell) return;
+    const kind = cell.dataset.matrixKind;
+    const row = Number(cell.dataset.matrixRow);
+    const col = Number(cell.dataset.matrixCol);
+    const model = matrixState(kind);
+    if (!model || !model.values[row]) return;
+    const raw = String(cell.textContent || '').replace(/[^0-9]/g, '');
+    const value = raw === '' ? 0 : Math.max(0, parseInt(raw,10) || 0);
+    model.values[row][col] = value;
+    saveState();
+    updateTransitionMatrixDom(kind);
+  });
+
+  slide.addEventListener('blur', e => {
+    const cell = e.target.closest('[data-matrix-kind]');
+    if (!cell) return;
+    const kind = cell.dataset.matrixKind;
+    const row = Number(cell.dataset.matrixRow);
+    const col = Number(cell.dataset.matrixCol);
+    const model = matrixState(kind);
+    if (!model || !model.values[row]) return;
+    cell.textContent = frSmart(model.values[row][col]);
+    updateTransitionMatrixDom(kind);
+  }, true);
 
   tabs.forEach(tab => tab.addEventListener('click', () => {
     activeTab = tab.dataset.tab;
@@ -1453,11 +2559,17 @@
   }
 
   const exportNames = {
+    cover: 'couverture',
     labels: 'labels-performances',
     equipments: 'equipements',
     envelope: 'construction-isolation',
+    dpe: 'dpe-avant-apres',
     carbon: 'indicateurs-carbone',
-    map: 'cartographie-departements'
+    map: 'cartographie-departements',
+    tunnel: 'tunnel-certification',
+    evolution: 'evolution-projets',
+    heatingMatrix: 'transition-vecteurs-chauffage',
+    ecsMatrix: 'transition-vecteurs-ecs'
   };
 
   /* ============================================================
@@ -1640,18 +2752,57 @@
     if (labels) labels.forEach((l, i) => ct(ctx, l, x + (w * i / (labels.length - 1)), y + 26, 8.5, 600, EXPORT_MUTED, 'center'));
   }
 
-  function cPerfCell(ctx, x, y, w, h, letter, title, values, value, max, note, showGauge = true) {
-    cr(ctx, x + 7, y + 7, 25, 25, 13, '#0c7c4d');
-    ct(ctx, letter, x + 19.5, y + 20, 11, 900, '#fff', 'center', 'middle');
-    ct(ctx, title, x + 40, y + 22, 10.5, 900, EXPORT_TEXT);
-    const cols = values.length;
-    values.forEach((v, i) => {
-      const vx = x + 10 + i * ((w - 20) / cols);
-      ct(ctx, v.label, vx, y + 49, 8.2, 600, EXPORT_MUTED);
-      cwrap(ctx, v.value, vx, y + 67, (w - 24) / cols - 4, 11.3, 900, '#2d7f39', 1.05, 2);
-    });
-    if (showGauge) cLinearGauge(ctx, x + 10, y + 93, w - 20, value, max);
-    cwrap(ctx, `Clé de lecture : ${note}`, x + 10, y + (showGauge ? 124 : 102), w - 20, 8.5, 500, EXPORT_MUTED, 1.12, showGauge ? 3 : 4);
+  function cPerfCell(ctx, x, y, w, h, letter, title, values, value, max, options = {}) {
+    const showGauge = options.showGauge !== false;
+    const note = options.note || '';
+    cr(ctx, x, y, w, h, 0, '#fff');
+    ct(ctx, letter, x + 10, y + 11, 8.5, 900, '#fff', 'center', EXPORT_GREEN, 16, 16);
+    ct(ctx, title, x + 25, y + 11, 10, 900, EXPORT_TEXT);
+
+    if (options.gaugeHeaderItems) {
+      const lineY = y + 31;
+      options.gaugeHeaderItems.forEach(item => {
+        const px = x + 5 + ((item.pos != null ? item.pos : 50) / 100) * (w - 10);
+        const align = item.align === 'left' ? 'left' : item.align === 'right' ? 'right' : 'center';
+        ct(ctx, item.label, px, lineY, 7.2, 600, EXPORT_MUTED, align);
+        ct(ctx, item.value, px, lineY + 14, 11.5, 900, EXPORT_GREEN, align);
+      });
+
+    } else {
+      const colCount = values.length || 1;
+      const colW = (w - 10) / colCount;
+      values.forEach((item, i) => {
+        const lx = x + 5 + i * colW;
+        ct(ctx, item.label, lx, y + 30, 7.5, 500, EXPORT_MUTED);
+        ct(ctx, item.value, lx, y + 46, 12.5, 900, EXPORT_GREEN);
+      });
+    }
+
+    if (showGauge) {
+      const gaugeMinValue = num(options.gaugeMinValue ?? 0);
+      const gaugeMaxValue = Math.max(gaugeMinValue + 0.0001, num(max));
+      const ratio = Math.max(0, Math.min(1, (num(value) - gaugeMinValue) / (gaugeMaxValue - gaugeMinValue)));
+      const gx = x + 5, gy = y + 69, gw = w - 10;
+      const grad = ctx.createLinearGradient(gx, gy, gx + gw, gy);
+      grad.addColorStop(0, '#0b7c4c');
+      grad.addColorStop(0.35, '#7fb44d');
+      grad.addColorStop(0.7, '#f2ce38');
+      grad.addColorStop(1, '#e96918');
+      cr(ctx, gx, gy, gw, 7, 7, grad);
+      const mx = gx + ratio * gw;
+      if (options.markerLabel) ct(ctx, options.markerLabel, mx, gy - 13, 8.2, 800, EXPORT_TEXT, 'center');
+      ctx.fillStyle = '#283d40';
+      ctx.beginPath();
+      ctx.moveTo(mx, gy - 1);
+      ctx.lineTo(mx - 6, gy - 12);
+      ctx.lineTo(mx + 6, gy - 12);
+      ctx.closePath();
+      ctx.fill();
+      if (options.gaugeMinLabel) ct(ctx, options.gaugeMinLabel, gx, gy + 20, 7.2, 600, EXPORT_MUTED);
+      if (options.gaugeMaxLabel) ct(ctx, options.gaugeMaxLabel, gx + gw, gy + 20, 7.2, 600, EXPORT_MUTED, 'right');
+    }
+    if (options.extraValue) ct(ctx, options.extraValue, x + 5, y + 94, 8.2, 800, EXPORT_TEXT);
+    if (note) cwrap(ctx, note, x + 5, y + (options.gaugeHeaderItems ? 108 : showGauge ? 100 : 67), w - 10, 8.2, 500, EXPORT_MUTED, 1.15, options.gaugeHeaderItems ? 2 : showGauge ? 3 : 4);
   }
 
   function cRGauge(ctx, x, y, w, kind, value) {
@@ -1698,7 +2849,259 @@
     });
   }
 
+  function cDpePill(ctx, x, y, w, h, text) {
+    cr(ctx, x, y, w, h, h / 2, EXPORT_TEAL);
+    ct(ctx, text, x + w / 2, y + h / 2 + 1, 18, 900, '#fff', 'center', 'middle');
+  }
+
+  function cDpeScaleStack(ctx, x, y, type) {
+    const scale = type === 'energy' ? DPE_ENERGY_SCALE : DPE_GES_SCALE;
+    scale.forEach((item, index) => {
+      const width = 92 + index * 14;
+      const rowHeight = 27;
+      const yy = y + index * 38;
+      ctx.fillStyle = item.color;
+      ctx.fillRect(x, yy, width, rowHeight);
+      ctx.beginPath();
+      ctx.moveTo(x + width, yy);
+      ctx.lineTo(x + width + 14, yy + rowHeight / 2);
+      ctx.lineTo(x + width, yy + rowHeight);
+      ctx.closePath();
+      ctx.fill();
+      ct(ctx, item.letter, x + width - 24, yy + rowHeight / 2 + 1, 19, 900, item.textColor || '#ffffff', 'center', 'middle');
+    });
+  }
+
+  function cDpeScoreCard(ctx, x, y, w, h, classText, scoreText, tone) {
+    cr(ctx, x, y, w, h, 18, tone === 'ges' ? '#ece1f8' : '#ecebdf');
+    ct(ctx, 'Classe moyenne', x + w / 2, y + 26, 12.5, 600, EXPORT_TEXT, 'center');
+    ct(ctx, classText, x + w / 2, y + 66, 30, 900, '#000', 'center');
+    ctx.strokeStyle = 'rgba(23,59,63,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 18, y + 92);
+    ctx.lineTo(x + w - 18, y + 92);
+    ctx.stroke();
+    ct(ctx, 'Score moyen', x + w / 2, y + 122, 12.5, 600, EXPORT_TEXT, 'center');
+    ct(ctx, scoreText, x + w / 2, y + 153, 24, 900, '#000', 'center');
+  }
+
+  function cDpeValueBand(ctx, x, y, w, h, icon, label, valueText) {
+    cr(ctx, x, y, w, h, 14, EXPORT_TEAL);
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x + 36, y + h / 2, 23, 0, Math.PI * 2);
+    ctx.stroke();
+    ct(ctx, icon, x + 36, y + h / 2 + 1, icon === 'CO₂' ? 16 : 20, 900, '#fff', 'center', 'middle');
+    ctx.beginPath();
+    ctx.moveTo(x + 78, y + 16);
+    ctx.lineTo(x + 78, y + h - 16);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.stroke();
+    ct(ctx, label, x + 98, y + 26, 12.5, 500, '#fff');
+    ct(ctx, valueText, x + 98, y + 55, 22, 900, '#fff');
+  }
+
+  function cDpeMetricPanel(ctx, x, y, w, h, options) {
+    ct(ctx, options.title, x, y, 18, 900, EXPORT_TEAL);
+    ct(ctx, options.subtitle, x, y + 24, 12.5, 500, EXPORT_TEXT);
+    cDpeScaleStack(ctx, x, y + 48, options.type);
+    cDpeScoreCard(ctx, x + 200, y + 58, w - 220, 174, options.classText, options.scoreText, options.type);
+    cDpeValueBand(ctx, x, y + h - 72, w, 72, options.icon, options.bannerLabel, options.valueText);
+  }
+
+  function cDpePeriodCard(ctx, x, y, w, h, label, energyOptions, gesOptions) {
+    cr(ctx, x, y, w, h, 22, '#ffffff', '#7aa8a0', 1.4);
+    cDpePill(ctx, x + (w - 260) / 2, y - 20, 260, 40, label);
+    const innerY = y + 36;
+    const innerX = x + 18;
+    const innerW = (w - 54) / 2;
+    cDpeMetricPanel(ctx, innerX, innerY + 10, innerW, h - 70, energyOptions);
+    ctx.strokeStyle = EXPORT_LINE;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 34);
+    ctx.lineTo(x + w / 2, y + h - 18);
+    ctx.stroke();
+    cDpeMetricPanel(ctx, x + w / 2 + 18, innerY + 10, innerW, h - 70, gesOptions);
+  }
+
+  function cDpeSummaryTile(ctx, x, y, w, h, icon, title, mainValue, footText, pillText = '') {
+    if (x > 35) {
+      ctx.strokeStyle = EXPORT_LINE;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 18);
+      ctx.lineTo(x, y + h - 18);
+      ctx.stroke();
+    }
+    cr(ctx, x + 22, y + 24, 82, 82, 41, EXPORT_TEAL);
+    ct(ctx, icon, x + 63, y + 66, icon === 'CO₂' ? 22 : 28, 900, '#fff', 'center', 'middle');
+    ct(ctx, title, x + 126, y + 46, 13, 500, '#000');
+    ct(ctx, mainValue, x + 126, y + 80, 23, 900, '#116d39');
+    if (footText) ct(ctx, footText, x + 126, y + 116, 13, 900, '#116d39');
+    if (pillText) {
+      const pillW = Math.min(150, Math.max(104, pillText.length * 8.2));
+      cr(ctx, x + 126, y + 104, pillW, 34, 17, '#0d7f48');
+      ct(ctx, pillText, x + 126 + pillW / 2, y + 121, 14, 900, '#fff', 'center', 'middle');
+    }
+  }
+
+
+  function cMatrixCell(ctx, x, y, w, h, value, percent, ratio, diagonal) {
+    const alpha = value <= 0 ? 0.02 : 0.10 + Math.max(0, Math.min(1, ratio)) * 0.78;
+    const fill = value <= 0 ? '#fbfdfc' : `rgba(6,64,43,${alpha})`;
+    cr(ctx,x,y,w,h,8,fill,diagonal?'#06402B':'#cbdad4',diagonal?1.8:1);
+    const textColor = ratio > .48 ? '#ffffff' : '#173b3f';
+    ct(ctx,frSmart(value),x+w/2,y+h/2-5,19,900,textColor,'center','middle');
+    ct(ctx,`${fr(percent,1)} %`,x+w/2,y+h/2+18,9.5,700,textColor,'center','middle');
+  }
+
+  function cTransitionMatrixSlide(ctx, kind) {
+    const model=matrixState(kind); matrixNormalize(model);
+    cHeader(ctx, model.title, model.subtitle);
+    const x=40,y=185,w=1130,h=610;
+    cr(ctx,x,y,w,h,18,'#ffffff','#c7d5d1',1);
+    ct(ctx,'APRÈS TRAVAUX',x+610,y+30,16,900,EXPORT_GREEN,'center');
+    const labelW=170,totalW=110,cellW=160,rowH=82,tableX=x+24,tableY=y+66;
+    ct(ctx,'AVANT TRAVAUX',tableX,tableY-20,13,900,EXPORT_GREEN);
+    model.vectors.forEach((v,j)=>ct(ctx,v,tableX+labelW+j*cellW+cellW/2,tableY-12,11,800,EXPORT_TEXT,'center'));
+    ct(ctx,'Total ligne',tableX+labelW+5*cellW+totalW/2,tableY-12,11,800,EXPORT_TEXT,'center');
+    const max=matrixMaxCell(model);
+    model.vectors.forEach((v,i)=>{
+      const yy=tableY+i*rowH;
+      cr(ctx,tableX,yy,labelW-8,rowH-8,8,'#f8fbfa','#d6e3de',1);
+      ct(ctx,v,tableX+16,yy+(rowH-8)/2,12,800,EXPORT_TEXT,'left','middle');
+      model.vectors.forEach((_,j)=>{
+        const val=Math.max(0,num(model.values[i][j]));
+        cMatrixCell(ctx,tableX+labelW+j*cellW,yy,cellW-8,rowH-8,val,matrixCellPercent(model,i,j),val/max,i===j);
+      });
+      cr(ctx,tableX+labelW+5*cellW,yy,totalW-8,rowH-8,8,'#eef4f1','#c9d9d2',1);
+      ct(ctx,frSmart(matrixRowTotal(model,i)),tableX+labelW+5*cellW+(totalW-8)/2,yy+29,16,900,EXPORT_GREEN,'center');
+      ct(ctx,'100 %',tableX+labelW+5*cellW+(totalW-8)/2,yy+53,9,700,EXPORT_MUTED,'center');
+    });
+    const footerY=tableY+5*rowH+8;
+    cr(ctx,tableX,footerY,labelW-8,54,8,'#eef4f1','#c9d9d2',1); ct(ctx,'Total colonne',tableX+14,footerY+28,11,800,EXPORT_TEXT);
+    const total=matrixGrandTotal(model);
+    model.vectors.forEach((_,j)=>{ const col=matrixColTotal(model,j); cr(ctx,tableX+labelW+j*cellW,footerY,cellW-8,54,8,'#f8fbfa','#d6e3de',1); ct(ctx,frSmart(col),tableX+labelW+j*cellW+(cellW-8)/2,footerY+21,14,900,EXPORT_GREEN,'center'); ct(ctx,total>0?`${fr(col/total*100,1)} %`:'0,0 %',tableX+labelW+j*cellW+(cellW-8)/2,footerY+41,9,700,EXPORT_MUTED,'center'); });
+    cr(ctx,tableX+labelW+5*cellW,footerY,totalW-8,54,8,EXPORT_GREEN); ct(ctx,frSmart(total),tableX+labelW+5*cellW+(totalW-8)/2,footerY+23,17,900,'#fff','center'); ct(ctx,'opérations',tableX+labelW+5*cellW+(totalW-8)/2,footerY+42,8.5,700,'#fff','center');
+    const sx=1200, sw=350; const dominant=matrixDominantTransition(model), preserved=matrixPreserved(model), changed=matrixChanged(model);
+    const cards=[
+      {y:200,icon:'↗',label:'TRANSITION DOMINANTE',main:dominant?`${model.vectors[dominant.row]} → ${model.vectors[dominant.col]}`:'—',sub:`${frSmart(dominant?dominant.value:0)} opérations`},
+      {y:370,icon:'✓',label:'VECTEUR CONSERVÉ',main:`${fr(preserved.percent,1)} %`,sub:`${frSmart(preserved.value)} opérations`},
+      {y:540,icon:'⇄',label:'CHANGEMENT DE VECTEUR',main:`${fr(changed.percent,1)} %`,sub:`${frSmart(changed.value)} opérations`}
+    ];
+    cards.forEach(card=>{cr(ctx,sx,card.y,sw,142,18,'#fff','#cbdad4',1);cr(ctx,sx+20,card.y+24,72,72,36,EXPORT_GREEN);ct(ctx,card.icon,sx+56,card.y+60,28,900,'#fff','center','middle');ct(ctx,card.label,sx+112,card.y+37,10.5,900,EXPORT_GREEN);cwrap(ctx,card.main,sx+112,card.y+68,210,17,900,EXPORT_TEXT,1.15,2);ct(ctx,card.sub,sx+112,card.y+116,11,700,EXPORT_MUTED);});
+    cr(ctx,sx,710,sw,150,18,'#eef4f1'); cr(ctx,sx+20,730,42,42,21,EXPORT_GREEN);ct(ctx,'i',sx+41,751,20,900,'#fff','center','middle');ct(ctx,'CLÉ DE LECTURE',sx+80,744,11,900,EXPORT_GREEN);cwrap(ctx,model.note,sx+80,772,245,10.5,600,EXPORT_TEXT,1.23,5);
+  }
+
+
+  function cEvolutionSlide(ctx) {
+    const rows = evolutionRowsSorted();
+    const visibleMeta = evolutionVisibleMeta();
+    const latest = evolutionLatestRow();
+    const peak = evolutionPeakRow();
+    const trend = evolutionTrendPercent();
+    const total = evolutionGlobalTotal();
+    cHeader(ctx, state.evolution.title || 'ÉVOLUTION DES PROJETS', state.evolution.subtitle || 'Nombre de projets par année et par référentiel');
+
+    const kpis = [
+      ['Total période', frSmart(total), 'projets cumulés'],
+      ['Année pic', peak ? String(peak.year) : '—', peak ? `${frSmart(evolutionTotalForRow(peak))} projets` : 'non disponible'],
+      ['Dernière année', latest ? String(latest.year) : '—', latest ? `${frSmart(evolutionTotalForRow(latest))} projets` : 'à renseigner'],
+      ['Tendance', trend == null ? '—' : `${trend >= 0 ? '+' : ''}${frSmart(trend)} %`, 'du 1er au dernier point']
+    ];
+    const kx=52, ky=158, kgap=16, kw=(1496-kgap*3)/4, kh=112;
+    kpis.forEach((k,i)=>{
+      const x=kx+i*(kw+kgap);
+      cr(ctx,x,ky,kw,kh,18,'#ffffff','#d6e3de',1.2);
+      ct(ctx,k[0].toUpperCase(),x+18,ky+28,12,900,EXPORT_MUTED);
+      ct(ctx,k[1],x+18,ky+68,31,900,EXPORT_GREEN);
+      ct(ctx,k[2],x+18,ky+94,11.5,700,'#33575a');
+    });
+
+    const x=52,y=292,w=1496,h=555;
+    cr(ctx,x,y,w,h,22,'#ffffff',EXPORT_LINE,1.2);
+    ct(ctx,'Nombre de projets par année',x+26,y+38,18,900,EXPORT_TEXT);
+    if(!rows.length || !visibleMeta.length){
+      ct(ctx,'Aucune donnée à afficher.',x+w/2,y+h/2,20,700,EXPORT_MUTED,'center','middle');
+      return;
+    }
+    const chartX=x+82, chartY=y+76, chartW=w-120, chartH=365;
+    const maxValue=evolutionNiceMax(Math.max(...rows.flatMap(row=>visibleMeta.map(meta=>Math.max(0,num(row[meta.key]))))));
+    const yFor=v=>chartY+chartH-(Math.max(0,num(v))/maxValue)*chartH;
+    const xFor=i=>rows.length===1?chartX+chartW/2:chartX+i*(chartW/(rows.length-1));
+    [0,.25,.5,.75,1].forEach(r=>{
+      const tick=Math.round(maxValue*r), yy=yFor(tick);
+      ctx.save();ctx.strokeStyle='#d6e1dd';ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(chartX,yy);ctx.lineTo(chartX+chartW,yy);ctx.stroke();ctx.restore();
+      ct(ctx,frSmart(tick),chartX-16,yy,14,500,EXPORT_MUTED,'right','middle');
+    });
+    ctx.strokeStyle='#9fb7ae';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(chartX,chartY);ctx.lineTo(chartX,chartY+chartH);ctx.lineTo(chartX+chartW,chartY+chartH);ctx.stroke();
+    rows.forEach((row,i)=>ct(ctx,String(row.year),xFor(i),chartY+chartH+34,14,500,EXPORT_MUTED,'center'));
+    visibleMeta.forEach(meta=>{
+      ctx.strokeStyle=meta.color;ctx.lineWidth=4.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+      rows.forEach((row,i)=>{const xx=xFor(i),yy=yFor(row[meta.key]);if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);});ctx.stroke();
+      rows.forEach((row,i)=>{const xx=xFor(i),yy=yFor(row[meta.key]);ctx.fillStyle=meta.color;ctx.beginPath();ctx.arc(xx,yy,5,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();ct(ctx,frSmart(row[meta.key]),xx,yy-15,13,700,meta.color,'center');});
+    });
+    const legendY=y+h-58;
+    visibleMeta.forEach((meta,i)=>{
+      const col=i%2,row=Math.floor(i/2), lx=x+230+col*600, ly=legendY+row*26;
+      cr(ctx,lx,ly-7,34,7,4,meta.color);ct(ctx,meta.label,lx+48,ly,14,900,EXPORT_TEXT,'left','middle');
+    });
+  }
+
   async function drawReliableSlide(ctx) {
+    if (activeTab === 'evolution') { cEvolutionSlide(ctx); return; }
+    if (activeTab === 'cover') {
+      await waitForSlideAssets();
+      const bg = slide.querySelector('.cover-background');
+      const logo = slide.querySelector('.cover-client-logo');
+      if (bg && bg.complete && bg.naturalWidth) ctx.drawImage(bg, 0, 0, 1600, 900);
+      if (logo && logo.complete && logo.naturalWidth) {
+        const maxW = 875, maxH = 185;
+        const ratio = Math.min(maxW / logo.naturalWidth, maxH / logo.naturalHeight);
+        const dw = logo.naturalWidth * ratio, dh = logo.naturalHeight * ratio;
+        ctx.drawImage(logo, 72, 400 + (185 - dh) / 2, dw, dh);
+      }
+      ct(ctx, state.cover.dateText || '', 1518, 582, 41, 900, '#050505', 'right', 'middle');
+      return;
+    }
+
+    if (activeTab === 'tunnel') {
+      cHeader(ctx, 'ÉTAT D’AVANCEMENT DES OPÉRATIONS EN COURS', 'PAR ÉTAPE DE LA CERTIFICATION');
+      const phases = [
+        {name:'PROJET',desc:'1. Prise en charge de la demande de certification',fill:'#eaf4fb',text:EXPORT_TEXT},
+        {name:'CONCEPTION',desc:'2. Évaluation en phase conception',fill:'#f5f5f5',text:EXPORT_TEXT},
+        {name:'EXÉCUTION',desc:'3. Évaluation en phase exécution',fill:'#075838',text:'#ffffff'},
+        {name:'LIVRAISON',desc:'4. Contrôle et délivrance de la certification',fill:'#c8f8db',text:EXPORT_TEXT}
+      ];
+      ct(ctx, '→', 66, 232, 42, 400, '#16714c');
+      const px0=105, py=178, gap=8, pw=352, ph=108;
+      phases.forEach((p,i)=>{
+        const x=px0+i*(pw+gap);
+        ctx.beginPath();
+        if(i===0){ctx.moveTo(x,py);ctx.lineTo(x+pw-28,py);ctx.lineTo(x+pw,py+ph/2);ctx.lineTo(x+pw-28,py+ph);ctx.lineTo(x,py+ph);}else{ctx.moveTo(x,py);ctx.lineTo(x+pw-28,py);ctx.lineTo(x+pw,py+ph/2);ctx.lineTo(x+pw-28,py+ph);ctx.lineTo(x,py+ph);ctx.lineTo(x+28,py+ph/2);}
+        ctx.closePath();ctx.fillStyle=p.fill;ctx.fill();ctx.strokeStyle='#b9d3c8';ctx.lineWidth=1;ctx.stroke();
+        ct(ctx,'PHASE',x+30,py+37,14,500,p.text);ct(ctx,p.name,x+30,py+69,22,900,p.text);
+      });
+      await waitForSlideAssets();
+      [...slide.querySelectorAll('.phase-arrow img')].slice(0,4).forEach((img,i)=>{ if(img.complete&&img.naturalWidth){const x=px0+i*(pw+gap)+pw-88;ctx.drawImage(img,x,py+31,46,46);} });
+      phases.forEach((p,i)=>{ cwrap(ctx,p.desc,130+i*345,318,295,14,500,EXPORT_TEXT,1.2,2); });
+      ctx.save();ctx.strokeStyle=EXPORT_GREEN;ctx.lineWidth=4;ctx.setLineDash([4,8]);ctx.beginPath();ctx.moveTo(70,430);ctx.lineTo(1530,430);ctx.stroke();ctx.restore();
+      const colors=[['#d9effe','#123f6a','#88bfe6'],['#e5f2fb','#123f6a','#9bc7e6'],['#408b2e','#ffffff','#16864f'],['#b9f4d1',EXPORT_GREEN,'#16864f'],['#b9f4d1',EXPORT_GREEN,'#16864f']];
+      const count=state.tunnel.statuses.length, areaLeft=72, areaRight=1528, colW=(areaRight-areaLeft)/count;
+      state.tunnel.statuses.forEach((item,i)=>{
+        const cx=areaLeft+colW*(i+.5), cy=514, cfg=colors[i]||colors[2];
+        ctx.fillStyle=cfg[0];ctx.strokeStyle=cfg[2];ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,56,0,Math.PI*2);ctx.fill();ctx.stroke();
+        ct(ctx,`${frSmart(item.value)}${item.key==='compliant'?'*':''}`,cx,cy+2,34,900,cfg[1],'center','middle');
+        cwrap(ctx,item.label,cx-colW/2+12,584,colW-24,12,800,EXPORT_TEXT,1.15,3,'center');
+        cr(ctx,cx-colW/2+10,640,colW-20,48,8,'#f4f8f5','#bed6c8',1);ct(ctx,`${fr(tunnelPercent(item.value),1)} %`,cx,664,19,900,EXPORT_GREEN,'center','middle');
+        if(item.key==='compliant') ct(ctx,`* dont ${frSmart(state.tunnel.sold)} soldés`,cx,707,10,500,'#526c62','center');
+      });
+      cr(ctx,55,800,340,68,12,'#fff','#b9cbc4',1);ct(ctx,state.tunnel.period,83,826,18,900,EXPORT_GREEN);ct(ctx,'PÉRIODE D’ÉTUDE',83,851,11,500,EXPORT_TEXT);
+      cr(ctx,421,800,1124,68,12,'#fff','#b9cbc4',1);ct(ctx,'Sur la période',451,836,15,500,EXPORT_TEXT);ct(ctx,frSmart(state.tunnel.cancelled),570,836,15,900,EXPORT_GREEN);ct(ctx,'dossiers ont été annulés ou abandonnés',600,836,15,500,EXPORT_TEXT);
+      return;
+    }
     if (activeTab === 'labels') {
       cHeader(ctx, 'LABELS & PERFORMANCES LES PLUS OBSERVÉS', 'Lecture synthétique des occurrences et rappel des principales mentions');
       cCard(ctx, 30, 180, 720, 565, 'LABELS', '◎');
@@ -1719,13 +3122,16 @@
 
     if (activeTab === 'equipments') {
       cHeader(ctx, 'TYPOLOGIE DES ÉQUIPEMENTS', 'Répartition des systèmes et performance énergétique moyenne');
-      cEquipmentCard(ctx, 28, 180, 320, 235, '1. PRODUCTION DE CHALEUR', '♨', state.equipments.heat);
-      cEquipmentCard(ctx, 1252, 180, 320, 235, '2. ECS', '◉', state.equipments.ecs);
-      cEquipmentCard(ctx, 28, 445, 320, 235, '3. REFROIDISSEMENT', '❄', state.equipments.cooling);
-      cEquipmentCard(ctx, 1252, 445, 320, 235, '4. VENTILATION', '✣', state.equipments.ventilation);
-      await cDrawBuilding(ctx, 355, 145, 890, 545);
-      cCard(ctx, 105, 716, 1390, 156, '5. PERFORMANCE ÉNERGÉTIQUE MOYENNE', '▥');
+      const eqv = state.equipments.visible || {};
+      const eqn = visibleNumbering(eqv, ['heat','ecs','cooling','ventilation','performance']);
+      if(eqv.heat !== false) cEquipmentCard(ctx, 28, 180, 320, 235, `${eqn.heat}. PRODUCTION DE CHALEUR`, '♨', state.equipments.heat);
+      if(eqv.ecs !== false) cEquipmentCard(ctx, 1252, 180, 320, 235, `${eqn.ecs}. ECS`, '◉', state.equipments.ecs);
+      if(eqv.cooling !== false) cEquipmentCard(ctx, 28, 445, 320, 235, `${eqn.cooling}. REFROIDISSEMENT`, '❄', state.equipments.cooling);
+      if(eqv.ventilation !== false) cEquipmentCard(ctx, 1252, 445, 320, 255, `${eqn.ventilation}. VENTILATION`, '✣', state.equipments.ventilation);
+      await cDrawBuilding(ctx, 350, 145, 800, 550);
       const m = state.equipments.metrics;
+      if(eqv.performance !== false){
+      cCard(ctx, 105, 704, 1390, 176, `${eqn.performance}. PERFORMANCE ÉNERGÉTIQUE MOYENNE`, '▥');
       const thermalMode = m.thermalMetric || 'bbio';
       const summerMode = m.summerMetric || 'dh';
       const ubatInitial = num(m.ubatInitial);
@@ -1737,30 +3143,97 @@
         title:'BBIO', values:[{label:'Bbio initial',value:fr(m.bbioInitial)},{label:'Bbio max',value:fr(m.bbioMax)},{label:'Gain Bbio',value:fr(m.bbioGain)}], value:m.bbioInitial, max:m.bbioMax, note:'Le Bbio traduit les besoins bioclimatiques du bâtiment indépendamment des systèmes. Plus il est faible, mieux le bâti limite ses besoins.'
       };
       const summer = summerMode === 'tic' ? {
-        title:'CONFORT D’ÉTÉ · TIC', values:[{label:'Tic',value:`${fr(m.tic,1)} °C`},{label:'Tic ref',value:`${fr(m.ticRef,1)} °C`}], value:m.tic, max:Math.max(num(m.ticRef),num(m.tic),.01), note:'La Tic est la température intérieure conventionnelle atteinte en période chaude. Elle se compare à Tic ref.'
+        title:'CONFORT D’ÉTÉ · TIC', values:[{label:'Tic',value:`${fr(m.tic,1)} °C`},{label:'Tic ref',value:`${fr(m.ticRef,1)} °C`}], value:m.tic, min:m.ticComfort, max:Math.max(num(m.ticRef),num(m.tic),num(m.ticComfort)+.01), gaugeMinLabel:`${fr(m.ticComfort,1)} °C confortable`, gaugeMaxLabel:`Tic ref ${fr(m.ticRef,1)} °C`, markerLabel:`Tic ${fr(m.tic,1)} °C`, note:'Gauche = confortable · curseur = Tic · droite = Tic ref.'
       } : {
-        title:'CONFORT D’ÉTÉ · DH', values:[{label:'DH',value:`${fr(m.dh)} °C.h`},{label:'DH max',value:`${fr(m.dhMax)} °C.h`}], value:m.dh, max:m.dhMax, note:'Les DH cumulent l’intensité et la durée de l’inconfort estival. Plus ils sont faibles, meilleur est le confort.'
+        title:'CONFORT D’ÉTÉ · DH', values:[{label:'DH',value:`${fr(m.dh)} °C.h`},{label:'DH max',value:`${fr(m.dhMax)} °C.h`}], value:m.dh, min:m.dhComfort, max:m.dhMax, gaugeMinLabel:`${frSmart(m.dhComfort)} très confortable`, gaugeMaxLabel:`DH max ${fr(m.dhMax)}`, markerLabel:`DH ${fr(m.dh)}`, note:'Gauche = faible inconfort · curseur = DH · droite = DH max.'
       };
-      const px = 115, py = 744, pw = 337;
-      cPerfCell(ctx, px, py, pw, 118, 'A', thermal.title, thermal.values, thermal.value, thermal.max, thermal.note, true);
-      cPerfCell(ctx, px+pw, py, pw, 118, 'B', summer.title, summer.values, summer.value, summer.max, summer.note, true);
-      cPerfCell(ctx, px+pw*2, py, pw, 118, 'C', 'CEP', [{label:'Cep',value:fr(m.cep)},{label:'Cep max',value:fr(m.cepMax)},{label:'Gain Cep',value:fr(m.cepGain)}], m.cep, m.cepMax, 'Le Cep représente la consommation conventionnelle d’énergie primaire. Plus il est faible, plus le bâtiment est sobre.', true);
-      cPerfCell(ctx, px+pw*3, py, pw, 118, 'D', 'GAIN FINANCIER MOYEN', [{label:'Coût énergie',value:`${fr(m.financeActual)} €`},{label:'Coût max',value:`${fr(m.financeMax)} €`},{label:'Gain',value:`${fr(m.financeGain)} €`}], 0, 1, 'Économie annuelle estimée par m² par rapport au coût de référence saisi.', false);
+      const px = 115, py = 734, pw = 337;
+      cPerfCell(ctx, px, py, pw, 132, 'A', thermal.title, thermal.values, thermal.value, thermal.max, { note: thermal.note });
+      cPerfCell(ctx, px+pw, py, pw, 132, 'B', summer.title, summer.values, summer.value, summer.max, { gaugeMinValue:summer.min??0, gaugeMinLabel:summer.gaugeMinLabel, gaugeMaxLabel:summer.gaugeMaxLabel, markerLabel:summer.markerLabel, note:summer.note });
+      cPerfCell(ctx, px+pw*2, py, pw, 132, 'C', 'CEP', [], m.cep, m.cepMax, {
+        gaugeMinValue: 0,
+        gaugeHeaderItems: [
+          { label: 'Référence basse', value: '0 / BEPOS', align: 'left', pos: 0 },
+          { label: 'CEP moyen', value: fr(m.cep), align: 'center', pos: Math.max(0, Math.min(100, num(m.cepMax) > 0 ? num(m.cep) / num(m.cepMax) * 100 : 0)) },
+          { label: 'CEP max', value: fr(m.cepMax), align: 'right', pos: 100 }
+        ],
+        extraValue: `Gain CEP : ${fr(m.cepGain)}`,
+        note: 'Vert = conso très faible · curseur = CEP moyen · droite = CEP max.'
+      });
+      cPerfCell(ctx, px+pw*3, py, pw, 132, 'D', 'GAIN FINANCIER MOYEN', [{label:'Coût énergie',value:`${fr(m.financeActual)} €`},{label:'Coût max',value:`${fr(m.financeMax)} €`},{label:'Gain',value:`${fr(m.financeGain)} €`}], 0, 1, { note: 'Économie annuelle estimée par m² par rapport au coût de référence saisi.', showGauge: false });
+      }
       return;
     }
 
     if (activeTab === 'envelope') {
-      cHeader(ctx, 'MODE CONSTRUCTIF & ISOLATION', 'Lecture synthétique des solutions constructives et des résistances thermiques moyennes');
-      cEnvelopeCard(ctx, 25, 185, 340, 300, '1. MODE CONSTRUCTIF', '▥', state.envelope.mode);
-      cEnvelopeCard(ctx, 1165, 185, 405, 305, '2. ISOLATION DE TOITURE', '⌃', state.envelope.roof, 'roof', state.envelope.r.roof);
-      cEnvelopeCard(ctx, 1165, 520, 405, 280, '3. ISOLATION DE FAÇADE', '▦', state.envelope.facade, 'facade', state.envelope.r.facade);
-      await cDrawBuilding(ctx, 350, 145, 800, 550);
-      cCard(ctx, 230, 712, 730, 150, '4. ISOLATION DU PLANCHER BAS', '◇');
-      ct(ctx, 'RÉPARTITION DES MATÉRIAUX', 250, 748, 10.5, 900, EXPORT_TEXT);
-      cDonut(ctx, state.envelope.floor, 305, 800, 42, 21);
-      cLegend(ctx, state.envelope.floor, 360, 775, 3, 255, 8.8);
-      ctx.strokeStyle = '#d2dfdc'; ctx.beginPath(); ctx.moveTo(650, 745); ctx.lineTo(650, 846); ctx.stroke();
-      cRGauge(ctx, 675, 770, 250, 'floor', state.envelope.r.floor);
+      cHeader(ctx, 'MODE CONSTRUCTIF & ISOLATION', 'Lecture synthétique des solutions constructives, menuiseries et résistances thermiques moyennes');
+      const ev=state.envelope.visible||{};
+      const enn=visibleNumbering(ev,['mode','windows','roof','facade','floor']);
+      if(ev.mode!==false)cEnvelopeCard(ctx,25,185,340,275,`${enn.mode}. MODE CONSTRUCTIF`,'▥',state.envelope.mode);
+      if(ev.windows!==false)cEnvelopeCard(ctx,25,500,340,235,`${enn.windows}. MENUISERIES EXTÉRIEURES`,'▣',state.envelope.windows);
+      if(ev.roof!==false)cEnvelopeCard(ctx,1165,185,405,305,`${enn.roof}. ISOLATION DE TOITURE`,'⌃',state.envelope.roof,'roof',state.envelope.r.roof);
+      if(ev.facade!==false)cEnvelopeCard(ctx,1165,520,405,280,`${enn.facade}. ISOLATION DE FAÇADE`,'▦',state.envelope.facade,'facade',state.envelope.r.facade);
+      await cDrawBuilding(ctx,350,145,800,550);
+      if(ev.floor!==false){cCard(ctx,230,712,730,150,`${enn.floor}. ISOLATION DU PLANCHER BAS`,'◇');ct(ctx,'RÉPARTITION DES MATÉRIAUX',250,748,10.5,900,EXPORT_TEXT);cDonut(ctx,state.envelope.floor,305,800,42,21);cLegend(ctx,state.envelope.floor,360,775,3,255,8.8);cRGauge(ctx,675,770,250,'floor',state.envelope.r.floor);}
+      return;
+    }
+
+    if (activeTab === 'dpe') {
+      const data = dpeSummaryState();
+      cHeader(ctx, 'DPE AVANT / APRÈS TRAVAUX', 'Lecture synthétique de l’amélioration énergétique et carbone moyenne');
+      cDpePeriodCard(ctx, 36, 182, 738, 470, data.before.label || 'Avant travaux', {
+        type: 'energy',
+        title: 'Énergie (DPE)',
+        subtitle: 'Consommation d’énergie',
+        classText: data.energyApproxBefore,
+        scoreText: data.energyScoreBefore,
+        icon: '⌂',
+        bannerLabel: 'Consommation moyenne',
+        valueText: `≈ ${frSmart(data.before.energy)} kWhEP/m².an`
+      }, {
+        type: 'ges',
+        title: 'Émissions de GES',
+        subtitle: 'Émissions de gaz à effet de serre',
+        classText: data.gesApproxBefore,
+        scoreText: data.gesScoreBefore,
+        icon: 'CO₂',
+        bannerLabel: 'Émissions moyennes',
+        valueText: `≈ ${frSmart(data.before.ges)} kgCO₂e/m².an`
+      });
+      cDpePeriodCard(ctx, 826, 182, 738, 470, data.after.label || 'Après travaux', {
+        type: 'energy',
+        title: 'Énergie (DPE)',
+        subtitle: 'Consommation d’énergie',
+        classText: data.energyApproxAfter,
+        scoreText: data.energyScoreAfter,
+        icon: '⌂',
+        bannerLabel: 'Consommation moyenne',
+        valueText: `≈ ${frSmart(data.after.energy)} kWhEP/m².an`
+      }, {
+        type: 'ges',
+        title: 'Émissions de GES',
+        subtitle: 'Émissions de gaz à effet de serre',
+        classText: data.gesApproxAfter,
+        scoreText: data.gesScoreAfter,
+        icon: 'CO₂',
+        bannerLabel: 'Émissions moyennes',
+        valueText: `≈ ${frSmart(data.after.ges)} kgCO₂e/m².an`
+      });
+      cr(ctx, 36, 676, 1528, 168, 22, '#ffffff', '#2b8a57', 1.4);
+      const sw = 1528 / 4;
+      cDpeSummaryTile(ctx, 36, 676, sw, 168, '↗', 'Classe énergie', `≈ ${frSmart(data.energyClassGain)}`, data.energyClassGain > 1.05 ? 'classes gagnées' : 'classe gagnée');
+      cDpeSummaryTile(ctx, 36 + sw, 676, sw, 168, '⚡', 'Consommation d’énergie', `− ${frSmart(data.energyDelta)} kWhEP/m².an`, '', `≈ −${frSmart(data.energyPercent)} %`);
+      cDpeSummaryTile(ctx, 36 + sw * 2, 676, sw, 168, 'CO₂', 'Classe GES', `≈ ${frSmart(data.gesClassGain)}`, data.gesClassGain > 1.05 ? 'classes gagnées' : 'classe gagnée');
+      cDpeSummaryTile(ctx, 36 + sw * 3, 676, sw, 168, '↓', 'Émissions GES', `− ${frSmart(data.gesDelta)} kgCO₂e/m².an`, '', `≈ −${frSmart(data.gesPercent)} %`);
+      cr(ctx, 36, 864, 1528, 34, 16, '#eef3ee');
+      cr(ctx, 50, 870, 22, 22, 11, EXPORT_TEAL);
+      ct(ctx, 'i', 61, 881, 15, 900, '#fff', 'center', 'middle');
+      cwrap(ctx, `Clé de lecture : ${data.note}`, 86, 878, 1450, 12.5, 900, '#0c642f', 1.2, 2);
+      return;
+    }
+
+    if (activeTab === 'heatingMatrix' || activeTab === 'ecsMatrix') {
+      cTransitionMatrixSlide(ctx, activeTab);
       return;
     }
 
@@ -1801,8 +3274,13 @@
     }
   }
 
-  async function reliableSlidePngBlob() {
-    if (activeTab === 'map') return mapSlidePngBlob();
+  async function waitForPaintFrames(count = 2) {
+    for (let i = 0; i < count; i += 1) {
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    }
+  }
+
+  async function legacyCanvasSlidePngBlob() {
     const canvas = document.createElement('canvas');
     canvas.width = 3840;
     canvas.height = 2160;
@@ -1814,6 +3292,65 @@
     return canvasToBlob(canvas, 'image/png', 1);
   }
 
+  async function html2CanvasSlidePngBlob() {
+    const renderer = await ensureHtml2Canvas();
+    const originalTransform = slide.style.transform;
+    slide.style.transform = 'none';
+    try {
+      await waitForSlideAssets();
+      await waitForPaintFrames(2);
+      const canvas = await renderer(slide, {
+        backgroundColor: '#ffffff',
+        scale: 2.4,
+        width: 1600,
+        height: 900,
+        useCORS: true,
+        allowTaint: false,
+        imageTimeout: 6000,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1600,
+        windowHeight: 900
+      });
+      return canvasToBlob(canvas, 'image/png', 1);
+    } finally {
+      slide.style.transform = originalTransform;
+    }
+  }
+
+  async function reliableSlidePngBlob() {
+    await waitForSlideAssets();
+    await waitForPaintFrames(2);
+
+    // Onglets sensibles : traceur Canvas dédié et autonome.
+    // Le bâtiment est dessiné avec object-fit "contain" (ratio conservé),
+    // ce qui empêche tout étirement horizontal sur Équipements / Construction.
+    if (['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels'].includes(activeTab)) {
+      try {
+        return await legacyCanvasSlidePngBlob();
+      } catch (canvasError) {
+        console.warn('Traceur Canvas dédié en échec, tentative rendu DOM/SVG.', canvasError);
+        try { return await nativeSlidePngBlob(); }
+        catch (svgError) {
+          try { return await html2CanvasSlidePngBlob(); }
+          catch (htmlError) { throw new Error([canvasError,svgError,htmlError].map(e=>e?.message||String(e)).join(' | ')); }
+        }
+      }
+    }
+    if (activeTab === 'map') return mapSlidePngBlob();
+
+    try { return await nativeSlidePngBlob(); }
+    catch (svgError) {
+      console.warn('Export SVG→PNG principal en échec, tentative Canvas.', svgError);
+      try { return await legacyCanvasSlidePngBlob(); }
+      catch (canvasError) {
+        try { return await html2CanvasSlidePngBlob(); }
+        catch (htmlError) { throw new Error([svgError,canvasError,htmlError].map(e=>e?.message||String(e)).join(' | ')); }
+      }
+    }
+  }
+
   async function mapSlidePngBlob() {
     if (!mapGeoJSON) await ensureMapGeoJSON();
     if (activeTab === 'map') drawDepartmentMap();
@@ -1822,16 +3359,34 @@
     if (!svg) throw new Error('Carte non disponible.');
     const source = new XMLSerializer().serializeToString(svg);
     const blob = new Blob([source], {type:'image/svg+xml;charset=utf-8'});
-    let bitmap = null;
-    const canvas = document.createElement('canvas'); canvas.width=3840; canvas.height=2160;
-    const ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,3840,2160);
+    const canvas = document.createElement('canvas');
+    canvas.width = 3840;
+    canvas.height = 2160;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.scale(2.4, 2.4);
+    cHeader(ctx, 'CARTOGRAPHIE DES OPÉRATIONS', 'Répartition des projets par département', 'Une bulle = le nombre de projets renseignés');
+
+    const drawMapImage = image => {
+      // Même emplacement que .map-slide-canvas à l'écran.
+      ctx.drawImage(image, 28, 132, 1544, 748);
+    };
+
     if (window.createImageBitmap) {
-      try { bitmap = await createImageBitmap(blob); ctx.drawImage(bitmap,0,0,3840,2160); if(bitmap.close) bitmap.close(); return canvasToBlob(canvas,'image/png',1); } catch(e) {}
+      try {
+        const bitmap = await createImageBitmap(blob);
+        drawMapImage(bitmap);
+        if (bitmap.close) bitmap.close();
+        ctx.restore();
+        return canvasToBlob(canvas,'image/png',1);
+      } catch (e) {}
     }
-    const url = URL.createObjectURL(blob); const img = new Image();
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
     try {
       await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});
-      ctx.drawImage(img,0,0,3840,2160);
+      drawMapImage(img);
+      ctx.restore();
       return canvasToBlob(canvas,'image/png',1);
     } finally { URL.revokeObjectURL(url); }
   }
@@ -1927,31 +3482,8 @@
   }
 
   async function exportPngHtml2Canvas() {
-    const renderer = await ensureHtml2Canvas();
-    const originalTransform = slide.style.transform;
-    slide.style.transform = 'none';
-    try {
-      await waitForSlideAssets();
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const canvas = await renderer(slide, {
-        backgroundColor: '#ffffff',
-        scale: 2.4,
-        width: 1600,
-        height: 900,
-        useCORS: true,
-        allowTaint: false,
-        imageTimeout: 6000,
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 1600,
-        windowHeight: 900
-      });
-      const blob = await canvasToBlob(canvas, 'image/png', 1);
-      downloadBlob(blob, `${exportNames[activeTab]}-4K.png`);
-    } finally {
-      slide.style.transform = originalTransform;
-    }
+    const blob = await html2CanvasSlidePngBlob();
+    downloadBlob(blob, `${exportNames[activeTab]}-4K.png`);
   }
 
   function readSlideCss() {
@@ -2043,6 +3575,8 @@
   }
 
   async function nativeSlidePngBlob() {
+    await waitForSlideAssets();
+    await waitForPaintFrames(2);
     const svgMarkup = await buildSelfContainedSlideSvgMarkup();
     const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
     const canvas = document.createElement('canvas');
@@ -2140,6 +3674,88 @@
   }
 
 
+  async function pngBlobToJpegDescriptor(pngBlob) {
+    const url = URL.createObjectURL(pngBlob);
+    const img = new Image();
+    try {
+      await new Promise((resolve,reject)=>{ img.onload=resolve; img.onerror=reject; img.src=url; });
+      const canvas=document.createElement('canvas'); canvas.width=1600; canvas.height=900;
+      const ctx=canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,1600,900); ctx.drawImage(img,0,0,1600,900);
+      const jpeg=await canvasToBlob(canvas,'image/jpeg',0.94);
+      return {width:1600,height:900,bytes:new Uint8Array(await jpeg.arrayBuffer())};
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  function buildPdfFromJpegs(images) {
+    const enc = new TextEncoder();
+    const parts=[]; const offsets=[0]; let length=0;
+    const push = value => { const bytes = typeof value === 'string' ? enc.encode(value) : value; parts.push(bytes); length += bytes.length; };
+    push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    const pageObjNums=[], imageObjNums=[], contentObjNums=[];
+    let next=3;
+    images.forEach(()=>{ pageObjNums.push(next++); imageObjNums.push(next++); contentObjNums.push(next++); });
+    const objCount=next-1;
+    const startObj=(n)=>{ offsets[n]=length; push(`${n} 0 obj\n`); };
+    startObj(1); push('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+    startObj(2); push(`<< /Type /Pages /Count ${images.length} /Kids [${pageObjNums.map(n=>`${n} 0 R`).join(' ')}] >>\nendobj\n`);
+    images.forEach((img,i)=>{
+      const p=pageObjNums[i], im=imageObjNums[i], c=contentObjNums[i];
+      startObj(p); push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${c} 0 R >>\nendobj\n`);
+      startObj(im); push(`<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.bytes.length} >>\nstream\n`); push(img.bytes); push('\nendstream\nendobj\n');
+      const content=enc.encode('q\n960 0 0 540 0 0 cm\n/Im0 Do\nQ\n');
+      startObj(c); push(`<< /Length ${content.length} >>\nstream\n`); push(content); push('endstream\nendobj\n');
+    });
+    const xref=length; push(`xref\n0 ${objCount+1}\n`); push('0000000000 65535 f \n');
+    for(let i=1;i<=objCount;i++) push(`${String(offsets[i]).padStart(10,'0')} 00000 n \n`);
+    push(`trailer\n<< /Size ${objCount+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    const out=new Uint8Array(length); let pos=0; parts.forEach(part=>{out.set(part,pos);pos+=part.length;});
+    return new Blob([out],{type:'application/pdf'});
+  }
+
+  async function legacyCanvasSlideJpegDescriptor(width = 1600, height = 900, quality = 0.92) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.save();
+    ctx.scale(width / 1600, height / 900);
+    await drawReliableSlide(ctx);
+    ctx.restore();
+    const jpeg = await canvasToBlob(canvas, 'image/jpeg', quality);
+    return { width, height, bytes: new Uint8Array(await jpeg.arrayBuffer()) };
+  }
+
+  async function workbookSlideJpegDescriptor() {
+    if (activeTab === 'map') {
+      const png = await mapSlidePngBlob();
+      return pngBlobToJpegDescriptor(png);
+    }
+    return legacyCanvasSlideJpegDescriptor(1600, 900, 0.92);
+  }
+
+  async function exportWorkbookPdfBlob(onProgress = null) {
+    const originalTab=activeTab;
+    const orderedTabs=tabs.map(tab=>tab.dataset.tab);
+    const images=[];
+    try {
+      for(let i=0;i<orderedTabs.length;i++){
+        activeTab=orderedTabs[i];
+        tabs.forEach(tab=>tab.classList.toggle('active',tab.dataset.tab===activeTab));
+        renderControls(); renderSlide();
+        await waitForSlideAssets(); await waitForPaintFrames(2);
+        if(onProgress) onProgress(i+1,orderedTabs.length,activeTab);
+        images.push(await workbookSlideJpegDescriptor());
+      }
+      return buildPdfFromJpegs(images);
+    } finally {
+      activeTab=originalTab;
+      tabs.forEach(tab=>tab.classList.toggle('active',tab.dataset.tab===activeTab));
+      renderControls(); renderSlide();
+    }
+  }
+
   function printSlideToPdf() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -2233,6 +3849,46 @@
     printPdfBtn.addEventListener('click', printSlideToPdf);
   }
 
+  function fitPresentationSlide() {
+    if (!document.body.classList.contains('presentation-mode')) return;
+    const tabsBar = document.querySelector('.tabs');
+    const tabsHeight = tabsBar ? Math.max(44, tabsBar.getBoundingClientRect().height) : 58;
+    const scale = Math.max(0.2, Math.min(window.innerWidth / 1600, (window.innerHeight - tabsHeight) / 900));
+    slideStage.style.setProperty('width', `${1600 * scale}px`, 'important');
+    slideStage.style.setProperty('height', `${900 * scale}px`, 'important');
+    slide.style.setProperty('transform', `scale(${scale})`, 'important');
+    slide.style.transformOrigin = 'top left';
+  }
+
+  if (presentationBtn) {
+    presentationBtn.addEventListener('click', async () => {
+      document.body.classList.add('presentation-mode');
+      try { if (document.fullscreenElement !== document.getElementById('appShell')) await document.getElementById('appShell').requestFullscreen(); } catch (e) {}
+      requestAnimationFrame(fitPresentationSlide);
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        document.body.classList.remove('presentation-mode');
+        slideStage.style.removeProperty('width'); slideStage.style.removeProperty('height'); slide.style.removeProperty('transform');
+        setZoom(num(zoomRange.value));
+      } else requestAnimationFrame(fitPresentationSlide);
+    });
+    window.addEventListener('resize', () => { if (document.body.classList.contains('presentation-mode')) fitPresentationSlide(); });
+  }
+
+  if (exportWorkbookBtn) {
+    exportWorkbookBtn.addEventListener('click', async () => {
+      try {
+        exportWorkbookBtn.disabled=true;
+        const pdf=await exportWorkbookPdfBlob((i,total)=>{ exportWorkbookBtn.textContent=`PDF ${i}/${total}…`; });
+        downloadBlob(pdf,'prestaterre-observatoire-classeur.pdf');
+        toast('Classeur PDF exporté avec tous les onglets.');
+      } catch (err) {
+        console.error(err); toast('Échec de l’export du classeur PDF.');
+      } finally { exportWorkbookBtn.disabled=false; exportWorkbookBtn.textContent='Export classeur'; }
+    });
+  }
+
   if (exportSvgBtn) {
     exportSvgBtn.addEventListener('click', async () => {
       try {
@@ -2266,6 +3922,15 @@
         openCaptureBtn.textContent = 'Capture 16:9';
       }
     });
+  }
+
+  if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+    window.__prestaterreQA = {
+      setTab(name){ const tab=tabs.find(t=>t.dataset.tab===name); if(!tab) throw new Error('Onglet inconnu'); activeTab=name; tabs.forEach(t=>t.classList.toggle('active',t===tab)); renderControls(); renderSlide(); return name; },
+      async png(){ return reliableSlidePngBlob(); },
+      async workbookPdf(){ return exportWorkbookPdfBlob(); },
+      tabs(){ return tabs.map(t=>t.dataset.tab); }
+    };
   }
 
   renderControls();

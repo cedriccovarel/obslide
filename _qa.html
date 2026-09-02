@@ -7,30 +7,7 @@
   <title>Générateur de slides - Observatoire</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="auth-locked">
-  <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
-    <div class="auth-brand">
-      <div class="auth-mark" aria-hidden="true"></div>
-      <div>
-        <p class="auth-eyebrow">OBSERVATOIRE DU BÂTIMENT DURABLE</p>
-        <h1>Générateur de slides</h1>
-        <p>Prestaterre Certification</p>
-      </div>
-    </div>
-    <form id="authForm" class="auth-card" autocomplete="off">
-      <div class="auth-card-icon" aria-hidden="true">●</div>
-      <h2>Accès Observatoire</h2>
-      <p>Renseignez le mot de passe pour accéder au générateur.</p>
-      <label for="authPassword">Mot de passe</label>
-      <div class="auth-password-row">
-        <input id="authPassword" type="password" autocomplete="current-password" required autofocus />
-        <button id="authToggle" class="auth-toggle" type="button" aria-label="Afficher ou masquer le mot de passe">Afficher</button>
-      </div>
-      <button class="auth-submit" type="submit">Accéder au générateur</button>
-      <div id="authError" class="auth-error" role="alert" aria-live="polite"></div>
-    </form>
-  </section>
-
+<body>
   <div id="appShell" class="app-shell" aria-hidden="true">
   <header class="app-header">
     <div>
@@ -99,7 +76,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
-  <script src="auth.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
