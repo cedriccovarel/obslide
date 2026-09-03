@@ -1117,3 +1117,50 @@ body.presentation-mode .slide{transform:scale(1)!important;transform-origin:top 
 
 /* Auth V26.1: garde-fou contre cache CSS incoherent */
 .auth-screen[hidden], .auth-screen[aria-hidden="true"]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+
+/* ===== V27 · barre d'outils, onglets modulables et slides vides ===== */
+.header-actions{position:relative;overflow:visible!important}
+.add-slide-wrap{position:relative;display:inline-flex}
+.add-slide-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:5000;width:260px;max-height:430px;overflow:auto;padding:8px;background:#fff;border:1px solid #cbd9d4;border-radius:14px;box-shadow:0 18px 46px rgba(17,55,50,.18)}
+.add-slide-menu[hidden]{display:none!important}
+.add-slide-option{width:100%;border:0;background:#fff;color:#173b3f;padding:10px 12px;border-radius:9px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.add-slide-option:hover:not(:disabled){background:#eef6f2;color:#06402B}
+.add-slide-option:disabled{opacity:.42;cursor:default}
+.add-slide-option span{font-size:9px;font-weight:700;color:#7c8f8d}
+
+.tabs{align-items:center;gap:8px;min-height:56px}
+.tab{position:relative;display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;padding:10px 29px 10px 14px;transition:.16s ease}
+.tab-label{pointer-events:none}
+.tab-close{position:absolute;top:2px;right:5px;width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:#78908c;font-size:15px;font-weight:900;line-height:18px;display:grid;place-items:center;cursor:pointer;padding:0}
+.tab:hover .tab-close{background:#e8f0ed;color:#284d49}
+.tab.active .tab-close{color:rgba(255,255,255,.78)}
+.tab.active .tab-close:hover{background:rgba(255,255,255,.16);color:#fff}
+.tab.dragging{opacity:.38}
+.tab.drag-over{box-shadow:inset 3px 0 0 #1c8b5a}
+body.presentation-mode .tab-close{display:none!important}
+
+.cover-logo-placeholder{position:absolute;left:72px;top:400px;width:520px;height:170px;z-index:2;border:2px dashed #9bb5ab;border-radius:16px;background:#fbfdfc;color:#55736d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.cover-logo-placeholder span{font-size:52px;line-height:.8;font-weight:300;color:#06402B}
+.cover-logo-placeholder b{font-size:17px}
+.cover-logo-placeholder:hover{background:#f2f8f5;border-color:#16714c}
+
+.blank-slide{background:#06402B!important;overflow:hidden}
+.blank-slide-canvas{position:absolute;inset:0;width:1600px;height:900px;overflow:hidden}
+.blank-slide-text{position:absolute;max-width:1400px;white-space:pre-wrap;line-height:1.15;word-break:break-word}
+.control-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.control-section-head h3{margin:0}
+.blank-text-editor textarea{resize:vertical;min-height:72px}
+
+/* Logo Prestaterre sur la page d'accueil */
+.auth-logo{display:block;width:min(360px,70vw);height:auto;object-fit:contain;object-position:left center}
+.auth-brand{flex-direction:column;gap:22px}
+.auth-brand>div{padding-left:18px;border-left:7px solid #06402B}
+
+@media(max-width:900px){
+  .auth-logo{width:min(290px,76vw)}
+  .add-slide-menu{left:0;right:auto}
+}
+
+/* V27.3 - ajout slide natif */
+.add-slide-select{appearance:auto;-webkit-appearance:menulist;min-width:150px;cursor:pointer;padding-right:10px;}
+.add-slide-select option{font-weight:600;color:#173b3f;background:#fff;}

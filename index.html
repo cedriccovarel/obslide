@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#06402B" />
   <title>Générateur de slides - Observatoire</title>
-  <link rel="stylesheet" href="style.css?v=26.1" />
+  <link rel="stylesheet" href="style.css?v=27" />
 </head>
 <body class="auth-locked">
   <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
     <div class="auth-brand">
-      <div class="auth-mark" aria-hidden="true"></div>
+      <img class="auth-logo" src="assets/prestaterre_logo_green.png" alt="Prestaterre Certification">
       <div>
         <p class="auth-eyebrow">OBSERVATOIRE DU BÂTIMENT DURABLE</p>
         <h1>Générateur de slides</h1>
@@ -36,37 +36,25 @@
     <div>
       <p class="eyebrow">OBSERVATOIRE DU BÂTIMENT DURABLE</p>
       <h1>Générateur de slides</h1>
-      <p class="app-subtitle">11 modèles réutilisables · saisie libre · export PNG 4K 16:9</p>
+      <p class="app-subtitle">Slides modulables · saisie libre · export PNG 4K 16:9</p>
     </div>
     <div class="header-actions">
       <button id="loadSaveBtn" class="btn btn-secondary" type="button">Charger</button>
       <button id="saveProjectBtn" class="btn btn-save" type="button">Sauvegarder</button>
-      <button id="resetBtn" class="btn btn-secondary" type="button">Réinit.</button>
-      <button id="exportBtn" class="btn btn-primary" type="button" title="Export PNG 4K standard">PNG 4K</button>
-      <button id="exportOfflineBtn" class="btn btn-secondary" type="button" title="Export PNG hors ligne sans dépendance Internet">PNG hors-ligne</button>
-      <button id="exportFallbackBtn" class="btn btn-secondary" type="button" title="Méthode d’export alternative">PNG secours</button>
-      <button id="exportSvgBtn" class="btn btn-secondary" type="button" title="Export hors ligne vectoriel compatible présentation">SVG</button>
-      <button id="printPdfBtn" class="btn btn-secondary" type="button" title="Alternative hors connexion via l’impression du navigateur">PDF</button>
+      <div class="add-slide-wrap">
+        <select id="addSlideSelect" class="btn btn-secondary add-slide-select" aria-label="Ajouter une slide">
+          <option value="">Ajouter slide ▾</option>
+        </select>
+      </div>
       <button id="presentationBtn" class="btn btn-secondary" type="button" title="Afficher les slides en plein écran avec les onglets">Présentation</button>
-      <button id="exportWorkbookBtn" class="btn btn-secondary" type="button" title="Exporter tous les onglets dans un seul PDF">Export classeur</button>
-      <button id="openCaptureBtn" class="btn btn-secondary" type="button" title="Ouvre la slide seule en grand format, prête pour une capture d’écran propre">Capture 16:9</button>
+      <button id="exportBtn" class="btn btn-primary" type="button" title="Export PNG 4K">PNG 4K</button>
+      <button id="exportSvgBtn" class="btn btn-secondary" type="button" title="Export SVG">SVG</button>
+      <button id="exportWorkbookBtn" class="btn btn-secondary" type="button" title="Ouvrir le dialogue d’impression pour imprimer ou enregistrer tout le classeur en PDF">Export classeur</button>
       <input id="loadSaveInput" type="file" accept="application/json,.json" hidden />
     </div>
   </header>
 
-  <nav class="tabs" aria-label="Slides">
-    <button class="tab active" data-tab="cover">0. Couverture</button>
-    <button class="tab" data-tab="evolution">1. Évolution des projets</button>
-    <button class="tab" data-tab="map">2. Cartographie départements</button>
-    <button class="tab" data-tab="labels">3. Labels & performances</button>
-    <button class="tab" data-tab="tunnel">4. Tunnel de certification</button>
-    <button class="tab" data-tab="envelope">5. Construction & isolation</button>
-    <button class="tab" data-tab="equipments">6. Équipements</button>
-    <button class="tab" data-tab="heatingMatrix">7. Transition chauffage</button>
-    <button class="tab" data-tab="ecsMatrix">8. Transition ECS</button>
-    <button class="tab" data-tab="carbon">9. Indicateurs carbone</button>
-    <button class="tab" data-tab="dpe">10. DPE avant / après</button>
-  </nav>
+  <nav id="tabsNav" class="tabs" aria-label="Slides"></nav>
 
   <main class="workspace">
     <aside class="control-panel">
@@ -99,7 +87,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
-  <script src="auth.js?v=26.1"></script>
-  <script src="app.js?v=26.1"></script>
+  <script src="auth.js?v=27"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>

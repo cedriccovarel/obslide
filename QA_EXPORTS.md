@@ -32,3 +32,12 @@ Test automatisé dans Chromium sur les 11 onglets. Chaque export a été génér
 
 ## Authentification
 Le mot de passe n'est pas stocké en clair dans les fichiers ; seule son empreinte SHA-256 est présente dans `auth.js`.
+
+
+## V27.8 — contrôle anti-tainted canvas
+- Couverture : fond et logo exportés uniquement depuis data URL.
+- Tunnel : les 4 pictogrammes de phase sont embarqués en data URL ; aucun <img> DOM n'est dessiné dans le canvas.
+- Construction & isolation / Équipements : bâtiment exporté uniquement depuis BUILDING_DATA_URL embarquée.
+- Labels, Evolution, Matrices, Carbone, DPE, Slide vide : aucun média externe n'est dessiné dans le canvas.
+- Cartographie : export SVG administratif dédié, sans image externe.
+- Le chemin PNG 4K / Export classeur n'utilise plus de drawImage provenant d'un élément image du DOM.

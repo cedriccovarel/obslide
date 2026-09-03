@@ -147,3 +147,27 @@ Les matrices Chauffage et ECS ont également été recadrées en partie haute et
 - après authentification, l'écran de connexion est retiré du DOM ;
 - protection supplémentaire par attribut `hidden` et styles inline ;
 - cache-busting sur CSS/JS pour GitHub Pages afin d'éviter un mélange ancienne/nouvelle version.
+
+## V27 — présentation modulable
+- Barre d’outils simplifiée : Charger, Sauvegarder, Ajouter slide, Présentation, PNG 4K, SVG, Export classeur.
+- Ajout/suppression des slides depuis la présentation.
+- Réorganisation des onglets par glisser-déposer.
+- Bouton × sur chaque onglet pour l’exclure de la présentation.
+- Menu « Ajouter slide » avec toutes les typologies existantes et une typologie « Vide ».
+- Slides vides : fond vert Prestaterre, blocs texte multiples, police, taille, graisse, alignement et position réglables.
+- Couverture : aucun logo client par défaut ; un cadre « + Ajouter une image / un logo » est affiché jusqu’à l’import d’une image.
+- Page d’accueil : ajout du logo Prestaterre Certification.
+- Sauvegarde JSON : mémorise aussi l’ordre des slides, les suppressions et les slides vides.
+
+
+## V27.3
+- Menu **Ajouter slide** remplacé par un menu déroulant natif et fiable.
+- **Export classeur** ouvre désormais le dialogue d’impression du navigateur : choix d’une imprimante ou **Enregistrer au format PDF**.
+- Le classeur est préparé en pages 16:9 (1600 × 900) avec une slide par page.
+
+
+## Correctif V27.6 — export classeur sans canvas contaminé
+- les copies de slides utilisent désormais le même moteur d’export sûr que leur typologie d’origine ;
+- suppression du fallback foreignObject/html2canvas pendant l’export classeur ;
+- l’impression utilise uniquement les PNG générés par les traceurs internes, afin d’éviter l’erreur « Tainted canvases may not be exported » ;
+- le dialogue d’impression reste natif : imprimante ou Enregistrer au format PDF.
