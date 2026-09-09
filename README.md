@@ -171,3 +171,24 @@ Les matrices Chauffage et ECS ont également été recadrées en partie haute et
 - suppression du fallback foreignObject/html2canvas pendant l’export classeur ;
 - l’impression utilise uniquement les PNG générés par les traceurs internes, afin d’éviter l’erreur « Tainted canvases may not be exported » ;
 - le dialogue d’impression reste natif : imprimante ou Enregistrer au format PDF.
+
+
+## V28 — nouveaux onglets Observatoire
+- Base fonctionnelle reprise de la V27.8 (exports sécurisés Canvas / SVG sans ressources DOM cross-origin).
+- Nouvel onglet **Répartition bailleurs / promoteurs** : camembert, légende, total et KPI par catégorie.
+- Nouvel onglet **Maîtres d’ouvrage** : classement des MOA, nombre de projets, part du total et KPI de synthèse.
+- Suppression des colonnes / notions « typologie dominante » et « référentiel principal » sur la slide MOA.
+- Titres et sous-titres modifiables pour les slides standards ; titres déjà modifiables conservés pour Évolution et matrices.
+- Nom de chaque onglet renommable indépendamment depuis le panneau de contrôle.
+- Duplications toujours indépendantes via `presentation.instanceData`.
+- Nouveaux onglets intégrés au PNG 4K, SVG et à l’export classeur / impression.
+- Format inchangé : **1600 × 900 (16:9)**, compatible Google Slides.
+
+
+## V28.1 — import MOA Excel + titres éditables
+- Onglet Maîtres d’ouvrage : copier-coller direct de deux colonnes Excel / Google Sheets (MOA + nombre de projets).
+- Import en remplacement ou ajout à la liste existante.
+- Les doublons de MOA sont regroupés et leurs nombres de projets additionnés.
+- Jusqu’à 100 lignes éditables manuellement dans le panneau, l’import peut contenir davantage de lignes ; la slide affiche automatiquement le classement principal.
+- Les titres et sous-titres de toutes les slides qui possèdent un en-tête sont modifiables dans « Nom & textes ».
+- Le nom des onglets reste modifiable indépendamment du titre de la slide.
