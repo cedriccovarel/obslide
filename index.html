@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#06402B" />
   <title>Générateur de slides - Observatoire</title>
-  <link rel="stylesheet" href="style.css?v=281" />
+  <link rel="stylesheet" href="style.css?v=29.3" />
 </head>
 <body class="auth-locked">
   <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
@@ -41,6 +41,7 @@
     <div class="header-actions">
       <button id="loadSaveBtn" class="btn btn-secondary" type="button">Charger</button>
       <button id="saveProjectBtn" class="btn btn-save" type="button">Sauvegarder</button>
+      <button id="dataSourceBtn" class="btn btn-data-source" type="button" title="Connecter une source Google Sheets / Apps Script"><span id="dataSourceDot" class="data-source-dot"></span><span id="dataSourceLabel">Données</span></button>
       <div class="add-slide-wrap">
         <select id="addSlideSelect" class="btn btn-secondary add-slide-select" aria-label="Ajouter une slide">
           <option value="">Ajouter slide ▾</option>
@@ -85,9 +86,40 @@
     </section>
   </main>
 
+  <div id="dataConnectModal" class="data-modal" hidden>
+    <div class="data-modal-backdrop" data-data-close="1"></div>
+    <section class="data-modal-card" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
+      <div class="data-modal-head"><div><span class="data-kicker">V29.1 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
+      <div class="data-modal-grid">
+        <div class="data-source-card">
+          <label>Mode</label>
+          <select id="dataMode"><option value="demo">Démonstration intégrée</option><option value="appsScript">Google Apps Script (JSON)</option><option value="googleSheet">Google Sheet public (CSV)</option></select>
+          <label>URL de la source</label><input id="dataUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec ou URL Google Sheet">
+          <label>Nom de l’onglet Google Sheet</label><input id="dataTab" type="text" value="OPERATIONS">
+          <div class="data-actions"><button id="dataConnectBtn" class="btn btn-primary" type="button">Connecter / actualiser</button><button id="dataDisconnectBtn" class="btn btn-secondary" type="button">Revenir au mode manuel</button></div>
+          <div id="dataFeedback" class="data-feedback">Aucune source connectée.</div>
+        </div>
+        <div class="data-filter-card">
+          <div class="data-filter-title"><b>Filtres globaux</b><span id="dataFilteredCount">0 opération</span></div>
+          <div class="data-filter-grid"><label>Année min<input id="dataYearMin" type="number" placeholder="2019"></label><label>Année max<input id="dataYearMax" type="number" placeholder="2026"></label><label>Référentiel<select id="dataReferential"><option value="">Tous</option></select></label><label>Nature<select id="dataNature"><option value="">Toutes</option><option>Neuf</option><option>Rénovation</option></select></label></div>
+          <div class="data-actions"><button id="dataApplyFilters" class="btn btn-primary" type="button">Appliquer les filtres</button><button id="dataResetFilters" class="btn btn-secondary" type="button">Réinitialiser</button></div>
+          <div class="data-connected-help"><b>Mode connecté :</b> les données manuelles restent récupérables avec « Revenir au mode manuel ». Le style, les textes et les options d’affichage des slides restent modifiables.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside id="dataExplorer" class="data-explorer" aria-hidden="true">
+    <div class="data-explorer-backdrop" data-explorer-close="1"></div>
+    <section class="data-explorer-panel">
+      <div class="data-explorer-head"><div><span class="data-kicker">OPÉRATIONS SOURCES</span><h2 id="dataExplorerTitle">Détail</h2><p id="dataExplorerSub"></p></div><button type="button" class="data-close" data-explorer-close="1">×</button></div>
+      <div class="data-explorer-tools"><input id="dataExplorerSearch" type="search" placeholder="Rechercher une opération, un MOA, un référentiel…"><button id="dataExplorerCopy" class="btn btn-secondary" type="button">Copier la liste</button><button id="dataExplorerCsv" class="btn btn-primary" type="button">Exporter CSV</button></div>
+      <div id="dataExplorerList" class="data-explorer-list"></div>
+    </section>
+  </aside>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
-  <script src="auth.js?v=281"></script>
-  <script src="app.js?v=281"></script>
+  <script src="auth.js?v=291"></script>
+  <script src="app.js?v=29.3"></script>
 </body>
 </html>

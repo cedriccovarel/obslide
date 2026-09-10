@@ -198,11 +198,12 @@ const MAP_GEOJSON_URLS = [
       subtitle: 'PAR ÉTAPE DE LA CERTIFICATION',
       period: '2019-2026', cancelled: 69, sold: 20,
       statuses: [
-        {key:'notStarted',value:54,label:'Non démarrés / incomplets'},
-        {key:'complete',value:28,label:'Dossiers complets / analyse planifiée'},
-        {key:'analysis',value:18,label:'Analyses réalisées'},
-        {key:'visit',value:54,label:'Analyse réalisée + visite planifiée / réalisée'},
-        {key:'compliant',value:46,label:'Dossiers conformes'}
+        {key:'notStarted',value:0,label:'Non démarrée'},
+        {key:'incomplete',value:0,label:'Dossier incomplet'},
+        {key:'planned',value:0,label:'Analyse planifiée'},
+        {key:'analysis',value:0,label:'Analyse réalisée'},
+        {key:'visit',value:0,label:'Visite réalisée'},
+        {key:'compliant',value:0,label:'Évaluation conforme'}
       ]
     },
     carbon: {
@@ -357,7 +358,10 @@ const MAP_GEOJSON_URLS = [
       texts: {
         itemHeader: 'PERFORMANCE',
         valueHeader: 'OCCURRENCES',
-        shareHeader: 'PART DU TOTAL',
+        shareHeader: 'PART OPÉRATIONS',
+        dwellingsHeader: 'TOTAL LOGEMENTS',
+        buildingsHeader: 'TOTAL BÂTIMENTS',
+        shareDwellingsHeader: 'PART LOGEMENTS',
         hiddenLabel: 'performance(s) non affichée(s)',
         kpi1Title: 'TOTAL OCCURRENCES',
         kpi1Subtitle: 'Somme des occurrences renseignées',
@@ -384,7 +388,10 @@ const MAP_GEOJSON_URLS = [
       texts: {
         itemHeader: 'MENTION',
         valueHeader: 'OCCURRENCES',
-        shareHeader: 'PART DU TOTAL',
+        shareHeader: 'PART OPÉRATIONS',
+        dwellingsHeader: 'TOTAL LOGEMENTS',
+        buildingsHeader: 'TOTAL BÂTIMENTS',
+        shareDwellingsHeader: 'PART LOGEMENTS',
         hiddenLabel: 'mention(s) non affichée(s)',
         kpi1Title: 'TOTAL OCCURRENCES',
         kpi1Subtitle: 'Somme des occurrences renseignées',
@@ -436,7 +443,15 @@ const MAP_GEOJSON_URLS = [
 
   let state = loadState();
   if (state.tunnel && Array.isArray(state.tunnel.statuses)) {
-    state.tunnel.statuses = state.tunnel.statuses.filter(item => item && item.key !== 'execution');
+    const oldTunnel = new Map(state.tunnel.statuses.filter(Boolean).map(item => [item.key, item]));
+    state.tunnel.statuses = [
+      {key:'notStarted',value:Number(oldTunnel.get('notStarted')?.value)||0,label:'Non démarrée'},
+      {key:'incomplete',value:0,label:'Dossier incomplet'},
+      {key:'planned',value:Number(oldTunnel.get('complete')?.value)||0,label:'Analyse planifiée'},
+      {key:'analysis',value:Number(oldTunnel.get('analysis')?.value)||0,label:'Analyse réalisée'},
+      {key:'visit',value:Number(oldTunnel.get('visit')?.value)||0,label:'Visite réalisée'},
+      {key:'compliant',value:Number(oldTunnel.get('compliant')?.value)||0,label:'Évaluation conforme'}
+    ];
   }
   if (state.cover && state.cover.logoDataUrl === 'assets/cover_action_logement.png') state.cover.logoDataUrl = '';
   if (!state.presentation || typeof state.presentation !== 'object') state.presentation = clone(defaults.presentation);
@@ -498,6 +513,9 @@ const MAP_GEOJSON_URLS = [
   const zoomValue = document.getElementById('zoomValue');
   const slideStage = document.getElementById('slideStage');
   const toastEl = document.getElementById('toast');
+  const dataSourceBtn = document.getElementById('dataSourceBtn');
+  const dataConnectModal = document.getElementById('dataConnectModal');
+  const dataExplorer = document.getElementById('dataExplorer');
 
   function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 
@@ -1507,9 +1525,9 @@ const MAP_GEOJSON_URLS = [
     return `<div class="control-section"><h3>Textes des encarts</h3>
       ${field('Colonne libellé', `${kind}.texts.itemHeader`, 'text')}
       ${field('Colonne valeur', `${kind}.texts.valueHeader`, 'text')}
-      ${kind === 'moaList' ? `${field('Colonne logements', `${kind}.texts.dwellingsHeader`, 'text')}${field('Colonne bâtiments', `${kind}.texts.buildingsHeader`, 'text')}` : ''}
-      ${field('Colonne part', `${kind}.texts.shareHeader`, 'text')}
-      ${kind === 'moaList' ? field('Colonne part logements', `${kind}.texts.shareDwellingsHeader`, 'text') : ''}
+      ${['moaList','mentionList','performanceList'].includes(kind) ? `${field('Colonne logements', `${kind}.texts.dwellingsHeader`, 'text')}${field('Colonne bâtiments', `${kind}.texts.buildingsHeader`, 'text')}` : ''}
+      ${field('Colonne part opérations', `${kind}.texts.shareHeader`, 'text')}
+      ${['moaList','mentionList','performanceList'].includes(kind) ? field('Colonne part logements', `${kind}.texts.shareDwellingsHeader`, 'text') : ''}
       ${field('Texte éléments non affichés', `${kind}.texts.hiddenLabel`, 'text')}
       ${field('Encart 1 — titre', `${kind}.texts.kpi1Title`, 'text')}
       ${field('Encart 1 — sous-texte', `${kind}.texts.kpi1Subtitle`, 'text')}
@@ -1541,12 +1559,13 @@ const MAP_GEOJSON_URLS = [
     const t = model.texts || {};
     const items = sortedPositiveItems(model.items);
     const total = items.reduce((sum,item)=>sum+item.value,0);
+    const totalDw = model.connectedTotals?.dwellings ?? items.reduce((sum,item)=>sum+Math.max(0,num(item.dwellings)),0);
     const top = items.slice(0,10);
     const top5 = items.slice(0,5).reduce((sum,item)=>sum+item.value,0);
     return `${head(model.title, model.subtitle, '', model.note)}
-      <div class="moa-table-card card">
-        <div class="moa-table-head"><span>#</span><span>${esc(t.itemHeader || 'LIBELLÉ')}</span><span>${esc(t.valueHeader || 'VALEUR')}</span><span>${esc(t.shareHeader || 'PART DU TOTAL')}</span></div>
-        <div class="moa-table-body">${top.map((item,i)=>{ const sharePct=total>0?item.value/total*100:0; return `<div class="moa-table-row"><span>${i+1}</span><b>${esc(item.name)}</b><strong>${frSmart(item.value)}</strong><div class="moa-share"><span>${fr(sharePct,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,sharePct))}%"></em></i></div></div>`; }).join('')}</div>
+      <div class="moa-table-card moa-table-card-ranked-rich card">
+        <div class="moa-table-head"><span>#</span><span>${esc(t.itemHeader || 'LIBELLÉ')}</span><span>${esc(t.valueHeader || 'OCCURRENCES')}</span><span>${esc(t.dwellingsHeader || 'TOTAL LOGEMENTS')}</span><span>${esc(t.buildingsHeader || 'TOTAL BÂTIMENTS')}</span><span>${esc(t.shareHeader || 'PART OPÉRATIONS')}</span><span>${esc(t.shareDwellingsHeader || 'PART LOGEMENTS')}</span></div>
+        <div class="moa-table-body">${top.map((item,i)=>{ const sharePct=total>0?item.value/total*100:0; const dw=Math.max(0,num(item.dwellings)); const bld=Math.max(0,num(item.buildings)); const shareDw=totalDw>0?dw/totalDw*100:0; const connected=dataRuntime.connected&&(kind==='mentionList'||kind==='performanceList'); const tagKind=kind==='mentionList'?'mention':'performance'; return `<div class="moa-table-row ${connected?'data-clickable data-ranked-clickable':''}" ${connected?`data-data-tag-kind="${tagKind}" data-data-tag-label="${esc(item.name)}" title="Afficher les opérations correspondantes"`:''}><span>${i+1}</span><b>${esc(item.name)}</b><strong>${frSmart(item.value)}</strong><strong>${frSmart(dw)}</strong><strong>${frSmart(bld)}</strong><div class="moa-share compact"><span>${fr(sharePct,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,sharePct))}%"></em></i></div><div class="moa-share compact"><span>${fr(shareDw,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,shareDw))}%"></em></i></div></div>`; }).join('')}</div>
         ${items.length>10?`<div class="moa-more">+ ${items.length-10} ${esc(t.hiddenLabel || 'élément(s) non affiché(s)')}</div>`:''}
       </div>
       <div class="moa-kpis">
@@ -1561,12 +1580,23 @@ const MAP_GEOJSON_URLS = [
     const t = model.texts || {};
     const items = sortedPositiveItems(model.items);
     const total = items.reduce((sum,item)=>sum+item.value,0);
+    const totalDw = model.connectedTotals?.dwellings ?? items.reduce((sum,item)=>sum+Math.max(0,num(item.dwellings)),0);
     const top=items.slice(0,10); const top5=items.slice(0,5).reduce((sum,item)=>sum+item.value,0);
     cHeader(ctx,model.title,model.subtitle,model.note);
-    cr(ctx,55,190,1010,630,22,'#fff','#c3d2cf',1.2);cr(ctx,55,190,1010,54,22,'#eef4f1');
-    ct(ctx,'#',82,222,12,900,EXPORT_TEXT);ct(ctx,t.itemHeader || 'LIBELLÉ',140,222,12,900,EXPORT_TEXT);ct(ctx,t.valueHeader || 'VALEUR',680,222,12,900,EXPORT_TEXT);ct(ctx,t.shareHeader || 'PART DU TOTAL',850,222,12,900,EXPORT_TEXT);
-    top.forEach((item,i)=>{const y=270+i*49;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();ct(ctx,String(i+1),88,y,12,800,EXPORT_MUTED,'center','middle');ct(ctx,item.name,140,y,14,800,EXPORT_TEXT,'left','middle');ct(ctx,frSmart(item.value),735,y,14,900,EXPORT_TEXT,'center','middle');const pct=total>0?item.value/total*100:0;ct(ctx,`${fr(pct,1)} %`,850,y,12,700,EXPORT_MUTED,'left','middle');cr(ctx,925,y-6,100,12,6,'#e7efec');cr(ctx,925,y-6,Math.max(0,Math.min(100,pct)),12,6,EXPORT_GREEN);});
-    if(items.length>10){ct(ctx,`+ ${items.length-10} ${t.hiddenLabel || 'élément(s) non affiché(s)'}`,140,785,13,800,EXPORT_GREEN,'left','middle');}
+    const x0=55,w=1010;
+    cr(ctx,x0,190,w,630,22,'#fff','#c3d2cf',1.2); cr(ctx,x0,190,w,54,22,'#eef4f1');
+    const cols=[
+      {key:'rank',label:'#',w:42},{key:'name',label:t.itemHeader||'LIBELLÉ',w:270},
+      {key:'value',label:t.valueHeader||'OCCURRENCES',w:90},{key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:105},
+      {key:'buildings',label:t.buildingsHeader||'TOTAL BÂTIMENTS',w:100},{key:'share',label:t.shareHeader||'PART OPÉRATIONS',w:180},
+      {key:'shareDw',label:t.shareDwellingsHeader||'PART LOGEMENTS',w:180}
+    ];
+    const base=cols.reduce((a,c)=>a+c.w,0), scale=970/base; let xx=75;
+    cols.forEach(c=>{c.x=xx;c.dw=c.w*scale;xx+=c.dw;cwrap(ctx,c.label,c.x+(c.key==='rank'?c.dw/2:4),222,c.dw-8,8.7,900,EXPORT_TEXT,1.04,2,c.key==='rank'?'center':'left');});
+    top.forEach((item,i)=>{const y=270+i*49;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();const dw=Math.max(0,num(item.dwellings)), bld=Math.max(0,num(item.buildings));const pct=total>0?item.value/total*100:0, pctDw=totalDw>0?dw/totalDw*100:0;
+      cols.forEach(c=>{if(c.key==='rank')ct(ctx,String(i+1),c.x+c.dw/2,y,11,800,EXPORT_MUTED,'center','middle');else if(c.key==='name')cwrap(ctx,item.name,c.x+4,y-8,c.dw-8,12.2,800,EXPORT_TEXT,1.08,2);else if(c.key==='value')ct(ctx,frSmart(item.value),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else if(c.key==='dwellings')ct(ctx,frSmart(dw),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else if(c.key==='buildings')ct(ctx,frSmart(bld),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else {const val=c.key==='share'?pct:pctDw;ct(ctx,`${fr(val,1)} %`,c.x+4,y-5,10.5,800,EXPORT_MUTED,'left','middle');cr(ctx,c.x+4,y+7,c.dw-12,8,4,'#e7efec');cr(ctx,c.x+4,y+7,(c.dw-12)*Math.max(0,Math.min(100,val))/100,8,4,EXPORT_GREEN);}});
+    });
+    if(items.length>10)ct(ctx,`+ ${items.length-10} ${t.hiddenLabel || 'élément(s) non affiché(s)'}`,140,785,13,800,EXPORT_GREEN,'left','middle');
     cr(ctx,1100,190,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi1Title || 'TOTAL',1130,230,12,900,EXPORT_GREEN);ct(ctx,frSmart(total),1130,300,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi1Subtitle || '',1130,340,370,12,600,EXPORT_TEXT,1.15,2);
     cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi2Title || 'ÉLÉMENTS DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi2Subtitle || '',1130,555,370,12,600,EXPORT_TEXT,1.15,2);
     cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title || 'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5),1130,728,48,900,EXPORT_GREEN);ct(ctx,t.kpi3Unit || '',1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix || 'Soit'} ${total>0?fr(top5/total*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix || '% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
@@ -1613,6 +1643,9 @@ const MAP_GEOJSON_URLS = [
     cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi2Title||'MAÎTRES D’OUVRAGE DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi2Subtitle||'',1130,555,370,12,600,EXPORT_TEXT,1.15,2);
     cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title||'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5Metric),1130,728,48,900,EXPORT_GREEN);ct(ctx,metric==='dwellings'?'logements':(t.kpi3Unit||'opérations'),1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix||'Soit'} ${metricTotal>0?fr(top5Metric/metricTotal*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix||'% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
   }
+
+  function dataSlideFilterOptions(){const refs=[...new Set(dataRuntime.filtered.map(o=>o.referential).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));return refs;}
+  function dataRenderSlideFilterControls(){if(!dataRuntime.connected||isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';const model=state[tabType(activeTab)],f=dataSlideFilter(model),refs=dataSlideFilterOptions(),count=dataOpsForModel(model).length;return `<div class="control-section connected-slide-filter"><h3>Données de cette slide</h3><p class="help">Filtre uniquement cette slide. Duplique-la pour créer par exemple une vue complète, une vue BEE Logement Neuf et une vue BEE Logement Rénovation.</p><div class="data-slide-filter-count"><strong>${frSmart(count)}</strong> opération${count>1?'s':''} prise${count>1?'s':''} en compte</div><div class="field"><label>Référentiel</label><select data-slide-filter="referential"><option value="">Tous les référentiels</option>${refs.map(r=>`<option value="${esc(r)}" ${f.referential===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div><div class="field"><label>Nature</label><select data-slide-filter="nature"><option value="">Toutes</option><option value="Neuf" ${f.nature==='Neuf'?'selected':''}>Neuf</option><option value="Rénovation" ${f.nature==='Rénovation'?'selected':''}>Rénovation</option></select></div><div class="fields-2"><div class="field"><label>Année min</label><input type="number" data-slide-filter="yearMin" value="${esc(f.yearMin||'')}" placeholder="2019"></div><div class="field"><label>Année max</label><input type="number" data-slide-filter="yearMax" value="${esc(f.yearMax||'')}" placeholder="2026"></div></div><button type="button" class="btn btn-secondary btn-small" data-slide-filter-reset="1">Réinitialiser ce filtre</button></div>`;}
 
   function renderCommonTabControls() {
     if (isBlankTab(activeTab)) return '';
@@ -1872,6 +1905,8 @@ const MAP_GEOJSON_URLS = [
     }
     const commonControls = renderCommonTabControls();
     if (commonControls) controls.insertAdjacentHTML('afterbegin', commonControls);
+    const connectedFilters = dataRenderSlideFilterControls();
+    if (connectedFilters) controls.insertAdjacentHTML('afterbegin', connectedFilters);
   }
 
   function sumWarning(items) {
@@ -1975,7 +2010,7 @@ const MAP_GEOJSON_URLS = [
         <div class="moa-table-head" style="grid-template-columns:${grid}">${columns.map(c=>`<span>${esc(headCell(c))}</span>`).join('')}</div>
         <div class="moa-table-body">${top.map((item,i)=>{
           const opPct=totalOps>0?item.value/totalOps*100:0, dwPct=totalDw>0?item.dwellings/totalDw*100:0;
-          return `<div class="moa-table-row" style="grid-template-columns:${grid}">${columns.map(c=>{
+          return `<div class="moa-table-row ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-moa="${esc(item.name)}" title="Afficher les opérations de ce maître d’ouvrage"`:''} style="grid-template-columns:${grid}">${columns.map(c=>{
             if(c.key==='rank') return `<span>${i+1}</span>`;
             if(c.key==='name') return `<b>${esc(item.name)}</b>`;
             if(c.key==='operations') return `<strong>${frSmart(item.value)}</strong>`;
@@ -2707,12 +2742,12 @@ const MAP_GEOJSON_URLS = [
       {cls:'execution',name:'EXÉCUTION',desc:'3. Évaluation en phase exécution',icon:'assets/tunnel_execution.png'},
       {cls:'delivery',name:'LIVRAISON',desc:'4. Contrôle et délivrance de la certification',icon:'assets/tunnel_delivery.png'}
     ];
-    const colors=['blue','blue2','green1','mint','mint2'];
+    const colors=['blue','blue2','green1','green2','mint','mint2'];
     return `${head(state.tunnel.title,state.tunnel.subtitle)}
       <div class="tunnel-phase-wrap"><div class="tunnel-arrow">→</div><div class="tunnel-phase-row">${phases.map(p=>`<div class="phase-arrow ${p.cls}"><div><small>PHASE</small><b>${p.name}</b></div><img src="${p.icon}" alt=""></div>`).join('')}</div></div>
       <div class="tunnel-phase-desc">${phases.map(p=>`<div>${esc(p.desc)}</div>`).join('')}</div>
       <div class="tunnel-dotted"></div>
-      <div class="tunnel-bubbles">${state.tunnel.statuses.map((item,i)=>`<div class="tunnel-status ${colors[i]||'green1'}"><div class="status-bubble">${frSmart(item.value)}${item.key==='compliant'?'<sup>*</sup>':''}</div><div class="status-label">${esc(item.label)}</div><div class="status-pct">${fr(tunnelPercent(item.value),1)} %</div>${item.key==='compliant'?`<div class="sold-note">* dont ${frSmart(state.tunnel.sold)} soldés</div>`:''}</div>`).join('')}</div>
+      <div class="tunnel-bubbles">${state.tunnel.statuses.map((item,i)=>`<div class="tunnel-status ${colors[i]||'green1'} ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}" title="Afficher les opérations correspondantes"`:''}><div class="status-bubble ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}"`:''}>${frSmart(item.value)}${item.key==='compliant'?'<sup>*</sup>':''}</div><div class="status-label ${dataRuntime.connected?'data-clickable data-status-label-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}"`:''}>${esc(item.label)}</div><div class="status-pct ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}"`:''}>${fr(tunnelPercent(item.value),1)} %</div>${item.key==='compliant'?`<div class="sold-note">* dont ${frSmart(state.tunnel.sold)} soldés</div>`:''}</div>`).join('')}</div>
       <div class="tunnel-footer"><div class="period-box"><b>${esc(state.tunnel.period)}</b><span>PÉRIODE D’ÉTUDE</span></div><div class="cancelled-box">Sur la période <b>${frSmart(state.tunnel.cancelled)}</b> dossiers ont été annulés ou abandonnés</div></div>`;
   }
 
@@ -3051,7 +3086,7 @@ const MAP_GEOJSON_URLS = [
       const dep = DEPARTMENTS.find(d => d.code === code);
       const c = mapFeatureCenter(feature, project);
       const radius = 11 + 20 * Math.sqrt(value / maxValue);
-      svg.appendChild(mapSvgEl('circle', { cx: c[0], cy: c[1], r: radius, fill: forest, stroke: '#ffffff', 'stroke-width': 2 }));
+      svg.appendChild(mapSvgEl('circle', { cx: c[0], cy: c[1], r: radius, fill: forest, stroke: '#ffffff', 'stroke-width': 2, ...(dataRuntime.connected ? {'data-data-department':code, class:'data-map-clickable'} : {}) }));
       mapAddText(svg, frSmart(value), c[0], c[1] + 5, { fill: '#ffffff', size: 15, weight: 900, anchor: 'middle' });
       if (dep) mapAddText(svg, dep.name.toUpperCase(), c[0], c[1] - radius - 7, { fill: text, size: 8, weight: 800, anchor: 'middle' });
     });
@@ -3060,7 +3095,7 @@ const MAP_GEOJSON_URLS = [
       const idfFeatures = features.filter(feature => IDF_CODES.includes(mapFeatureCode(feature)));
       const c = mapGroupCenter(idfFeatures, project);
       const radius = Math.min(36, 13 + 20 * Math.sqrt(idfTotal / maxValue));
-      svg.appendChild(mapSvgEl('circle', { cx: c[0], cy: c[1], r: radius, fill: forest, stroke: '#ffffff', 'stroke-width': 2.5 }));
+      svg.appendChild(mapSvgEl('circle', { cx: c[0], cy: c[1], r: radius, fill: forest, stroke: '#ffffff', 'stroke-width': 2.5, ...(dataRuntime.connected ? {'data-data-department':'IDF', class:'data-map-clickable'} : {}) }));
       mapAddText(svg, frSmart(idfTotal), c[0], c[1] + 6, { fill: '#ffffff', size: 17, weight: 900, anchor: 'middle' });
       mapAddText(svg, 'ÎLE-DE-FRANCE', c[0], c[1] - radius - 9, { fill: text, size: 10, weight: 900, anchor: 'middle' });
     }
@@ -3102,6 +3137,7 @@ const MAP_GEOJSON_URLS = [
 
   controls.addEventListener('input', e => {
     const t = e.target;
+    if (t.dataset.slideFilter !== undefined) { const model=state[tabType(activeTab)]; if(model){ const f=dataSlideFilter(model); f[t.dataset.slideFilter]=t.value; saveTabData(activeTab); dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveState(); renderSlide(); const c=controls.querySelector('.data-slide-filter-count strong'); if(c)c.textContent=frSmart(dataOpsForModel(model).length); } return; }
     if (t.dataset.tabName !== undefined) {
       const value = String(t.value || '').trim();
       if (value) state.presentation.tabNames[activeTab] = value;
@@ -3238,6 +3274,7 @@ const MAP_GEOJSON_URLS = [
 
   controls.addEventListener('change', e => {
     const t = e.target;
+    if (t.dataset.slideFilter !== undefined) { const model=state[tabType(activeTab)]; if(model){ const f=dataSlideFilter(model); f[t.dataset.slideFilter]=t.value; dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveTabData(activeTab); saveState(); renderControls(); renderSlide(); } return; }
     if (isBlankTab(activeTab)) {
       const model = blankModel(activeTab);
       for (const key of ['blankFont','blankWeight','blankAlign']) {
@@ -3276,6 +3313,7 @@ const MAP_GEOJSON_URLS = [
   controls.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.slideFilterReset !== undefined) { const model=state[tabType(activeTab)]; if(model){ model.dataFilter={referential:'',nature:'',yearMin:'',yearMax:''}; dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveTabData(activeTab); saveState(); renderControls(); renderSlide(); } return; }
     if (t.dataset.moaImport !== undefined) {
       importMoaExcelPaste(t.dataset.moaImport === 'append' ? 'append' : 'replace');
       return;
@@ -4120,7 +4158,7 @@ const MAP_GEOJSON_URLS = [
       tunnelIcons.forEach((img,i)=>{ const x=px0+i*(pw+gap)+pw-88;ctx.drawImage(img,x,py+31,46,46); });
       phases.forEach((p,i)=>{ cwrap(ctx,p.desc,130+i*345,344,295,14,500,EXPORT_TEXT,1.2,2); });
       ctx.save();ctx.strokeStyle=EXPORT_GREEN;ctx.lineWidth=4;ctx.setLineDash([4,8]);ctx.beginPath();ctx.moveTo(70,456);ctx.lineTo(1530,456);ctx.stroke();ctx.restore();
-      const colors=[['#d9effe','#123f6a','#88bfe6'],['#e5f2fb','#123f6a','#9bc7e6'],['#408b2e','#ffffff','#16864f'],['#b9f4d1',EXPORT_GREEN,'#16864f'],['#b9f4d1',EXPORT_GREEN,'#16864f']];
+      const colors=[['#d9effe','#123f6a','#88bfe6'],['#e5f2fb','#123f6a','#9bc7e6'],['#408b2e','#ffffff','#16864f'],['#0d6a3f','#ffffff','#16864f'],['#b9f4d1',EXPORT_GREEN,'#16864f'],['#b9f4d1',EXPORT_GREEN,'#16864f']];
       const count=state.tunnel.statuses.length, areaLeft=72, areaRight=1528, colW=(areaRight-areaLeft)/count;
       state.tunnel.statuses.forEach((item,i)=>{
         const cx=areaLeft+colW*(i+.5), cy=540, cfg=colors[i]||colors[2];
@@ -5068,10 +5106,210 @@ const MAP_GEOJSON_URLS = [
     };
   }
 
+
+  /* ============================================================
+     V29 DATA CONNECTED — moteur commun d'opérations
+     ============================================================ */
+  const DATA_SOURCE_STORAGE_KEY = 'prestaterre-v29-connected-source';
+  const DATA_FILTERS_STORAGE_KEY = 'prestaterre-v29-connected-filters';
+  const DATA_MANUAL_SNAPSHOT_KEY = 'prestaterre-v29-manual-snapshot';
+  const DATA_FIELD_ALIASES = {
+    code:['code interne','code opération','code operation','code','id opération','id operation'],
+    name:['nom opération','nom operation',"nom de l'opération (interne)","nom de l'opération",'nom du programme (client)','opération','operation'],
+    department:['département','departement','dept','code département','code departement'],
+    referential:['référentiel: nom du référentiel','referentiel: nom du referentiel','référentiel','referentiel','referential'],
+    moa:["maître d'ouvrage: nom de la société","maitre d'ouvrage: nom de la societe","maître d'ouvrage: société principale: nom de la société","maitre d'ouvrage: societe principale: nom de la societe","maître d'ouvrage",'maitre ouvrage','moa'],
+    moaType:['type moa',"maître d'ouvrage: hiérarchie",'maitre d ouvrage: hierarchie'],
+    status:['évaluation: statut','evaluation: statut','avancement','statut tunnel','tunnel','étape certification','etape certification','affaire: étape','affaire: etape','étape','etape','contrat: statut','statut'],
+    dwellings:['total logements','nombre de logements','logements'],
+    buildings:['total bâtiments','total batiments','nombre de bâtiments','nombre de batiments','bâtiments','batiments'],
+    year:['année','annee','year','année opération','annee operation'],
+    createdDate:['date de création','date de creation','évaluation: date de création','evaluation: date de creation','affaire: date de création','affaire: date de creation'],
+    nature:['nature','rénovation','renovation','type opération','type operation','neuf / rénovation','neuf / renovation'],
+    mentions:['mentions','mention'],
+    performance:['performance','performance environnementale','performance renforcée','performance renforcee'],
+    profile:['profil choisi','profil spécifique','profil specifique'],
+    heatingBefore:['vecteur chauffage avant travaux','chauffage avant travaux','chauffage avant','vecteur chauffage avant'],
+    heatingAfter:['vecteur chauffage après travaux','vecteur chauffage apres travaux','chauffage après travaux','chauffage apres travaux','chauffage après','chauffage apres','vecteur chauffage après','vecteur chauffage apres'],
+    heatingModeAfter:['mode de chauffage après travaux','mode de chauffage apres travaux'],
+    ecsBefore:['vecteur ecs avant travaux','ecs avant travaux','ecs avant','vecteur ecs avant'],
+    ecsAfter:['vecteur ecs après travaux','vecteur ecs apres travaux','ecs après travaux','ecs apres travaux','ecs après','ecs apres','vecteur ecs après','vecteur ecs apres'],
+    ecs:['ecs'], cooling:['refroidissement'], ventilation:['ventilation'],
+    structure:['structure'], roofStructure:['planchers hauts'], roofInsulation:['planchers hauts isolant'], roofThickness:['planchers hauts épaisseur isolant','planchers hauts epaisseur isolant'], roofR:['planchers hauts r isolant'],
+    wallStructure:['parois verticales structure'], wallInsulation:["parois verticales type d’isolant","parois verticales type d'isolant",'parois verticales type isolant'], wallThickness:['parois verticales épaisseur isolant','parois verticales epaisseur isolant'], wallR:['parois verticales r isolant'],
+    floorStructure:['planchers bas structure'], floorInsulation:['planchers bas isolant'], floorThickness:['planchers bas épaisseur isolant','planchers bas epaisseur isolant'], floorR:['planchers bas r isolant'],
+    windowMaterial:['menuiseries matériau','menuiseries materiau'], windowGlazing:['menuiseries vitrage'], windowShading:['menuiseries occultations'],
+    dh:['dh'], dhMax:['dh max'], tic:['tic'], ticRef:['tic ref'],
+    bbio:['bbio'], bbioMax:['bbio max'], cep:['cep'], cepMax:['cep max'], cepnr:['cepnr'], cepnrMax:['cepnr max'], ubatBefore:['ubat avant travaux','ubat avant'], ubatAfter:['ubat après travaux','ubat apres travaux','ubat après','ubat apres'],
+    cepBefore:['cep avant travaux'], cepAfter:['cep après travaux final','cep apres travaux final'],
+    icEnergy:['ic énergie bâtiment','ic energie batiment','ic énergie'], icEnergyMax:['ic énergie max','ic energie max'], icConstruction:['ic composants bâtiment','ic composants batiment','ic construction'], icConstructionMax:['ic construction max'],
+    dpeEnergyBefore:['dpe énergie avant travaux','dpe energie avant travaux','dpe énergie avant','dpe energie avant'], dpeEnergyAfter:['dpe énergie après travaux final','dpe energie apres travaux final','dpe énergie après','dpe energie apres'],
+    dpeGesBefore:['dpe ges avant travaux','dpe ges avant'], dpeGesAfter:['dpe ges après travaux final','dpe ges apres travaux final','dpe ges après','dpe ges apres'],
+    certificationDate:['certification: date de décision cd','certification: date de decision cd']
+  };
+  const DATA_IDF_CODES=['75','77','78','91','92','93','94','95'];
+  const dataRuntime={connected:false,mode:'manual',operations:[],filtered:[],manualSnapshot:null,selection:[],selectionTitle:'',selectionSub:'',filters:{yearMin:'',yearMax:'',referential:'',nature:''}};
+
+  function dataNorm(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' ').trim();}
+  function dataNumber(v){const n=Number(String(v??'').replace(/\s/g,'').replace(',','.').replace(/[^0-9.+-]/g,''));return Number.isFinite(n)?Math.max(0,n):0;}
+  function dataResolveHeader(headers,aliases){const hh=headers.map(dataNorm);for(const alias of aliases){const a=dataNorm(alias);let i=hh.findIndex(h=>h===a);if(i>=0)return i;i=hh.findIndex(h=>h.includes(a));if(i>=0)return i;}return -1;}
+  function dataDepartment(v){const s=String(v??'').trim();const m=s.match(/\b(2A|2B|97[1-6]|\d{2})\b/i);return m?m[1].toUpperCase():s;}
+  function dataStatus(v){const s=dataNorm(v);if(/annul|aband/.test(s))return 'cancelled';if(/evaluation conforme|eval conforme|conforme|solde/.test(s))return 'compliant';if(/visite realisee|visite realise|visite/.test(s))return 'visit';if(/analyse realisee|analyse realise/.test(s))return 'analysis';if(/analyse planifiee|analyse planifie/.test(s))return 'planned';if(/dossier incomplet|incomplet/.test(s))return 'incomplete';if(/non demarree|non demarre|non demar/.test(s))return 'notStarted';return 'notStarted';}
+  function dataRawValue(row, field){ return field ? row[field] : ''; }
+  function dataFirstNonEmpty(values){ for(const v of values){ if(String(v??'').trim()!=='') return v; } return ''; }
+  function dataDateYear(v){ const s=String(v??'').trim(); const m=s.match(/\b(20\d{2}|19\d{2})\b/); return m?Number(m[1]):0; }
+  function dataBoolish(v){ const s=dataNorm(v); return /^(1|oui|yes|true|x|vrai)$/.test(s); }
+  function dataDpeScore(v){ const s=String(v??'').trim().toUpperCase(); const m=s.match(/[A-G]/); return m ? 'ABCDEFG'.indexOf(m[0])+1 : 0; }
+  function dataRowsToOperations(rows){
+    if(!Array.isArray(rows)||!rows.length)return[];
+    const headers=Object.keys(rows[0]||{}), fields={};
+    Object.entries(DATA_FIELD_ALIASES).forEach(([k,a])=>{const i=dataResolveHeader(headers,a);fields[k]=i>=0?headers[i]:null;});
+    const mapped=rows.map((r,i)=>{
+      const rawStatus=String(dataRawValue(r,fields.status)||'');
+      const year=dataNumber(dataRawValue(r,fields.year))||dataDateYear(dataRawValue(r,fields.createdDate));
+      let nature=String(dataRawValue(r,fields.nature)||'').trim();
+      if(fields.nature && dataNorm(fields.nature)==='renovation') nature=dataBoolish(dataRawValue(r,fields.nature))?'Rénovation':''; if(!nature){const rr=dataNorm(dataRawValue(r,fields.referential));nature=/renov/.test(rr)?'Rénovation':(/neuf/.test(rr)?'Neuf':'');}
+      const code=String(dataRawValue(r,fields.code)||`OPE-${i+1}`).trim();
+      return {code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataRawValue(r,fields.department)),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
+    }).filter(o=>o.code||o.name);
+    // Une opération peut apparaître sur plusieurs lignes/bâtiments : on la compte une seule fois.
+    const grouped=new Map();
+    mapped.forEach(o=>{const k=dataNorm(o.code)||dataNorm(o.name);if(!grouped.has(k)){grouped.set(k,o);return;}const g=grouped.get(k);g.rawRows.push(...o.rawRows);['name','department','referential','moa','moaType','nature','heatingBefore','heatingAfter','heatingModeAfter','ecsBefore','ecsAfter','ecs','cooling','ventilation','structure','roofInsulation','wallInsulation','floorInsulation','windowMaterial','mentions','performance','profile','rawStatus'].forEach(key=>{if(!String(g[key]??'').trim()&&String(o[key]??'').trim())g[key]=o[key];});if(!g.year&&o.year)g.year=o.year;if(!g.dwellings&&o.dwellings)g.dwellings=o.dwellings;if(!g.buildings&&o.buildings)g.buildings=o.buildings;if(g.status==='notStarted'&&o.status!=='notStarted')g.status=o.status;g.sold=g.sold||o.sold;});
+    return [...grouped.values()];
+  }
+  function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
+  function dataGoogleCsvUrl(input,tab){const url=String(input||'').trim();if(!url)return'';if(/\.csv($|\?)/i.test(url)||url.includes('output=csv'))return url;const m=url.match(/\/spreadsheets\/d\/([^/]+)/);if(!m)return url;return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab||'OPERATIONS')}`;}
+  function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
+  const DATA_CONNECTED_TYPES=['tunnel','map','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
+  function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
+  function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
+  function dataFilterOps(ops,f={}){return ops.filter(o=>(!f.yearMin||Number(o.year)>=Number(f.yearMin))&&(!f.yearMax||Number(o.year)<=Number(f.yearMax))&&(!f.referential||o.referential===f.referential)&&(!f.nature||dataNorm(o.nature).includes(dataNorm(f.nature))));}
+  function dataFilteredOperations(){return dataFilterOps(dataRuntime.operations,dataRuntime.filters);}
+  function dataSlideFilter(model){if(!model.dataFilter||typeof model.dataFilter!=='object')model.dataFilter={referential:'',nature:'',yearMin:'',yearMax:''};return model.dataFilter;}
+  function dataOpsForModel(model){return dataFilterOps(dataRuntime.filtered,dataSlideFilter(model));}
+  function dataAggregateTunnel(ops){const counts={notStarted:0,incomplete:0,planned:0,analysis:0,visit:0,compliant:0};let cancelled=0,sold=0;ops.forEach(o=>{if(o.status==='cancelled')cancelled++;else if(counts[o.status]!==undefined)counts[o.status]++;if(o.sold)sold++;});return {counts,cancelled,sold};}
+  function dataAggregateMap(ops){const values={};ops.forEach(o=>{const code=dataDepartment(o.department);if(code)values[code]=(values[code]||0)+1;});return values;}
+  function dataAggregateMoa(ops){const map=new Map();ops.forEach(o=>{const name=o.moa||'Non précisé';const key=dataNorm(name);if(!map.has(key))map.set(key,{name,value:0,dwellings:0,buildings:0});const x=map.get(key);x.value+=1;x.dwellings+=dataNumber(o.dwellings);x.buildings+=dataNumber(o.buildings);});return [...map.values()];}
+  function dataAggregateNamed(ops,getter){const m=new Map();ops.forEach(o=>{const v=String(getter(o)||'').trim();if(!v)return;const k=dataNorm(v);if(!m.has(k))m.set(k,{name:v,value:0});m.get(k).value++;});const total=Math.max(1,ops.length);return [...m.values()].sort((a,b)=>b.value-a.value).map(x=>({...x,pct:x.value/total*100}));}
+  function dataSplitValues(v){
+    const text=String(v||'').replace(/\r/g,'\n').trim();
+    if(!text)return[];
+    // Plusieurs mentions / performances peuvent être présentes dans une même cellule.
+    // Séparateurs reconnus : | ; retour ligne, puces et virgules entre libellés.
+    return text
+      .split(/\s*(?:\||;|\n+|•|·|,\s+(?=(?:niveau|mention|bee|bbca|bpec|option|ic|cep|bbio|rt|effinergie|biosourc|passif|sans\s+mention)))\s*/i)
+      .map(x=>x.replace(/^[-–—•]+\s*/,'').trim())
+      .filter(Boolean);
+  }
+  function dataAggregateTags(ops,kind){
+    const m=new Map();
+    const addGlobal=(n,o)=>{n=String(n||'').trim();if(!n)return;const k=dataNorm(n);if(!m.has(k))m.set(k,{name:n,value:0,dwellings:0,buildings:0});const item=m.get(k);item.value++;item.dwellings+=Math.max(0,num(o?.dwellings));item.buildings+=Math.max(0,num(o?.buildings));};
+    ops.forEach(o=>{
+      // Un même libellé n'est compté qu'une fois par opération, même s'il apparaît
+      // à la fois dans la cellule agrégée et dans une colonne dédiée Oui/Non.
+      const perOperation=new Map();
+      const add=n=>{n=String(n||'').trim();if(!n)return;const k=dataNorm(n);if(!perOperation.has(k))perOperation.set(k,n);};
+      dataSplitValues(kind==='mention'?o.mentions:o.performance).forEach(add);
+      const rows=o.rawRows||[o.raw];
+      rows.forEach(r=>Object.entries(r||{}).forEach(([h,v])=>{
+        const hn=dataNorm(h), sv=String(v??'').trim();
+        if(kind==='mention'&&hn.startsWith('mention ')&&dataBoolish(v))add(h.replace(/^Mention\s+/i,''));
+        if(kind==='mention'&&hn==='sans mention'&&dataBoolish(v))add('Sans mention');
+        if(kind==='performance'&&hn.startsWith('niveau ')&&sv&&!/^(0|non|false)$/i.test(sv))add(dataBoolish(v)?h.replace(/^Niveau\s+/i,''): `${h.replace(/^Niveau\s+/i,'')} ${sv}`);
+        if(kind==='performance'&&/performance (environnementale|renforcee|renforcée)/.test(hn)&&sv&&dataBoolish(v))add(h);
+      }));
+      perOperation.forEach(n=>addGlobal(n,o));
+    });
+    return [...m.values()].sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name,'fr'));
+  }
+  function dataOperationHasTag(o,kind,label){
+    const wanted=dataNorm(label), found=new Set();
+    const add=n=>{n=String(n||'').trim();if(n)found.add(dataNorm(n));};
+    dataSplitValues(kind==='mention'?o.mentions:o.performance).forEach(add);
+    const rows=o.rawRows||[o.raw];
+    rows.forEach(r=>Object.entries(r||{}).forEach(([h,v])=>{
+      const hn=dataNorm(h), sv=String(v??'').trim();
+      if(kind==='mention'&&hn.startsWith('mention ')&&dataBoolish(v))add(h.replace(/^Mention\s+/i,''));
+      if(kind==='mention'&&hn==='sans mention'&&dataBoolish(v))add('Sans mention');
+      if(kind==='performance'&&hn.startsWith('niveau ')&&sv&&!/^(0|non|false)$/i.test(sv))add(dataBoolish(v)?h.replace(/^Niveau\s+/i,''): `${h.replace(/^Niveau\s+/i,'')} ${sv}`);
+      if(kind==='performance'&&/performance (environnementale|renforcee|renforcée)/.test(hn)&&sv&&dataBoolish(v))add(h);
+    }));
+    return found.has(wanted);
+  }
+  function dataVectorBucket(v){const s=dataNorm(v);if(!s)return'';if(/gaz/.test(s))return'Gaz';if(/elect|pac|thermodynam/.test(s))return'Électricité';if(/rcu|reseau de chaleur|réseau de chaleur/.test(s))return'RCU';if(/hybrid|mixte/.test(s))return'Hybride';return'Bois / autre';}
+  function dataAggregateMatrix(ops,beforeKey,afterKey){const vectors=['Gaz','Électricité','RCU','Hybride','Bois / autre'];const values=Array.from({length:5},()=>Array(5).fill(0));ops.forEach(o=>{const a=dataVectorBucket(o[beforeKey]),b=dataVectorBucket(o[afterKey]);if(!a||!b)return;values[vectors.indexOf(a)][vectors.indexOf(b)]++;});return {vectors,values};}
+  function dataMeanFromRows(ops,aliases){const vals=[];ops.forEach(o=>(o.rawRows||[o.raw]).forEach(r=>{const hs=Object.keys(r||{});const idx=dataResolveHeader(hs,aliases);if(idx>=0){const raw=r[hs[idx]], n=dataNumber(raw);if(String(raw??'').trim()!==''&&Number.isFinite(n))vals.push(n);}}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
+  function dataPercentItems(ops,key){const arr=dataAggregateNamed(ops,o=>o[key]);const total=arr.reduce((s,x)=>s+x.value,0)||1;return arr.slice(0,8).map(x=>({name:x.name,value:x.value/total*100}));}
+  function dataReferentialSeries(ref){const s=dataNorm(ref);if(/tert.*renov/.test(s))return'tr';if(/tert.*neuf/.test(s))return'tn';if(/logement.*renov|bee lr/.test(s))return'lr';return'ln';}
+  function dataAggregateEvolution(ops){const m=new Map();ops.forEach(o=>{if(!o.year)return;const y=Number(o.year);if(!m.has(y))m.set(y,{year:y,ln:0,lr:0,tn:0,tr:0});m.get(y)[dataReferentialSeries(o.referential)]++;});return [...m.values()].sort((a,b)=>a.year-b.year);}
+  function dataDpeMeanScore(ops,keyAliases){const vals=[];ops.forEach(o=>(o.rawRows||[o.raw]).forEach(r=>{const hs=Object.keys(r||{}),i=dataResolveHeader(hs,keyAliases);if(i>=0){const v=r[hs[i]],score=dataDpeScore(v)||dataNumber(v);if(score>=1&&score<=7)vals.push(score);}}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
+  function dataEnsureTunnelStatuses(model){
+    if(!model)return;
+    const wanted=[
+      ['notStarted','Non démarrée'],
+      ['incomplete','Dossier incomplet'],
+      ['planned','Analyse planifiée'],
+      ['analysis','Analyse réalisée'],
+      ['visit','Visite réalisée'],
+      ['compliant','Évaluation conforme']
+    ];
+    const current=new Map((model.statuses||[]).map(x=>[x.key,x]));
+    model.statuses=wanted.map(([key,label])=>({key,label,value:Number(current.get(key)?.value)||0}));
+  }
+  function dataApplyToModel(type,model,baseOps){
+    if(!model)return;if(type==='tunnel')dataEnsureTunnelStatuses(model);const ops=dataOpsForModel(model);
+    model.dataConnectedCount=ops.length;
+    if(type==='tunnel'){const a=dataAggregateTunnel(ops);(model.statuses||[]).forEach(s=>{if(a.counts[s.key]!==undefined)s.value=a.counts[s.key];});model.cancelled=a.cancelled;model.sold=a.sold;}
+    else if(type==='map')model.values=dataAggregateMap(ops);
+    else if(type==='moaList')model.items=dataAggregateMoa(ops);
+    else if(type==='stakeholderSplit')model.items=dataAggregateNamed(ops,o=>o.moaType||'Non précisé').map(x=>({name:x.name,value:x.value}));
+    else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
+    else if(type==='performanceList'){model.items=dataAggregateTags(ops,'performance');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
+    else if(type==='labels'){model.labels=dataAggregateTags(ops,'mention');model.performances=dataAggregateTags(ops,'performance');}
+    else if(type==='evolution'){model.rows=dataAggregateEvolution(ops);const present=new Set(model.rows.flatMap(r=>['ln','lr','tn','tr'].filter(k=>r[k]>0)));model.visible={ln:present.has('ln'),lr:present.has('lr'),tn:present.has('tn'),tr:present.has('tr')};}
+    else if(type==='heatingMatrix'){const a=dataAggregateMatrix(ops,'heatingBefore','heatingAfter');model.vectors=a.vectors;model.values=a.values;}
+    else if(type==='ecsMatrix'){const a=dataAggregateMatrix(ops,'ecsBefore','ecsAfter');model.vectors=a.vectors;model.values=a.values;}
+    else if(type==='equipments'){model.heat=dataPercentItems(ops,'heatingModeAfter').length?dataPercentItems(ops,'heatingModeAfter'):dataPercentItems(ops,'heatingAfter');model.ecs=dataPercentItems(ops,'ecs').length?dataPercentItems(ops,'ecs'):dataPercentItems(ops,'ecsAfter');model.cooling=dataPercentItems(ops,'cooling');model.ventilation=dataPercentItems(ops,'ventilation');const mm=model.metrics||{};[['bbioInitial',DATA_FIELD_ALIASES.bbio],['bbioMax',DATA_FIELD_ALIASES.bbioMax],['cep',DATA_FIELD_ALIASES.cep],['cepMax',DATA_FIELD_ALIASES.cepMax],['ubatInitial',DATA_FIELD_ALIASES.ubatBefore],['ubat',DATA_FIELD_ALIASES.ubatAfter],['dh',DATA_FIELD_ALIASES.dh],['dhMax',DATA_FIELD_ALIASES.dhMax],['tic',DATA_FIELD_ALIASES.tic],['ticRef',DATA_FIELD_ALIASES.ticRef]].forEach(([k,a])=>{const v=dataMeanFromRows(ops,a);if(v!==null)mm[k]=v;});mm.bbioGain=Math.max(0,(mm.bbioMax||0)-(mm.bbioInitial||0));mm.cepGain=Math.max(0,(mm.cepMax||0)-(mm.cep||0));model.metrics=mm;}
+    else if(type==='envelope'){model.mode=dataPercentItems(ops,'structure');model.roof=dataPercentItems(ops,'roofInsulation');model.facade=dataPercentItems(ops,'wallInsulation');model.floor=dataPercentItems(ops,'floorInsulation');const wm=dataPercentItems(ops,'windowMaterial');model.windows=wm;const rr=dataMeanFromRows(ops,DATA_FIELD_ALIASES.roofR),rf=dataMeanFromRows(ops,DATA_FIELD_ALIASES.wallR),fl=dataMeanFromRows(ops,DATA_FIELD_ALIASES.floorR);if(rr!==null)model.r.roof=rr;if(rf!==null)model.r.facade=rf;if(fl!==null)model.r.floor=fl;}
+    else if(type==='carbon'){const e=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icEnergy),em=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icEnergyMax),c=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icConstruction),cm=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icConstructionMax);if(e!==null)model.energyAvg=e;if(em!==null)model.energyMaxAvg=em;if(c!==null)model.constructionAvg=c;if(cm!==null)model.constructionMaxAvg=cm;}
+    else if(type==='dpe'){const eb=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepBefore),ea=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepAfter),esb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyBefore),esa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyAfter),gsb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesBefore),gsa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesAfter);if(eb!==null)model.before.energy=eb;if(ea!==null)model.after.energy=ea;if(esb!==null)model.before.energyScore=esb;if(esa!==null)model.after.energyScore=esa;if(gsb!==null)model.before.gesScore=gsb;if(gsa!==null)model.after.gesScore=gsa;}
+  }
+  function dataSyncViews(){if(!dataRuntime.connected)return;dataRuntime.filtered=dataFilteredOperations();DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataApplyToModel(type,state[type],dataRuntime.filtered);});Object.entries(state.presentation.instanceData||{}).forEach(([id,model])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataApplyToModel(type,model,dataRuntime.filtered);});loadTabData(activeTab);if(DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataApplyToModel(tabType(activeTab),state[tabType(activeTab)],dataRuntime.filtered);dataUpdateBadge();dataUpdateFilterUI();saveState();renderControls();renderSlide();}
+  function dataUpdateBadge(){const dot=document.getElementById('dataSourceDot'),label=document.getElementById('dataSourceLabel');if(dot)dot.classList.toggle('is-live',dataRuntime.connected);if(label)label.textContent=dataRuntime.connected?`${dataRuntime.filtered.length} opérations`:'Données';}
+  function dataPopulateFilters(){const sel=document.getElementById('dataReferential');if(!sel)return;const cur=dataRuntime.filters.referential||'';const refs=[...new Set(dataRuntime.operations.map(o=>o.referential).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));sel.innerHTML='<option value="">Tous</option>'+refs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');sel.value=cur;const years=dataRuntime.operations.map(o=>Number(o.year)).filter(Boolean);if(years.length){document.getElementById('dataYearMin').placeholder=Math.min(...years);document.getElementById('dataYearMax').placeholder=Math.max(...years);}}
+  function dataUpdateFilterUI(){const el=document.getElementById('dataFilteredCount');if(el)el.textContent=`${dataRuntime.filtered.length} opération${dataRuntime.filtered.length>1?'s':''}`;['dataYearMin','dataYearMax'].forEach((id,i)=>{const n=document.getElementById(id);if(n&&document.activeElement!==n)n.value=i?dataRuntime.filters.yearMax:dataRuntime.filters.yearMin;});const r=document.getElementById('dataReferential'),n=document.getElementById('dataNature');if(r&&document.activeElement!==r)r.value=dataRuntime.filters.referential||'';if(n&&document.activeElement!==n)n.value=dataRuntime.filters.nature||'';}
+  function dataFeedback(msg,error=false){const el=document.getElementById('dataFeedback');if(el){el.textContent=msg;el.classList.toggle('is-error',error);}}
+  async function dataConnect(){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';dataFeedback('Chargement de la source…');try{let ops=[];if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.operations=ops;localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataFeedback(`Erreur : ${err.message||err}`,true);}}
+  function dataDisconnect(){if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
+  function dataReadFiltersFromUI(){dataRuntime.filters={yearMin:document.getElementById('dataYearMin').value,yearMax:document.getElementById('dataYearMax').value,referential:document.getElementById('dataReferential').value,nature:document.getElementById('dataNature').value};localStorage.setItem(DATA_FILTERS_STORAGE_KEY,JSON.stringify(dataRuntime.filters));dataSyncViews();}
+  function dataDepartmentName(code){return DEPARTMENTS.find(d=>d.code===code)?.name||code;}
+  function dataOpenExplorer(title,ops,sub=''){dataRuntime.selection=[...ops];dataRuntime.selectionTitle=title;dataRuntime.selectionSub=sub;document.getElementById('dataExplorerTitle').textContent=title;document.getElementById('dataExplorerSub').textContent=sub||`${ops.length} opération${ops.length>1?'s':''}`;document.getElementById('dataExplorerSearch').value='';dataRenderExplorer();dataExplorer.classList.add('is-open');dataExplorer.setAttribute('aria-hidden','false');}
+  function dataRenderExplorer(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const el=document.getElementById('dataExplorerList');if(!el)return;el.innerHTML=rows.length?rows.map(o=>`<article class="data-operation-card"><div class="data-op-main"><b>${esc(o.code)}</b><strong>${esc(o.name)}</strong><span>${esc(o.moa)} · ${esc(dataDepartmentName(o.department))} · ${esc(o.referential)}</span></div><div class="data-op-kpis"><span><b>${frSmart(o.dwellings)}</b> logements</span><span><b>${frSmart(o.buildings)}</b> bâtiments</span><span><b>${esc(o.year||'—')}</b> année</span></div><details><summary>Voir la fiche</summary><div class="data-op-detail"><span>Nature<b>${esc(o.nature||'—')}</b></span><span>Statut<b>${esc(o.status)}</b></span><span>Chauffage<b>${esc(o.heatingBefore||'—')} → ${esc(o.heatingAfter||'—')}</b></span><span>ECS<b>${esc(o.ecsBefore||'—')} → ${esc(o.ecsAfter||'—')}</b></span></div></details></article>`).join(''):'<div class="data-empty">Aucune opération correspondante.</div>';}
+  function dataSelectionCsv(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const header=['Code opération','Nom opération','Département','Référentiel','MOA','Statut','Total logements','Total bâtiments','Année','Nature','Chauffage avant','Chauffage après','ECS avant','ECS après'];const cell=v=>`"${String(v??'').replace(/"/g,'""')}"`;return [header.map(cell).join(';'),...rows.map(o=>[o.code,o.name,o.department,o.referential,o.moa,o.status,o.dwellings,o.buildings,o.year,o.nature,o.heatingBefore,o.heatingAfter,o.ecsBefore,o.ecsAfter].map(cell).join(';'))].join('\n');}
+  function dataDownloadCsv(){const blob=new Blob(['\ufeff'+dataSelectionCsv()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='operations_selection.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  async function dataCopySelection(){try{await navigator.clipboard.writeText(dataSelectionCsv());toast('Liste des opérations copiée.');}catch{toast('Copie impossible dans ce navigateur.');}}
+  function dataInitUI(){let filters={};try{filters=JSON.parse(localStorage.getItem(DATA_FILTERS_STORAGE_KEY)||'{}')||{};}catch{}dataRuntime.filters={...dataRuntime.filters,...filters};const source=(()=>{try{return JSON.parse(localStorage.getItem(DATA_SOURCE_STORAGE_KEY)||'null');}catch{return null;}})();if(source){document.getElementById('dataMode').value=source.mode||'appsScript';document.getElementById('dataUrl').value=source.url||'';document.getElementById('dataTab').value=source.tab||'OPERATIONS';}dataUpdateBadge();dataUpdateFilterUI();}
+
+  if(dataSourceBtn)dataSourceBtn.addEventListener('click',()=>{dataConnectModal.hidden=false;dataPopulateFilters();dataUpdateFilterUI();});
+  document.querySelectorAll('[data-data-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataConnectModal.hidden=true;}));
+  document.getElementById('dataConnectBtn')?.addEventListener('click',dataConnect);
+  document.getElementById('dataDisconnectBtn')?.addEventListener('click',dataDisconnect);
+  document.getElementById('dataApplyFilters')?.addEventListener('click',dataReadFiltersFromUI);
+  document.getElementById('dataResetFilters')?.addEventListener('click',()=>{dataRuntime.filters={yearMin:'',yearMax:'',referential:'',nature:''};localStorage.setItem(DATA_FILTERS_STORAGE_KEY,JSON.stringify(dataRuntime.filters));dataUpdateFilterUI();if(dataRuntime.connected)dataSyncViews();});
+  document.querySelectorAll('[data-explorer-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataExplorer.classList.remove('is-open');dataExplorer.setAttribute('aria-hidden','true');}));
+  document.getElementById('dataExplorerSearch')?.addEventListener('input',dataRenderExplorer);
+  document.getElementById('dataExplorerCsv')?.addEventListener('click',dataDownloadCsv);
+  document.getElementById('dataExplorerCopy')?.addEventListener('click',dataCopySelection);
+  slide.addEventListener('click',e=>{if(!dataRuntime.connected)return;const activeModel=state[tabType(activeTab)];const clickOps=DATA_CONNECTED_TYPES.includes(tabType(activeTab))&&activeModel?dataOpsForModel(activeModel):dataRuntime.filtered;const status=e.target.closest('[data-data-status-key]');if(status){const key=status.dataset.dataStatusKey;const ops=clickOps.filter(o=>o.status===key);const labels={notStarted:'Non démarrée',incomplete:'Dossier incomplet',planned:'Analyse planifiée',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};dataOpenExplorer(labels[key]||key,ops,`${ops.length} opération${ops.length>1?'s':''} · tunnel de certification`);return;}const tag=e.target.closest('[data-data-tag-kind][data-data-tag-label]');if(tag){const kind=tag.dataset.dataTagKind,label=tag.dataset.dataTagLabel;const ops=clickOps.filter(o=>dataOperationHasTag(o,kind,label));dataOpenExplorer(label,ops,`${ops.length} opération${ops.length>1?'s':''} · ${kind==='mention'?'mention':'performance'}`);return;}const moa=e.target.closest('[data-data-moa]');if(moa){const name=moa.dataset.dataMoa;const ops=clickOps.filter(o=>o.moa===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''} · ${frSmart(ops.reduce((s,o)=>s+o.dwellings,0))} logements`);return;}const dep=e.target.closest('[data-data-department]');if(dep){const code=dep.dataset.dataDepartment;const ops=code==='IDF'?clickOps.filter(o=>DATA_IDF_CODES.includes(o.department)):clickOps.filter(o=>o.department===code);dataOpenExplorer(code==='IDF'?'Île-de-France':dataDepartmentName(code),ops,`${ops.length} opération${ops.length>1?'s':''}`);}});
+
+  dataInitUI();
+
   ensureInstanceData();
   loadTabData(activeTab);
   renderTabsNav();
   renderControls();
   renderSlide();
   setZoom(num(zoomRange.value));
+  // Reconnexion automatique à la dernière source enregistrée à chaque ouverture.
+  if (localStorage.getItem(DATA_SOURCE_STORAGE_KEY)) setTimeout(() => dataConnect(), 0);
 })();
