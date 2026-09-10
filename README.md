@@ -10,7 +10,7 @@ Site statique prêt pour GitHub Pages. Aucun build, aucune base de données et a
 - **Export classeur** : génération d’un PDF 16:9 multi-pages contenant tous les onglets.
 - Export de la slide active en PNG 4K 16:9 : **3840 × 2160 px**, avec moteur de secours Canvas.
 - Sauvegarde/chargement JSON et mémorisation locale via `localStorage`.
-- Import Google Sheets pour l’onglet Évolution des projets.
+- Import Google Sheets pour l’onglet Évolution des opérations.
 - Cartographie France par département, matrices de transition chauffage/ECS, tunnel de certification, équipements, enveloppe, carbone et DPE.
 
 ## Mise en ligne sur GitHub Pages
@@ -120,12 +120,12 @@ Les valeurs numériques sont éditables directement dans les cellules de la matr
 
 
 ### Réorganisation des onglets
-Ordre retenu : Évolution des projets, Cartographie, Labels & performances, Tunnel de certification, Construction & isolation, Équipements, Transition chauffage, Transition ECS, Indicateurs carbone, DPE avant/après.
+Ordre retenu : Évolution des opérations, Cartographie, Labels & performances, Tunnel de certification, Construction & isolation, Équipements, Transition chauffage, Transition ECS, Indicateurs carbone, DPE avant/après.
 
 Les matrices Chauffage et ECS ont également été recadrées en partie haute et les pourcentages de cellule ont été agrandis.
 
 ### Ajustements de mise en page
-- Évolution des projets : suppression de l'encart vert supérieur, légende replacée sous le graphique en grille 2 × 2 et agrandie.
+- Évolution des opérations : suppression de l'encart vert supérieur, légende replacée sous le graphique en grille 2 × 2 et agrandie.
 - Transition chauffage / ECS : suppression du bandeau vert supérieur de la matrice, recentrage de la partie haute et agrandissement de la légende d'intensité.
 
 
@@ -176,7 +176,7 @@ Les matrices Chauffage et ECS ont également été recadrées en partie haute et
 ## V28 — nouveaux onglets Observatoire
 - Base fonctionnelle reprise de la V27.8 (exports sécurisés Canvas / SVG sans ressources DOM cross-origin).
 - Nouvel onglet **Répartition bailleurs / promoteurs** : camembert, légende, total et KPI par catégorie.
-- Nouvel onglet **Maîtres d’ouvrage** : classement des MOA, nombre de projets, part du total et KPI de synthèse.
+- Nouvel onglet **Maîtres d’ouvrage** : classement des MOA, nombre d’opérations, part du total et KPI de synthèse.
 - Suppression des colonnes / notions « typologie dominante » et « référentiel principal » sur la slide MOA.
 - Titres et sous-titres modifiables pour les slides standards ; titres déjà modifiables conservés pour Évolution et matrices.
 - Nom de chaque onglet renommable indépendamment depuis le panneau de contrôle.
@@ -186,9 +186,9 @@ Les matrices Chauffage et ECS ont également été recadrées en partie haute et
 
 
 ## V28.1 — import MOA Excel + titres éditables
-- Onglet Maîtres d’ouvrage : copier-coller direct de deux colonnes Excel / Google Sheets (MOA + nombre de projets).
+- Onglet Maîtres d’ouvrage : copier-coller direct de deux colonnes Excel / Google Sheets (MOA + nombre d’opérations).
 - Import en remplacement ou ajout à la liste existante.
-- Les doublons de MOA sont regroupés et leurs nombres de projets additionnés.
+- Les doublons de MOA sont regroupés et leurs nombres d’opérations additionnés.
 - Jusqu’à 100 lignes éditables manuellement dans le panneau, l’import peut contenir davantage de lignes ; la slide affiche automatiquement le classement principal.
 - Les titres et sous-titres de toutes les slides qui possèdent un en-tête sont modifiables dans « Nom & textes ».
 - Le nom des onglets reste modifiable indépendamment du titre de la slide.

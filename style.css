@@ -938,7 +938,7 @@ button { cursor: pointer; }
 .dpe-control-summary{display:grid;gap:8px}.dpe-control-summary>div{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid #d7e3df;border-radius:10px;background:#f8fbfa}.dpe-control-summary span{font-size:11px;color:#607277}.dpe-control-summary b{font-size:12px;color:#06402B;text-align:right}
 
 
-/* Évolution des projets */
+/* Évolution des opérations */
 .evolution-slide{background:#fff}
 .evolution-slide .s-head{padding-top:0}
 .evolution-dashboard{position:absolute;left:36px;right:36px;top:166px;bottom:30px;display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 188px;gap:18px}
@@ -1295,3 +1295,17 @@ body.presentation-mode .tab-close{display:none!important}
 .transition-color-steps>div{display:grid;grid-template-rows:20px auto;gap:4px;text-align:center}.transition-color-steps i{display:block;border-radius:6px}.transition-color-steps span{font-size:10px;font-weight:800;color:#12383b}.transition-color-steps small{display:block;margin-top:1px;font-size:9px;font-weight:500;color:#607277}
 .transition-matrix-footer-v2:before{content:'';grid-column:2;width:1px;height:64px;background:#d5e1dd}
 .transition-footer-note{grid-column:3;display:flex;align-items:center;gap:16px}.transition-footer-note-icon{width:44px;height:44px;border-radius:50%;background:#e6f2ec;color:#07343a;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;flex:0 0 auto}.transition-footer-note b{font-size:12px;color:#12383b}.transition-footer-note p{margin:6px 0 0;font-size:11.5px;line-height:1.25;color:#315a5a}
+
+
+/* V28.9 — Maîtres d’ouvrage enrichis */
+.moa-editor{display:flex;flex-direction:column;gap:7px}
+.moa-editor-row{display:grid;grid-template-columns:minmax(150px,1fr) 78px 82px 82px 34px;gap:6px;align-items:end}
+.moa-editor-row .field{margin:0}
+.moa-editor-row .remove-row{width:34px;height:38px;padding:0;border:0;border-radius:8px;background:#fff1ed;color:#9a3820;font-size:18px;font-weight:900}
+.moa-table-card-rich .moa-table-head,.moa-table-card-rich .moa-table-row{column-gap:0}
+.moa-table-card-rich .moa-table-head>span{padding:0 5px;line-height:1.1}
+.moa-table-card-rich .moa-table-row>*{min-width:0;padding:0 5px}
+.moa-table-card-rich .moa-table-row>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.moa-table-card-rich .moa-share{grid-template-columns:52px 1fr;gap:6px}
+.moa-table-card-rich .moa-share span{font-size:11px}
+.moa-table-card-rich .moa-share i{height:10px}

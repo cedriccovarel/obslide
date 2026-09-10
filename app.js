@@ -277,9 +277,9 @@ const MAP_GEOJSON_URLS = [
       note: 'Chaque pourcentage correspond à la part des opérations du vecteur initial (ligne) allant vers le vecteur final (colonne). La diagonale représente les opérations qui conservent leur vecteur énergétique.'
     },
     evolution: {
-      title: 'ÉVOLUTION DES PROJETS',
-      subtitle: 'Nombre de projets par année et par référentiel',
-      note: 'Lecture : chaque courbe représente le nombre de projets suivis sur une année pour un référentiel donné. Le panneau de droite met en évidence le volume total, le pic d’activité et le dernier niveau observé.',
+      title: 'ÉVOLUTION DES OPÉRATIONS',
+      subtitle: 'Nombre d’opérations par année et par référentiel',
+      note: 'Lecture : chaque courbe représente le nombre d’opérations suivies sur une année pour un référentiel donné. Le panneau de droite met en évidence le volume total, le pic d’activité et le dernier niveau observé.',
       visible: { ln: true, lr: true, tn: true, tr: true },
       importPaste: '',
       rows: [
@@ -293,8 +293,8 @@ const MAP_GEOJSON_URLS = [
     },
     stakeholderSplit: {
       title: 'RÉPARTITION BAILLEURS / PROMOTEURS',
-      subtitle: 'Répartition des projets par type de porteur',
-      note: 'Une part = le nombre de projets renseignés',
+      subtitle: 'Répartition des opérations par type de porteur',
+      note: 'Une part = le nombre d’opérations renseignées',
       items: [
         { name: 'Bailleurs', value: 61 },
         { name: 'Promoteurs', value: 26 }
@@ -302,31 +302,109 @@ const MAP_GEOJSON_URLS = [
     },
     moaList: {
       title: 'MAÎTRES D’OUVRAGE',
-      subtitle: 'Classement des principaux maîtres d’ouvrage par nombre de projets',
-      note: 'Le nombre de projets correspond aux projets renseignés',
+      subtitle: 'Classement des principaux maîtres d’ouvrage par nombre d’opérations',
+      note: 'Les parts sont calculées sur le total des opérations et sur le total des logements renseignés.',
+      importPaste: '',
+      sortBy: 'operations',
+      columns: { operations:true, dwellings:true, buildings:true, shareOperations:true, shareDwellings:true },
+      items: [
+        { name: 'ICF Habitat', value: 12, dwellings: 320, buildings: 8 },
+        { name: 'Nexity', value: 9, dwellings: 245, buildings: 6 },
+        { name: 'CDC Habitat', value: 8, dwellings: 210, buildings: 7 },
+        { name: 'Action Logement', value: 7, dwellings: 185, buildings: 5 },
+        { name: 'Bouygues Immobilier', value: 6, dwellings: 170, buildings: 4 },
+        { name: 'Eiffage Immobilier', value: 5, dwellings: 130, buildings: 4 },
+        { name: 'Kaufman & Broad', value: 4, dwellings: 115, buildings: 3 },
+        { name: 'Sogeprom', value: 4, dwellings: 105, buildings: 3 },
+        { name: 'Vinci Immobilier', value: 3, dwellings: 85, buildings: 2 },
+        { name: 'Altarea Cogedim', value: 3, dwellings: 75, buildings: 2 }
+      ],
+      texts: {
+        itemHeader: 'MAÎTRE D’OUVRAGE',
+        valueHeader: 'OPÉRATIONS',
+        dwellingsHeader: 'TOTAL LOGEMENTS',
+        buildingsHeader: 'TOTAL BÂTIMENTS',
+        shareHeader: 'PART OPÉRATIONS',
+        shareDwellingsHeader: 'PART LOGEMENTS',
+        hiddenLabel: 'maître(s) d’ouvrage non affiché(s)',
+        kpi1Title: 'TOTAL OPÉRATIONS',
+        kpi1Subtitle: 'Somme des opérations renseignées',
+        kpi2Title: 'MAÎTRES D’OUVRAGE DISTINCTS',
+        kpi2Subtitle: 'MOA renseignés',
+        kpi3Title: 'TOP 5',
+        kpi3Unit: 'opérations',
+        kpi3SubtitlePrefix: 'Soit',
+        kpi3SubtitleSuffix: '% du total'
+      }
+    },
+    performanceList: {
+      title: 'PERFORMANCES LES PLUS OBSERVÉES',
+      subtitle: 'Classement des performances par nombre d’occurrences',
+      note: 'Les occurrences correspondent aux performances renseignées sur les opérations du panel.',
       importPaste: '',
       items: [
-        { name: 'ICF Habitat', value: 12 },
-        { name: 'Nexity', value: 9 },
-        { name: 'CDC Habitat', value: 8 },
-        { name: 'Action Logement', value: 7 },
-        { name: 'Bouygues Immobilier', value: 6 },
-        { name: 'Eiffage Immobilier', value: 5 },
-        { name: 'Kaufman & Broad', value: 4 },
-        { name: 'Sogeprom', value: 4 },
-        { name: 'Vinci Immobilier', value: 3 },
-        { name: 'Altarea Cogedim', value: 3 }
-      ]
+        { name: 'IC Énergie 2028', value: 16 },
+        { name: 'IC Construction 2028', value: 9 },
+        { name: 'IC Construction 2031', value: 7 },
+        { name: 'Cep RE2020 -5%', value: 4 },
+        { name: 'IC Construction 2025', value: 4 },
+        { name: 'IC Énergie 2025', value: 4 },
+        { name: 'Bbio RE2020 -10%', value: 3 },
+        { name: 'Bbio RE2020 -20%', value: 2 },
+        { name: 'Bbio RE2020 -5%', value: 2 },
+        { name: 'Bbio RE2020 -15%', value: 1 }
+      ],
+      texts: {
+        itemHeader: 'PERFORMANCE',
+        valueHeader: 'OCCURRENCES',
+        shareHeader: 'PART DU TOTAL',
+        hiddenLabel: 'performance(s) non affichée(s)',
+        kpi1Title: 'TOTAL OCCURRENCES',
+        kpi1Subtitle: 'Somme des occurrences renseignées',
+        kpi2Title: 'PERFORMANCES DISTINCTES',
+        kpi2Subtitle: 'Performances renseignées',
+        kpi3Title: 'TOP 5',
+        kpi3Unit: 'occurrences',
+        kpi3SubtitlePrefix: 'Soit',
+        kpi3SubtitleSuffix: '% du total'
+      }
+    },
+    mentionList: {
+      title: 'MENTIONS LES PLUS OBSERVÉES',
+      subtitle: 'Classement des mentions par nombre d’occurrences',
+      note: 'Les occurrences correspondent aux mentions renseignées sur les opérations du panel.',
+      importPaste: '',
+      items: [
+        { name: 'BBCA Standard V4.1', value: 25 },
+        { name: 'BEE+', value: 20 },
+        { name: 'Option TFPB', value: 12 },
+        { name: 'Bâtiment Performance Énergétique et Carbone (BPEC)', value: 1 },
+        { name: 'Sans mention', value: 1 }
+      ],
+      texts: {
+        itemHeader: 'MENTION',
+        valueHeader: 'OCCURRENCES',
+        shareHeader: 'PART DU TOTAL',
+        hiddenLabel: 'mention(s) non affichée(s)',
+        kpi1Title: 'TOTAL OCCURRENCES',
+        kpi1Subtitle: 'Somme des occurrences renseignées',
+        kpi2Title: 'MENTIONS DISTINCTES',
+        kpi2Subtitle: 'Mentions renseignées',
+        kpi3Title: 'TOP 5',
+        kpi3Unit: 'occurrences',
+        kpi3SubtitlePrefix: 'Soit',
+        kpi3SubtitleSuffix: '% du total'
+      }
     },
     map: {
       title: 'CARTOGRAPHIE DES OPÉRATIONS',
-      subtitle: 'Répartition des projets par département',
+      subtitle: 'Répartition des opérations par département',
       values: {},
       paste: '',
       search: ''
     },
     presentation: {
-      order: ['cover','evolution','map','stakeholderSplit','moaList','labels','tunnel','envelope','equipments','heatingMatrix','ecsMatrix','carbon','dpe'],
+      order: ['cover','evolution','map','stakeholderSplit','moaList','performanceList','mentionList','labels','tunnel','envelope','equipments','heatingMatrix','ecsMatrix','carbon','dpe'],
       blanks: {},
       instances: {},
       instanceData: {},
@@ -339,10 +417,12 @@ const MAP_GEOJSON_URLS = [
   // est dupliquée plusieurs fois dans la présentation.
   const TEMPLATE_CATALOG = [
     {type:'cover', label:'Couverture'},
-    {type:'evolution', label:'Évolution des projets'},
+    {type:'evolution', label:'Évolution des opérations'},
     {type:'map', label:'Cartographie départements'},
     {type:'stakeholderSplit', label:'Répartition bailleurs / promoteurs'},
     {type:'moaList', label:'Maîtres d’ouvrage'},
+    {type:'performanceList', label:'Performances'},
+    {type:'mentionList', label:'Mentions'},
     {type:'labels', label:'Labels & performances'},
     {type:'tunnel', label:'Tunnel de certification'},
     {type:'envelope', label:'Construction & isolation'},
@@ -365,12 +445,32 @@ const MAP_GEOJSON_URLS = [
   if (!state.presentation.instances || typeof state.presentation.instances !== 'object') state.presentation.instances = {};
   if (!state.presentation.instanceData || typeof state.presentation.instanceData !== 'object') state.presentation.instanceData = {};
   if (!state.presentation.tabNames || typeof state.presentation.tabNames !== 'object') state.presentation.tabNames = {};
+  const normalizeMoaModel = model => {
+    if (!model || typeof model !== 'object') return;
+    if (!model.sortBy) model.sortBy = 'operations';
+    model.columns = deepMerge({operations:true,dwellings:true,buildings:true,shareOperations:true,shareDwellings:true}, model.columns || {});
+    model.texts = deepMerge(clone(defaults.moaList.texts), model.texts || {});
+    if (Array.isArray(model.items)) model.items = model.items.map(item => ({
+      name: String(item?.name || ''),
+      value: Math.max(0, num(item?.value)),
+      dwellings: Math.max(0, num(item?.dwellings)),
+      buildings: Math.max(0, num(item?.buildings))
+    }));
+  };
+  normalizeMoaModel(state.moaList);
+  Object.entries(state.presentation.instanceData || {}).forEach(([tabId, data]) => {
+    const type = state.presentation.instances?.[tabId] || tabId;
+    if (type === 'moaList') normalizeMoaModel(data);
+  });
   const ensureNewDefaultSlides = () => {
     const order = state.presentation.order || [];
     const typeOf = id => String(id || '').startsWith('blank-') ? 'blank' : (state.presentation.instances?.[id] || id);
     let insertAt = Math.max(0, order.findIndex(id => typeOf(id) === 'map') + 1);
     if (!order.some(id => typeOf(id) === 'stakeholderSplit')) { order.splice(insertAt, 0, 'stakeholderSplit'); insertAt += 1; }
-    if (!order.some(id => typeOf(id) === 'moaList')) { order.splice(insertAt, 0, 'moaList'); }
+    if (!order.some(id => typeOf(id) === 'moaList')) { order.splice(insertAt, 0, 'moaList'); insertAt += 1; }
+    else insertAt = Math.max(insertAt, order.findIndex(id => typeOf(id) === 'moaList') + 1);
+    if (!order.some(id => typeOf(id) === 'performanceList')) { order.splice(insertAt, 0, 'performanceList'); insertAt += 1; }
+    if (!order.some(id => typeOf(id) === 'mentionList')) { order.splice(insertAt, 0, 'mentionList'); }
   };
   ensureNewDefaultSlides();
   let activeTab = state.presentation.order[0] || 'cover';
@@ -819,7 +919,7 @@ const MAP_GEOJSON_URLS = [
       return `<div class="map-dept-row" data-map-row="1" data-code="${esc(dep.code)}" data-name="${esc(normalizeMapText(dep.name))}">
         <span class="map-dept-code">${esc(dep.code)}</span>
         <span class="map-dept-name">${esc(dep.name)}</span>
-        <input class="map-dept-input" type="number" min="0" step="1" data-map-value="${esc(dep.code)}" value="${value > 0 ? esc(value) : ''}" aria-label="Nombre de projets - ${esc(dep.name)}" />
+        <input class="map-dept-input" type="number" min="0" step="1" data-map-value="${esc(dep.code)}" value="${value > 0 ? esc(value) : ''}" aria-label="Nombre d’opérations - ${esc(dep.name)}" />
       </div>`;
     }).join('');
   }
@@ -828,7 +928,7 @@ const MAP_GEOJSON_URLS = [
     return `<div class="control-section map-control-intro">
       <h3>Cartographie par département</h3>
       <p class="help">Saisie directe ou copier-coller depuis Excel / Google Sheets. Le fond de carte est chargé depuis le GeoJSON administratif Etalab.</p>
-      <div class="map-total-control"><span>Total projets</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
+      <div class="map-total-control"><span>Total opérations</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
     </div>
     <div class="control-section">
       <h3>Copier / coller</h3>
@@ -941,9 +1041,9 @@ const MAP_GEOJSON_URLS = [
     const top = evolutionTopSeries().filter(item => item.total > 0);
     if (!rows.length) return 'Ajoute au moins une année de données pour générer automatiquement le commentaire de lecture.';
     const pieces = [];
-    if (top[0]) pieces.push(`la dynamique est d’abord portée par ${top[0].label.toLowerCase()} (${frSmart(top[0].total)} projet${top[0].total > 1 ? 's' : ''} sur la période)`);
+    if (top[0]) pieces.push(`la dynamique est d’abord portée par ${top[0].label.toLowerCase()} (${frSmart(top[0].total)} opération${top[0].total > 1 ? 's' : ''} sur la période)`);
     if (top[1]) pieces.push(`suivi de ${top[1].label.toLowerCase()} (${frSmart(top[1].total)})`);
-    if (latest) pieces.push(`le dernier point observé (${esc(latest.year)}) atteint ${frSmart(evolutionTotalForRow(latest))} projet${evolutionTotalForRow(latest) > 1 ? 's' : ''}`);
+    if (latest) pieces.push(`le dernier point observé (${esc(latest.year)}) atteint ${frSmart(evolutionTotalForRow(latest))} opération${evolutionTotalForRow(latest) > 1 ? 's' : ''}`);
     return pieces.length ? `${pieces[0].charAt(0).toUpperCase()}${pieces[0].slice(1)}${pieces[1] ? ', ' + pieces[1] : ''} ; ${pieces[2] || ''}.` : 'Complète les données pour enrichir automatiquement la clé de lecture.';
   }
 
@@ -1252,12 +1352,113 @@ const MAP_GEOJSON_URLS = [
     const items = getByPath(state, path) || [];
     return `<div class="simple-value-editor">${items.map((item,index)=>`<div class="simple-value-row">
       <div class="field"><label>${index===0?'Libellé':'&nbsp;'}</label><input type="text" data-simple-name="1" data-path="${esc(path)}" data-index="${index}" value="${esc(item.name || '')}"></div>
-      <div class="field"><label>${index===0?'Nombre de projets':'&nbsp;'}</label><input type="number" min="0" step="1" data-simple-value="1" data-path="${esc(path)}" data-index="${index}" value="${esc(item.value ?? 0)}"></div>
+      <div class="field"><label>${index===0?'Nombre d’opérations':'&nbsp;'}</label><input type="number" min="0" step="1" data-simple-value="1" data-path="${esc(path)}" data-index="${index}" value="${esc(item.value ?? 0)}"></div>
       <button class="remove-row" type="button" data-simple-remove="1" data-path="${esc(path)}" data-index="${index}" title="Supprimer">×</button>
     </div>`).join('')}</div>${items.length < maxRows ? `<div class="section-actions"><button class="btn btn-secondary btn-small" type="button" data-simple-add="1" data-path="${esc(path)}">+ Ajouter une ligne</button></div>` : ''}`;
   }
 
+  function moaNumber(cell) {
+    const cleaned = String(cell ?? '').trim().replace(/\s/g, '').replace(',', '.').replace(/[^0-9.+-]/g, '');
+    if (!cleaned) return 0;
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  }
+
+  function normalizeMoaHeader(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
   function parseMoaExcelPaste(raw) {
+    const rows = String(raw || '').replace(/\r/g, '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+      let cells = line.split('\t').map(cell => String(cell || '').trim().replace(/^"|"$/g, ''));
+      if (cells.length < 2) cells = line.split(';').map(cell => String(cell || '').trim().replace(/^"|"$/g, ''));
+      return cells;
+    }).filter(cells => cells.length >= 2);
+    if (!rows.length) return [];
+
+    const first = rows[0].map(normalizeMoaHeader);
+    const findIndex = tests => first.findIndex(cell => tests.some(test => cell.includes(test)));
+    let nameIndex = findIndex(['maitre d ouvrage','maitre ouvrage','moa','societe']);
+    let operationsIndex = findIndex(['operation','opération','dossier']);
+    let dwellingsIndex = findIndex(['logement']);
+    let buildingsIndex = findIndex(['batiment']);
+    const hasHeader = nameIndex >= 0 || operationsIndex >= 0 || dwellingsIndex >= 0 || buildingsIndex >= 0;
+    if (nameIndex < 0) nameIndex = 0;
+    if (operationsIndex < 0) operationsIndex = 1;
+    if (dwellingsIndex < 0) dwellingsIndex = 2;
+    if (buildingsIndex < 0) buildingsIndex = 3;
+
+    const parsed = [];
+    const byName = new Map();
+    rows.slice(hasHeader ? 1 : 0).forEach(cells => {
+      const name = String(cells[nameIndex] || '').trim();
+      if (!name) return;
+      const item = {
+        name,
+        value: moaNumber(cells[operationsIndex]),
+        dwellings: moaNumber(cells[dwellingsIndex]),
+        buildings: moaNumber(cells[buildingsIndex])
+      };
+      const key = name.toLocaleLowerCase('fr-FR');
+      if (byName.has(key)) {
+        const existing = byName.get(key);
+        existing.value += item.value;
+        existing.dwellings += item.dwellings;
+        existing.buildings += item.buildings;
+      } else {
+        byName.set(key, item);
+        parsed.push(item);
+      }
+    });
+    return parsed;
+  }
+
+  function importMoaExcelPaste(mode = 'replace') {
+    const imported = parseMoaExcelPaste(state.moaList.importPaste || '');
+    if (!imported.length) {
+      toast('Aucune ligne MOA reconnue. Copie les colonnes MOA, opérations, logements et bâtiments depuis Excel.');
+      return;
+    }
+    if (mode === 'append') {
+      const merged = new Map();
+      [...(state.moaList.items || []), ...imported].forEach(item => {
+        const name = String(item.name || '').trim();
+        if (!name) return;
+        const key = name.toLocaleLowerCase('fr-FR');
+        const clean = {name, value:Math.max(0,num(item.value)), dwellings:Math.max(0,num(item.dwellings)), buildings:Math.max(0,num(item.buildings))};
+        if (merged.has(key)) {
+          const ex=merged.get(key); ex.value+=clean.value; ex.dwellings+=clean.dwellings; ex.buildings+=clean.buildings;
+        } else merged.set(key, clean);
+      });
+      state.moaList.items = [...merged.values()];
+    } else state.moaList.items = imported;
+    saveState(); renderControls(); renderSlide();
+    toast(`${imported.length} MOA importé${imported.length > 1 ? 's' : ''} depuis Excel.`);
+  }
+
+  function moaEditor() {
+    const items = state.moaList.items || [];
+    return `<div class="moa-editor">${items.map((item,index)=>`<div class="moa-editor-row">
+      <div class="field"><label>${index===0?'Maître d’ouvrage':'&nbsp;'}</label><input type="text" data-bind="moaList.items.${index}.name" value="${esc(item.name || '')}"></div>
+      <div class="field"><label>${index===0?'Opérations':'&nbsp;'}</label><input type="number" min="0" step="1" data-bind="moaList.items.${index}.value" value="${esc(item.value ?? 0)}"></div>
+      <div class="field"><label>${index===0?'Logements':'&nbsp;'}</label><input type="number" min="0" step="1" data-bind="moaList.items.${index}.dwellings" value="${esc(item.dwellings ?? 0)}"></div>
+      <div class="field"><label>${index===0?'Bâtiments':'&nbsp;'}</label><input type="number" min="0" step="1" data-bind="moaList.items.${index}.buildings" value="${esc(item.buildings ?? 0)}"></div>
+      <button class="remove-row" type="button" data-simple-remove="1" data-path="moaList.items" data-index="${index}" title="Supprimer">×</button>
+    </div>`).join('')}</div>${items.length<100?`<div class="section-actions"><button class="btn btn-secondary btn-small" type="button" data-moa-add-row="1">+ Ajouter une ligne</button></div>`:''}`;
+  }
+
+  function moaSortedItems() {
+    const metric = state.moaList.sortBy === 'dwellings' ? 'dwellings' : 'value';
+    return [...(state.moaList.items || [])].map(item => ({
+      name:String(item?.name || '').trim(),
+      value:Math.max(0,num(item?.value)),
+      dwellings:Math.max(0,num(item?.dwellings)),
+      buildings:Math.max(0,num(item?.buildings))
+    })).filter(item=>item.name).sort((a,b)=>(b[metric]-a[metric]) || (b.value-a.value) || a.name.localeCompare(b.name,'fr'));
+  }
+
+
+  function parseRankedExcelPaste(raw) {
     const lines = String(raw || '').replace(/\r/g, '').split('\n').map(line => line.trim()).filter(Boolean);
     const parsed = [];
     const byName = new Map();
@@ -1267,8 +1468,6 @@ const MAP_GEOJSON_URLS = [
       if (cells.length < 2) continue;
       const name = cells[0];
       if (!name) continue;
-      const lower = name.toLowerCase();
-      if ((lower.includes('maître') || lower.includes('maitre') || lower === 'moa') && cells.slice(1).join(' ').toLowerCase().includes('projet')) continue;
       let value = null;
       for (let i = 1; i < cells.length; i += 1) {
         const cleaned = cells[i].replace(/\s/g, '').replace(',', '.').replace(/[^0-9.+-]/g, '');
@@ -1279,34 +1478,140 @@ const MAP_GEOJSON_URLS = [
       if (value === null) continue;
       const key = name.toLocaleLowerCase('fr-FR');
       if (byName.has(key)) byName.get(key).value += value;
-      else {
-        const item = { name, value };
-        byName.set(key, item);
-        parsed.push(item);
-      }
+      else { const item = { name, value }; byName.set(key, item); parsed.push(item); }
     }
     return parsed;
   }
 
-  function importMoaExcelPaste(mode = 'replace') {
-    const imported = parseMoaExcelPaste(state.moaList.importPaste || '');
-    if (!imported.length) {
-      toast('Aucune ligne MOA + nombre de projets reconnue. Copie deux colonnes depuis Excel.');
-      return;
-    }
+  function importRankedExcelPaste(kind, mode = 'replace') {
+    const model = state[kind];
+    if (!model) return;
+    const imported = parseRankedExcelPaste(model.importPaste || '');
+    if (!imported.length) { toast('Aucune ligne libellé + valeur reconnue. Copie deux colonnes depuis Excel.'); return; }
     if (mode === 'append') {
       const merged = new Map();
-      [...(state.moaList.items || []), ...imported].forEach(item => {
+      [...(model.items || []), ...imported].forEach(item => {
         const name = String(item.name || '').trim();
         if (!name) return;
         const key = name.toLocaleLowerCase('fr-FR');
         if (merged.has(key)) merged.get(key).value += Math.max(0, num(item.value));
         else merged.set(key, { name, value: Math.max(0, num(item.value)) });
       });
-      state.moaList.items = [...merged.values()];
-    } else state.moaList.items = imported;
+      model.items = [...merged.values()];
+    } else model.items = imported;
     saveState(); renderControls(); renderSlide();
-    toast(`${imported.length} MOA importé${imported.length > 1 ? 's' : ''} depuis Excel.`);
+    toast(`${imported.length} ligne${imported.length > 1 ? 's' : ''} importée${imported.length > 1 ? 's' : ''} depuis Excel.`);
+  }
+
+  function rankedListTextControls(kind) {
+    return `<div class="control-section"><h3>Textes des encarts</h3>
+      ${field('Colonne libellé', `${kind}.texts.itemHeader`, 'text')}
+      ${field('Colonne valeur', `${kind}.texts.valueHeader`, 'text')}
+      ${kind === 'moaList' ? `${field('Colonne logements', `${kind}.texts.dwellingsHeader`, 'text')}${field('Colonne bâtiments', `${kind}.texts.buildingsHeader`, 'text')}` : ''}
+      ${field('Colonne part', `${kind}.texts.shareHeader`, 'text')}
+      ${kind === 'moaList' ? field('Colonne part logements', `${kind}.texts.shareDwellingsHeader`, 'text') : ''}
+      ${field('Texte éléments non affichés', `${kind}.texts.hiddenLabel`, 'text')}
+      ${field('Encart 1 — titre', `${kind}.texts.kpi1Title`, 'text')}
+      ${field('Encart 1 — sous-texte', `${kind}.texts.kpi1Subtitle`, 'text')}
+      ${field('Encart 2 — titre', `${kind}.texts.kpi2Title`, 'text')}
+      ${field('Encart 2 — sous-texte', `${kind}.texts.kpi2Subtitle`, 'text')}
+      ${field('Encart 3 — titre', `${kind}.texts.kpi3Title`, 'text')}
+      ${field('Encart 3 — unité', `${kind}.texts.kpi3Unit`, 'text')}
+      ${field('Encart 3 — préfixe sous-texte', `${kind}.texts.kpi3SubtitlePrefix`, 'text')}
+      ${field('Encart 3 — suffixe sous-texte', `${kind}.texts.kpi3SubtitleSuffix`, 'text')}
+      ${textareaField('Clé de lecture', `${kind}.note`)}
+    </div>`;
+  }
+
+  function renderRankedListControls(kind, singularLabel) {
+    const model = state[kind];
+    return `<div class="control-section moa-import-section">
+      <h3>Importer depuis Excel / Google Sheets</h3>
+      <p class="help">Copie deux colonnes : <strong>${esc(singularLabel)}</strong> puis <strong>Nombre / occurrences</strong>. La ligne d’en-tête peut être incluse.</p>
+      <div class="field"><label>Liste + valeur</label><textarea rows="8" data-ranked-import-paste="1" data-kind="${esc(kind)}" placeholder="${esc(singularLabel)}\tOccurrences\nExemple 1\t12\nExemple 2\t9">${esc(model.importPaste || '')}</textarea></div>
+      <div class="map-control-actions"><button type="button" class="btn btn-primary btn-small" data-ranked-import="replace" data-kind="${esc(kind)}">Importer / remplacer</button><button type="button" class="btn btn-secondary btn-small" data-ranked-import="append" data-kind="${esc(kind)}">Ajouter à la liste</button><button type="button" class="btn btn-danger btn-small" data-ranked-import-clear="1" data-kind="${esc(kind)}">Vider la zone</button></div>
+      <div class="inline-note">Les doublons sont regroupés automatiquement et leurs valeurs sont additionnées.</div>
+    </div>
+    <div class="control-section"><h3>${esc(singularLabel)} — saisie manuelle</h3><p class="help">Tu peux corriger ou compléter chaque ligne après l’import. La slide classe automatiquement les éléments du plus grand au plus petit.</p>${simpleNamedValueEditor(`${kind}.items`, 100)}</div>
+    ${rankedListTextControls(kind)}`;
+  }
+
+  function renderRankedListSlide(kind) {
+    const model = state[kind];
+    const t = model.texts || {};
+    const items = sortedPositiveItems(model.items);
+    const total = items.reduce((sum,item)=>sum+item.value,0);
+    const top = items.slice(0,10);
+    const top5 = items.slice(0,5).reduce((sum,item)=>sum+item.value,0);
+    return `${head(model.title, model.subtitle, '', model.note)}
+      <div class="moa-table-card card">
+        <div class="moa-table-head"><span>#</span><span>${esc(t.itemHeader || 'LIBELLÉ')}</span><span>${esc(t.valueHeader || 'VALEUR')}</span><span>${esc(t.shareHeader || 'PART DU TOTAL')}</span></div>
+        <div class="moa-table-body">${top.map((item,i)=>{ const sharePct=total>0?item.value/total*100:0; return `<div class="moa-table-row"><span>${i+1}</span><b>${esc(item.name)}</b><strong>${frSmart(item.value)}</strong><div class="moa-share"><span>${fr(sharePct,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,sharePct))}%"></em></i></div></div>`; }).join('')}</div>
+        ${items.length>10?`<div class="moa-more">+ ${items.length-10} ${esc(t.hiddenLabel || 'élément(s) non affiché(s)')}</div>`:''}
+      </div>
+      <div class="moa-kpis">
+        <div class="moa-kpi card"><span>${esc(t.kpi1Title || 'TOTAL')}</span><b>${frSmart(total)}</b><small>${esc(t.kpi1Subtitle || '')}</small></div>
+        <div class="moa-kpi card"><span>${esc(t.kpi2Title || 'ÉLÉMENTS DISTINCTS')}</span><b>${frSmart(items.length)}</b><small>${esc(t.kpi2Subtitle || '')}</small></div>
+        <div class="moa-kpi card"><span>${esc(t.kpi3Title || 'TOP 5')}</span><b>${frSmart(top5)} <small>${esc(t.kpi3Unit || '')}</small></b><small>${esc(t.kpi3SubtitlePrefix || 'Soit')} ${total>0?fr(top5/total*100,1):fr(0,1)} ${esc(t.kpi3SubtitleSuffix || '% du total')}</small></div>
+      </div>`;
+  }
+
+  function cRankedListSlide(ctx, kind) {
+    const model = state[kind];
+    const t = model.texts || {};
+    const items = sortedPositiveItems(model.items);
+    const total = items.reduce((sum,item)=>sum+item.value,0);
+    const top=items.slice(0,10); const top5=items.slice(0,5).reduce((sum,item)=>sum+item.value,0);
+    cHeader(ctx,model.title,model.subtitle,model.note);
+    cr(ctx,55,190,1010,630,22,'#fff','#c3d2cf',1.2);cr(ctx,55,190,1010,54,22,'#eef4f1');
+    ct(ctx,'#',82,222,12,900,EXPORT_TEXT);ct(ctx,t.itemHeader || 'LIBELLÉ',140,222,12,900,EXPORT_TEXT);ct(ctx,t.valueHeader || 'VALEUR',680,222,12,900,EXPORT_TEXT);ct(ctx,t.shareHeader || 'PART DU TOTAL',850,222,12,900,EXPORT_TEXT);
+    top.forEach((item,i)=>{const y=270+i*49;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();ct(ctx,String(i+1),88,y,12,800,EXPORT_MUTED,'center','middle');ct(ctx,item.name,140,y,14,800,EXPORT_TEXT,'left','middle');ct(ctx,frSmart(item.value),735,y,14,900,EXPORT_TEXT,'center','middle');const pct=total>0?item.value/total*100:0;ct(ctx,`${fr(pct,1)} %`,850,y,12,700,EXPORT_MUTED,'left','middle');cr(ctx,925,y-6,100,12,6,'#e7efec');cr(ctx,925,y-6,Math.max(0,Math.min(100,pct)),12,6,EXPORT_GREEN);});
+    if(items.length>10){ct(ctx,`+ ${items.length-10} ${t.hiddenLabel || 'élément(s) non affiché(s)'}`,140,785,13,800,EXPORT_GREEN,'left','middle');}
+    cr(ctx,1100,190,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi1Title || 'TOTAL',1130,230,12,900,EXPORT_GREEN);ct(ctx,frSmart(total),1130,300,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi1Subtitle || '',1130,340,370,12,600,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi2Title || 'ÉLÉMENTS DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi2Subtitle || '',1130,555,370,12,600,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title || 'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5),1130,728,48,900,EXPORT_GREEN);ct(ctx,t.kpi3Unit || '',1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix || 'Soit'} ${total>0?fr(top5/total*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix || '% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
+  }
+
+
+  function cMoaListSlide(ctx) {
+    const model=state.moaList, t=model.texts||{}, cols=model.columns||{};
+    const items=moaSortedItems();
+    const totalOps=items.reduce((s,i)=>s+i.value,0), totalDw=items.reduce((s,i)=>s+i.dwellings,0);
+    const metric=model.sortBy==='dwellings'?'dwellings':'value', metricTotal=metric==='dwellings'?totalDw:totalOps;
+    const top=items.slice(0,10), top5Metric=items.slice(0,5).reduce((s,i)=>s+i[metric],0);
+    cHeader(ctx,model.title,model.subtitle,model.note);
+    const x0=55,w=1010,headY=190,rowY=270,rowH=49;
+    cr(ctx,x0,190,w,630,22,'#fff','#c3d2cf',1.2); cr(ctx,x0,190,w,54,22,'#eef4f1');
+    const visible=[{key:'rank',label:'#',w:42},{key:'name',label:t.itemHeader||'MAÎTRE D’OUVRAGE',w:238}];
+    if(cols.operations!==false) visible.push({key:'operations',label:t.valueHeader||'OPÉRATIONS',w:105});
+    if(cols.dwellings!==false) visible.push({key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:108});
+    if(cols.buildings!==false) visible.push({key:'buildings',label:t.buildingsHeader||'TOTAL BÂTIMENTS',w:102});
+    if(cols.shareOperations!==false) visible.push({key:'shareOperations',label:t.shareHeader||'PART OPÉRATIONS',w:185});
+    if(cols.shareDwellings!==false) visible.push({key:'shareDwellings',label:t.shareDwellingsHeader||'PART LOGEMENTS',w:185});
+    const baseSum=visible.reduce((s,c)=>s+c.w,0), avail=970, scale=baseSum>avail?avail/baseSum:1;
+    let xx=75;
+    visible.forEach(c=>{c.x=xx;c.dw=c.w*scale;xx+=c.dw; cwrap(ctx,c.label,c.x+(c.key==='rank'?c.dw/2:4),222,c.dw-8,9.2,900,EXPORT_TEXT,1.05,2,c.key==='rank'?'center':'left');});
+    top.forEach((item,i)=>{
+      const y=rowY+i*rowH; ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();
+      const opPct=totalOps>0?item.value/totalOps*100:0, dwPct=totalDw>0?item.dwellings/totalDw*100:0;
+      visible.forEach(c=>{
+        const cx=c.x+c.dw/2;
+        if(c.key==='rank') ct(ctx,String(i+1),cx,y,11.5,800,EXPORT_MUTED,'center','middle');
+        else if(c.key==='name') cwrap(ctx,item.name,c.x+4,y+4,c.dw-8,12.3,800,EXPORT_TEXT,1.05,1,'left');
+        else if(c.key==='operations') ct(ctx,frSmart(item.value),cx,y,12.5,900,EXPORT_TEXT,'center','middle');
+        else if(c.key==='dwellings') ct(ctx,frSmart(item.dwellings),cx,y,12.5,900,EXPORT_TEXT,'center','middle');
+        else if(c.key==='buildings') ct(ctx,frSmart(item.buildings),cx,y,12.5,900,EXPORT_TEXT,'center','middle');
+        else {
+          const pct=c.key==='shareOperations'?opPct:dwPct;
+          ct(ctx,`${fr(pct,1)} %`,c.x+4,y,10.5,700,EXPORT_MUTED,'left','middle');
+          const bx=c.x+58,bw=Math.max(28,c.dw-66); cr(ctx,bx,y-6,bw,12,6,'#e7efec'); cr(ctx,bx,y-6,bw*Math.max(0,Math.min(100,pct))/100,12,6,EXPORT_GREEN);
+        }
+      });
+    });
+    if(items.length>10) ct(ctx,`+ ${items.length-10} ${t.hiddenLabel||'maître(s) d’ouvrage non affiché(s)'}`,140,785,13,800,EXPORT_GREEN,'left','middle');
+    cr(ctx,1100,190,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi1Title||'TOTAL OPÉRATIONS',1130,230,12,900,EXPORT_GREEN);ct(ctx,frSmart(totalOps),1130,300,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi1Subtitle||'',1130,340,370,12,600,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi2Title||'MAÎTRES D’OUVRAGE DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi2Subtitle||'',1130,555,370,12,600,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title||'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5Metric),1130,728,48,900,EXPORT_GREEN);ct(ctx,metric==='dwellings'?'logements':(t.kpi3Unit||'opérations'),1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix||'Soit'} ${metricTotal>0?fr(top5Metric/metricTotal*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix||'% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
   }
 
   function renderCommonTabControls() {
@@ -1535,21 +1840,29 @@ const MAP_GEOJSON_URLS = [
     }
 
     if (tabType(activeTab) === 'stakeholderSplit') {
-      controls.innerHTML = `<div class="control-section"><h3>Répartition des porteurs</h3><p class="help">Renseigne les catégories et leur nombre de projets. Le camembert et les pourcentages se recalculent automatiquement.</p>${simpleNamedValueEditor('stakeholderSplit.items', 6)}${textareaField('Clé de lecture','stakeholderSplit.note')}</div>`;
+      controls.innerHTML = `<div class="control-section"><h3>Répartition des porteurs</h3><p class="help">Renseigne les catégories et leur nombre d’opérations. Le camembert et les pourcentages se recalculent automatiquement.</p>${simpleNamedValueEditor('stakeholderSplit.items', 6)}${textareaField('Clé de lecture','stakeholderSplit.note')}</div>`;
     }
     if (tabType(activeTab) === 'moaList') {
       controls.innerHTML = `<div class="control-section moa-import-section">
         <h3>Importer depuis Excel / Google Sheets</h3>
-        <p class="help">Copie directement deux colonnes : <strong>Maître d’ouvrage</strong> puis <strong>Nombre de projets</strong>, et colle-les ci-dessous. La ligne d’en-tête peut être incluse.</p>
-        <div class="field"><label>Liste MOA + nombre de projets</label><textarea rows="8" data-moa-import-paste="1" placeholder="Maître d’ouvrage	Nombre de projets
-ICF Habitat	12
-Nexity	9
-CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
+        <p class="help">Copie directement jusqu’à 4 colonnes : <strong>Maître d’ouvrage</strong>, <strong>Nombre d’opérations</strong>, <strong>Total logements</strong>, <strong>Total bâtiments</strong>. La ligne d’en-tête peut être incluse et les colonnes sont reconnues par leur titre.</p>
+        <div class="field"><label>Liste MOA + données</label><textarea rows="8" data-moa-import-paste="1" placeholder="Maître d’ouvrage\tNombre d’opérations\tTotal logements\tTotal bâtiments\nICF Habitat\t12\t320\t8\nNexity\t9\t245\t6">${esc(state.moaList.importPaste || '')}</textarea></div>
         <div class="map-control-actions"><button type="button" class="btn btn-primary btn-small" data-moa-import="replace">Importer / remplacer</button><button type="button" class="btn btn-secondary btn-small" data-moa-import="append">Ajouter à la liste</button><button type="button" class="btn btn-danger btn-small" data-moa-import-clear="1">Vider la zone</button></div>
-        <div class="inline-note">Les doublons de MOA sont regroupés automatiquement et les nombres de projets sont additionnés.</div>
+        <div class="inline-note">Les doublons de MOA sont regroupés automatiquement : opérations, logements et bâtiments sont additionnés.</div>
       </div>
-      <div class="control-section"><h3>Maîtres d’ouvrage — saisie manuelle</h3><p class="help">Tu peux corriger ou compléter chaque ligne après l’import. La slide classe automatiquement les MOA du plus grand au plus petit.</p>${simpleNamedValueEditor('moaList.items', 100)}${textareaField('Clé de lecture','moaList.note')}</div>`;
+      <div class="control-section"><h3>Classement</h3>${selectField('Classer les MOA par','moaList.sortBy',[{value:'operations',label:'Nombre d’opérations'},{value:'dwellings',label:'Nombre de logements'}])}</div>
+      <div class="control-section"><h3>Colonnes affichées</h3><p class="help">Masque ou affiche librement les indicateurs de la slide.</p><div class="toggle-grid">
+        ${toggleField('Opérations','moaList.columns.operations')}
+        ${toggleField('Total logements','moaList.columns.dwellings')}
+        ${toggleField('Total bâtiments','moaList.columns.buildings')}
+        ${toggleField('Part opérations','moaList.columns.shareOperations')}
+        ${toggleField('Part logements','moaList.columns.shareDwellings')}
+      </div></div>
+      <div class="control-section"><h3>Maîtres d’ouvrage — saisie manuelle</h3><p class="help">Tu peux corriger ou compléter chaque ligne après l’import.</p>${moaEditor()}</div>
+      ${rankedListTextControls('moaList')}`;
     }
+    if (tabType(activeTab) === 'performanceList') controls.innerHTML = renderRankedListControls('performanceList', 'Performance');
+    if (tabType(activeTab) === 'mentionList') controls.innerHTML = renderRankedListControls('mentionList', 'Mention');
     if (tabType(activeTab) === 'map') {
       controls.innerHTML = renderMapControls();
       requestAnimationFrame(applyMapSearchFilter);
@@ -1579,6 +1892,8 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'map') slide.innerHTML = renderMapSlide();
     if (tabType(activeTab) === 'stakeholderSplit') slide.innerHTML = renderStakeholderSplitSlide();
     if (tabType(activeTab) === 'moaList') slide.innerHTML = renderMoaListSlide();
+    if (tabType(activeTab) === 'performanceList') slide.innerHTML = renderRankedListSlide('performanceList');
+    if (tabType(activeTab) === 'mentionList') slide.innerHTML = renderRankedListSlide('mentionList');
     if (tabType(activeTab) === 'tunnel') slide.innerHTML = renderTunnelSlide();
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
@@ -1594,6 +1909,8 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
       map: 'map-slide',
       stakeholderSplit: 'stakeholder-split-slide',
       moaList: 'moa-list-slide',
+      performanceList: 'moa-list-slide performance-list-slide',
+      mentionList: 'moa-list-slide mention-list-slide',
       tunnel: 'tunnel-slide',
       evolution: 'evolution-slide',
       heatingMatrix: 'transition-matrix-slide',
@@ -1625,32 +1942,55 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     return `${head(state.stakeholderSplit.title, state.stakeholderSplit.subtitle, '', state.stakeholderSplit.note)}
       <div class="stakeholder-main-card card">
         <div class="stakeholder-donut-area">
-          <div class="stakeholder-donut" style="background:${donutGradient(items)}"><div class="stakeholder-donut-hole"><b>${frSmart(total)}</b><span>projets au total</span></div></div>
-          <div class="stakeholder-legend">${items.map((item,i)=>`<div class="stakeholder-legend-row"><span class="legend-swatch" style="background:${COLORS[i%COLORS.length]}"></span><div><b>${esc(item.name)}</b><span>${frSmart(item.value)} projets (${fr(share(item.value),1)} %)</span></div></div>`).join('')}</div>
+          <div class="stakeholder-donut" style="background:${donutGradient(items)}"><div class="stakeholder-donut-hole"><b>${frSmart(total)}</b><span>opérations au total</span></div></div>
+          <div class="stakeholder-legend">${items.map((item,i)=>`<div class="stakeholder-legend-row"><span class="legend-swatch" style="background:${COLORS[i%COLORS.length]}"></span><div><b>${esc(item.name)}</b><span>${frSmart(item.value)} opérations (${fr(share(item.value),1)} %)</span></div></div>`).join('')}</div>
         </div>
       </div>
       <div class="stakeholder-kpis">
-        <div class="stakeholder-kpi card stakeholder-kpi-total"><span>TOTAL PROJETS</span><b>${frSmart(total)}</b><small>Somme des catégories renseignées</small></div>
+        <div class="stakeholder-kpi card stakeholder-kpi-total"><span>TOTAL OPÉRATIONS</span><b>${frSmart(total)}</b><small>Somme des catégories renseignées</small></div>
         <div class="stakeholder-kpi card"><span>${esc(first.name || 'CATÉGORIE 1').toUpperCase()}</span><b>${frSmart(first.value)}</b><small>Soit ${fr(share(first.value),1)} % du total</small></div>
         <div class="stakeholder-kpi card"><span>${esc(second.name || 'CATÉGORIE 2').toUpperCase()}</span><b>${frSmart(second.value)}</b><small>Soit ${fr(share(second.value),1)} % du total</small></div>
       </div>`;
   }
 
   function renderMoaListSlide() {
-    const items = sortedPositiveItems(state.moaList.items);
-    const total = items.reduce((s,item)=>s+item.value,0);
-    const top = items.slice(0,10);
-    const top5 = items.slice(0,5).reduce((s,item)=>s+item.value,0);
-    return `${head(state.moaList.title, state.moaList.subtitle, '', state.moaList.note)}
-      <div class="moa-table-card card">
-        <div class="moa-table-head"><span>#</span><span>MAÎTRE D’OUVRAGE</span><span>NOMBRE DE PROJETS</span><span>PART DU TOTAL</span></div>
-        <div class="moa-table-body">${top.map((item,i)=>{ const sharePct=total>0?item.value/total*100:0; return `<div class="moa-table-row"><span>${i+1}</span><b>${esc(item.name)}</b><strong>${frSmart(item.value)}</strong><div class="moa-share"><span>${fr(sharePct,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,sharePct))}%"></em></i></div></div>`; }).join('')}</div>
-        ${items.length>10?`<div class="moa-more">+ ${items.length-10} maître${items.length-10>1?'s':''} d’ouvrage non affiché${items.length-10>1?'s':''}</div>`:''}
+    const model=state.moaList, t=model.texts||{}, cols=model.columns||{};
+    const items=moaSortedItems();
+    const totalOps=items.reduce((s,i)=>s+i.value,0), totalDw=items.reduce((s,i)=>s+i.dwellings,0);
+    const top=items.slice(0,10), top5=items.slice(0,5);
+    const metric=model.sortBy==='dwellings'?'dwellings':'value';
+    const metricTotal=metric==='dwellings'?totalDw:totalOps;
+    const top5Metric=top5.reduce((s,i)=>s+i[metric],0);
+    const columns=[{key:'rank',w:'44px'},{key:'name',w:'minmax(190px,1fr)'}];
+    if(cols.operations!==false) columns.push({key:'operations',w:'94px'});
+    if(cols.dwellings!==false) columns.push({key:'dwellings',w:'96px'});
+    if(cols.buildings!==false) columns.push({key:'buildings',w:'92px'});
+    if(cols.shareOperations!==false) columns.push({key:'shareOperations',w:'170px'});
+    if(cols.shareDwellings!==false) columns.push({key:'shareDwellings',w:'170px'});
+    const grid=columns.map(c=>c.w).join(' ');
+    const headCell=c=>({rank:'#',name:t.itemHeader||'MAÎTRE D’OUVRAGE',operations:t.valueHeader||'OPÉRATIONS',dwellings:t.dwellingsHeader||'TOTAL LOGEMENTS',buildings:t.buildingsHeader||'TOTAL BÂTIMENTS',shareOperations:t.shareHeader||'PART OPÉRATIONS',shareDwellings:t.shareDwellingsHeader||'PART LOGEMENTS'}[c.key]);
+    const shareCell=(pct,cls='')=>`<div class="moa-share ${cls}"><span>${fr(pct,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,pct))}%"></em></i></div>`;
+    return `${head(model.title,model.subtitle,'',model.note)}
+      <div class="moa-table-card card moa-table-card-rich">
+        <div class="moa-table-head" style="grid-template-columns:${grid}">${columns.map(c=>`<span>${esc(headCell(c))}</span>`).join('')}</div>
+        <div class="moa-table-body">${top.map((item,i)=>{
+          const opPct=totalOps>0?item.value/totalOps*100:0, dwPct=totalDw>0?item.dwellings/totalDw*100:0;
+          return `<div class="moa-table-row" style="grid-template-columns:${grid}">${columns.map(c=>{
+            if(c.key==='rank') return `<span>${i+1}</span>`;
+            if(c.key==='name') return `<b>${esc(item.name)}</b>`;
+            if(c.key==='operations') return `<strong>${frSmart(item.value)}</strong>`;
+            if(c.key==='dwellings') return `<strong>${frSmart(item.dwellings)}</strong>`;
+            if(c.key==='buildings') return `<strong>${frSmart(item.buildings)}</strong>`;
+            if(c.key==='shareOperations') return shareCell(opPct,'moa-share-operations');
+            return shareCell(dwPct,'moa-share-dwellings');
+          }).join('')}</div>`;
+        }).join('')}</div>
+        ${items.length>10?`<div class="moa-more">+ ${items.length-10} ${esc(t.hiddenLabel||'maître(s) d’ouvrage non affiché(s)')}</div>`:''}
       </div>
       <div class="moa-kpis">
-        <div class="moa-kpi card"><span>TOTAL PROJETS</span><b>${frSmart(total)}</b><small>Somme des projets renseignés</small></div>
-        <div class="moa-kpi card"><span>MAÎTRES D’OUVRAGE DISTINCTS</span><b>${frSmart(items.length)}</b><small>MOA renseignés</small></div>
-        <div class="moa-kpi card"><span>TOP 5</span><b>${frSmart(top5)} <small>projets</small></b><small>Soit ${total>0?fr(top5/total*100,1):fr(0,1)} % du total</small></div>
+        <div class="moa-kpi card"><span>${esc(t.kpi1Title||'TOTAL OPÉRATIONS')}</span><b>${frSmart(totalOps)}</b><small>${esc(t.kpi1Subtitle||'')}</small></div>
+        <div class="moa-kpi card"><span>${esc(t.kpi2Title||'MAÎTRES D’OUVRAGE DISTINCTS')}</span><b>${frSmart(items.length)}</b><small>${esc(t.kpi2Subtitle||'')}</small></div>
+        <div class="moa-kpi card"><span>${esc(t.kpi3Title||'TOP 5')}</span><b>${frSmart(top5Metric)} <small>${metric==='dwellings'?'logements':esc(t.kpi3Unit||'opérations')}</small></b><small>${esc(t.kpi3SubtitlePrefix||'Soit')} ${metricTotal>0?fr(top5Metric/metricTotal*100,1):fr(0,1)} ${esc(t.kpi3SubtitleSuffix||'% du total')}</small></div>
       </div>`;
   }
 
@@ -2079,8 +2419,8 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     const peak = evolutionPeakRow();
     const trend = evolutionTrendPercent();
     const total = evolutionGlobalTotal();
-    const cardTitle = state.evolution.title || 'ÉVOLUTION DES PROJETS';
-    const cardSubtitle = state.evolution.subtitle || 'Nombre de projets par année et par référentiel';
+    const cardTitle = state.evolution.title || 'ÉVOLUTION DES OPÉRATIONS';
+    const cardSubtitle = state.evolution.subtitle || 'Nombre d’opérations par année et par référentiel';
     return `
       ${head(cardTitle, cardSubtitle)}
       <div class="evolution-dashboard evolution-dashboard-centered">
@@ -2088,17 +2428,17 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
           <section class="card evolution-kpi-card compact">
             <div class="evolution-kpi-label">Total période</div>
             <div class="evolution-kpi-value">${frSmart(total)}</div>
-            <div class="evolution-kpi-note">projets cumulés</div>
+            <div class="evolution-kpi-note">opérations cumulées</div>
           </section>
           <section class="card evolution-kpi-card compact">
             <div class="evolution-kpi-label">Année pic</div>
             <div class="evolution-kpi-value">${peak ? esc(peak.year) : '—'}</div>
-            <div class="evolution-kpi-note">${peak ? frSmart(evolutionTotalForRow(peak)) + ' projets' : 'non disponible'}</div>
+            <div class="evolution-kpi-note">${peak ? frSmart(evolutionTotalForRow(peak)) + ' opérations' : 'non disponible'}</div>
           </section>
           <section class="card evolution-kpi-card compact">
             <div class="evolution-kpi-label">Dernière année</div>
             <div class="evolution-kpi-value">${latest ? esc(latest.year) : '—'}</div>
-            <div class="evolution-kpi-note">${latest ? frSmart(evolutionTotalForRow(latest)) + ' projets' : 'à renseigner'}</div>
+            <div class="evolution-kpi-note">${latest ? frSmart(evolutionTotalForRow(latest)) + ' opérations' : 'à renseigner'}</div>
           </section>
           <section class="card evolution-kpi-card compact">
             <div class="evolution-kpi-label">Tendance</div>
@@ -2107,7 +2447,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
           </section>
         </div>
         <section class="card evolution-chart-card evolution-chart-card-large">
-          <div class="evolution-chart-card-title">Nombre de projets par année</div>
+          <div class="evolution-chart-card-title">Nombre d’opérations par année</div>
           <div class="evolution-chart-wrap">${renderEvolutionChart()}</div>
           <div class="evolution-legend evolution-legend-grid">${visibleMeta.map(meta => `<span><i style="background:${meta.color}"></i>${esc(meta.label)}</span>`).join('')}</div>
         </section>
@@ -2362,7 +2702,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
 
   function renderTunnelSlide() {
     const phases = [
-      {cls:'project',name:'PROJET',desc:'1. Prise en charge de la demande de certification',icon:'assets/tunnel_project.png'},
+      {cls:'project',name:'OPÉRATION',desc:'1. Prise en charge de la demande de certification',icon:'assets/tunnel_project.png'},
       {cls:'design',name:'CONCEPTION',desc:'2. Évaluation en phase conception',icon:'assets/tunnel_conception.png'},
       {cls:'execution',name:'EXÉCUTION',desc:'3. Évaluation en phase exécution',icon:'assets/tunnel_execution.png'},
       {cls:'delivery',name:'LIVRAISON',desc:'4. Contrôle et délivrance de la certification',icon:'assets/tunnel_delivery.png'}
@@ -2377,9 +2717,9 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
   }
 
   function renderMapSlide() {
-    return `${head(state.map.title, state.map.subtitle, '', 'Une bulle = le nombre de projets renseignés')}
+    return `${head(state.map.title, state.map.subtitle, '', 'Une bulle = le nombre d’opérations renseignées')}
       <div class="map-slide-canvas">
-        <svg id="departmentMapSvg" class="department-map-svg" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" aria-label="Carte de France des projets par département"></svg>
+        <svg id="departmentMapSvg" class="department-map-svg" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" aria-label="Carte de France des opérations par département"></svg>
         <div id="mapSlideStatus" class="map-slide-status">Chargement du fond cartographique…</div>
       </div>`;
   }
@@ -2622,7 +2962,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     const x = 1178, y = 365, width = 382, height = 458;
     svg.appendChild(mapSvgEl('rect', { x, y, width, height, rx: 18, fill: '#ffffff', stroke: forest, 'stroke-width': 1.5 }));
     mapAddText(svg, 'ZOOM ÎLE-DE-FRANCE', x + 20, y + 34, { fill: forest, size: 17, weight: 900 });
-    mapAddText(svg, `${frSmart(getIdfMapTotal())} PROJETS`, x + width - 20, y + 34, { fill: forest, size: 13, weight: 900, anchor: 'end' });
+    mapAddText(svg, `${frSmart(getIdfMapTotal())} OPÉRATIONS`, x + width - 20, y + 34, { fill: forest, size: 13, weight: 900, anchor: 'end' });
 
     const mapBox = { x: x + 18, y: y + 55, width: 346, height: 258 };
     const project = createMapProjector(idfFeatures, mapBox);
@@ -2728,7 +3068,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     const nationalTotal = mapTotal();
     const dromTotal = ['971','972','973','974','976'].reduce((total, code) => total + Math.max(0, num(state.map.values?.[code])), 0);
     svg.appendChild(mapSvgEl('rect', { x: 1195, y: 80, width: 350, height: 240, rx: 18, fill: '#f7faf8', stroke: forest, 'stroke-width': 1.5 }));
-    mapAddText(svg, 'TOTAL PROJETS', 1220, 120, { fill: forest, size: 14, weight: 900 });
+    mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill: forest, size: 14, weight: 900 });
     mapAddText(svg, frSmart(nationalTotal), 1220, 185, { fill: forest, size: 48, weight: 900 });
     mapAddText(svg, `Île-de-France : ${frSmart(idfTotal)}`, 1220, 220, { fill: text, size: 13, weight: 700 });
     if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, 248, { fill: '#557567', size: 11, weight: 600 });
@@ -2817,6 +3157,12 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     }
     if (t.dataset.moaImportPaste !== undefined) {
       state.moaList.importPaste = t.value;
+      saveState();
+      return;
+    }
+    if (t.dataset.rankedImportPaste !== undefined) {
+      const kind = t.dataset.kind;
+      if (kind && state[kind]) state[kind].importPaste = t.value;
       saveState();
       return;
     }
@@ -2934,10 +3280,26 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
       importMoaExcelPaste(t.dataset.moaImport === 'append' ? 'append' : 'replace');
       return;
     }
+    if (t.dataset.rankedImport !== undefined) {
+      const kind = t.dataset.kind;
+      if (kind) importRankedExcelPaste(kind, t.dataset.rankedImport === 'append' ? 'append' : 'replace');
+      return;
+    }
     if (t.dataset.moaImportClear !== undefined) {
       state.moaList.importPaste = '';
       saveState(); renderControls();
       toast('Zone d’import MOA vidée.');
+      return;
+    }
+    if (t.dataset.moaAddRow !== undefined) {
+      state.moaList.items.push({name:'À préciser',value:0,dwellings:0,buildings:0});
+      saveState(); renderControls(); renderSlide(); return;
+    }
+    if (t.dataset.rankedImportClear !== undefined) {
+      const kind = t.dataset.kind;
+      if (kind && state[kind]) state[kind].importPaste = '';
+      saveState(); renderControls();
+      toast('Zone d’import vidée.');
       return;
     }
     if (t.dataset.simpleRemove !== undefined) {
@@ -3100,8 +3462,10 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     map: 'cartographie-departements',
     stakeholderSplit: 'repartition-bailleurs-promoteurs',
     moaList: 'maitres-ouvrage',
+    performanceList: 'performances',
+    mentionList: 'mentions',
     tunnel: 'tunnel-certification',
-    evolution: 'evolution-projets',
+    evolution: 'evolution-operations',
     heatingMatrix: 'transition-vecteurs-chauffage',
     ecsMatrix: 'transition-vecteurs-ecs'
   };
@@ -3584,12 +3948,12 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     const peak = evolutionPeakRow();
     const trend = evolutionTrendPercent();
     const total = evolutionGlobalTotal();
-    cHeader(ctx, state.evolution.title || 'ÉVOLUTION DES PROJETS', state.evolution.subtitle || 'Nombre de projets par année et par référentiel');
+    cHeader(ctx, state.evolution.title || 'ÉVOLUTION DES OPÉRATIONS', state.evolution.subtitle || 'Nombre d’opérations par année et par référentiel');
 
     const kpis = [
-      ['Total période', frSmart(total), 'projets cumulés'],
-      ['Année pic', peak ? String(peak.year) : '—', peak ? `${frSmart(evolutionTotalForRow(peak))} projets` : 'non disponible'],
-      ['Dernière année', latest ? String(latest.year) : '—', latest ? `${frSmart(evolutionTotalForRow(latest))} projets` : 'à renseigner'],
+      ['Total période', frSmart(total), 'opérations cumulées'],
+      ['Année pic', peak ? String(peak.year) : '—', peak ? `${frSmart(evolutionTotalForRow(peak))} opérations` : 'non disponible'],
+      ['Dernière année', latest ? String(latest.year) : '—', latest ? `${frSmart(evolutionTotalForRow(latest))} opérations` : 'à renseigner'],
       ['Tendance', trend == null ? '—' : `${trend >= 0 ? '+' : ''}${frSmart(trend)} %`, 'du 1er au dernier point']
     ];
     const kx=52, ky=158, kgap=16, kw=(1496-kgap*3)/4, kh=112;
@@ -3603,7 +3967,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
 
     const x=52,y=292,w=1496,h=555;
     cr(ctx,x,y,w,h,22,'#ffffff',EXPORT_LINE,1.2);
-    ct(ctx,'Nombre de projets par année',x+26,y+38,18,900,EXPORT_TEXT);
+    ct(ctx,'Nombre d’opérations par année',x+26,y+38,18,900,EXPORT_TEXT);
     if(!rows.length || !visibleMeta.length){
       ct(ctx,'Aucune donnée à afficher.',x+w/2,y+h/2,20,700,EXPORT_MUTED,'center','middle');
       return;
@@ -3716,32 +4080,22 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
       cr(ctx,55,190,880,625,22,'#fff','#c3d2cf',1.2);
       cDonut(ctx,items,335,500,205,88);
       ct(ctx,frSmart(total),335,492,42,900,EXPORT_GREEN,'center','middle');
-      ct(ctx,'projets au total',335,530,14,700,EXPORT_MUTED,'center','middle');
-      items.slice(0,6).forEach((item,i)=>{const y=330+i*72;cr(ctx,610,y-14,18,18,5,COLORS[i%COLORS.length]);ct(ctx,item.name,648,y,18,900,EXPORT_TEXT,'left','middle');ct(ctx,`${frSmart(item.value)} projets (${fr(share(item.value),1)} %)`,648,y+25,13,600,EXPORT_MUTED);});
-      cr(ctx,980,190,565,188,18,'#f8fbf9',EXPORT_GREEN,1.4);ct(ctx,'TOTAL PROJETS',1015,230,13,900,EXPORT_GREEN);ct(ctx,frSmart(total),1015,300,52,900,EXPORT_GREEN);ct(ctx,'Somme des catégories renseignées',1015,340,13,600,EXPORT_TEXT);
+      ct(ctx,'opérations au total',335,530,14,700,EXPORT_MUTED,'center','middle');
+      items.slice(0,6).forEach((item,i)=>{const y=330+i*72;cr(ctx,610,y-14,18,18,5,COLORS[i%COLORS.length]);ct(ctx,item.name,648,y,18,900,EXPORT_TEXT,'left','middle');ct(ctx,`${frSmart(item.value)} opérations (${fr(share(item.value),1)} %)`,648,y+25,13,600,EXPORT_MUTED);});
+      cr(ctx,980,190,565,188,18,'#f8fbf9',EXPORT_GREEN,1.4);ct(ctx,'TOTAL OPÉRATIONS',1015,230,13,900,EXPORT_GREEN);ct(ctx,frSmart(total),1015,300,52,900,EXPORT_GREEN);ct(ctx,'Somme des catégories renseignées',1015,340,13,600,EXPORT_TEXT);
       const top=items.slice(0,2);
       top.forEach((item,i)=>{const x=980+i*287;cr(ctx,x,405,270,205,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,item.name.toUpperCase(),x+25,446,12,900,EXPORT_GREEN);ct(ctx,frSmart(item.value),x+25,515,46,900,EXPORT_GREEN);ct(ctx,`Soit ${fr(share(item.value),1)} % du total`,x+25,555,13,700,EXPORT_TEXT);});
       cr(ctx,980,645,565,170,18,'#eef4f1');cr(ctx,1005,675,50,50,25,EXPORT_GREEN);ct(ctx,'i',1030,700,22,900,'#fff','center','middle');ct(ctx,'CLÉ DE LECTURE',1075,686,12,900,EXPORT_GREEN);cwrap(ctx,state.stakeholderSplit.note,1075,715,430,13,600,EXPORT_TEXT,1.25,4);
       return;
     }
-    if (tabType(activeTab) === 'moaList') {
-      const items = sortedPositiveItems(state.moaList.items);
-      const total = items.reduce((s,item)=>s+item.value,0);
-      const top=items.slice(0,10); const top5=items.slice(0,5).reduce((s,item)=>s+item.value,0);
-      cHeader(ctx,state.moaList.title,state.moaList.subtitle,state.moaList.note);
-      cr(ctx,55,190,1010,630,22,'#fff','#c3d2cf',1.2);cr(ctx,55,190,1010,54,22,'#eef4f1');ct(ctx,'#',82,222,12,900,EXPORT_TEXT);ct(ctx,'MAÎTRE D’OUVRAGE',140,222,12,900,EXPORT_TEXT);ct(ctx,'NOMBRE DE PROJETS',680,222,12,900,EXPORT_TEXT);ct(ctx,'PART DU TOTAL',850,222,12,900,EXPORT_TEXT);
-      top.forEach((item,i)=>{const y=270+i*49;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();ct(ctx,String(i+1),88,y,12,800,EXPORT_MUTED,'center','middle');ct(ctx,item.name,140,y,14,800,EXPORT_TEXT,'left','middle');ct(ctx,frSmart(item.value),735,y,14,900,EXPORT_TEXT,'center','middle');const pct=total>0?item.value/total*100:0;ct(ctx,`${fr(pct,1)} %`,850,y,12,700,EXPORT_MUTED,'left','middle');cr(ctx,925,y-6,100,12,6,'#e7efec');cr(ctx,925,y-6,Math.max(0,Math.min(100,pct)),12,6,EXPORT_GREEN);});
-      if(items.length>10){const hidden=items.length-10;ct(ctx,`+ ${hidden} maître${hidden>1?'s':''} d’ouvrage non affiché${hidden>1?'s':''}`,140,785,13,800,EXPORT_GREEN,'left','middle');}
-      cr(ctx,1100,190,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,'TOTAL PROJETS',1130,230,12,900,EXPORT_GREEN);ct(ctx,frSmart(total),1130,300,48,900,EXPORT_GREEN);ct(ctx,'Somme des projets renseignés',1130,340,12,600,EXPORT_TEXT);
-      cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,'MAÎTRES D’OUVRAGE DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);ct(ctx,'MOA renseignés',1130,555,12,600,EXPORT_TEXT);
-      cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5),1130,728,48,900,EXPORT_GREEN);ct(ctx,'projets',1245,728,13,700,EXPORT_TEXT);ct(ctx,`Soit ${total>0?fr(top5/total*100,1):fr(0,1)} % du total`,1130,770,13,700,EXPORT_TEXT);
-      return;
-    }
+    if (tabType(activeTab) === 'moaList') { cMoaListSlide(ctx); return; }
+    if (tabType(activeTab) === 'performanceList') { cRankedListSlide(ctx, 'performanceList'); return; }
+    if (tabType(activeTab) === 'mentionList') { cRankedListSlide(ctx, 'mentionList'); return; }
 
     if (tabType(activeTab) === 'tunnel') {
       cHeader(ctx, state.tunnel.title, state.tunnel.subtitle);
       const phases = [
-        {name:'PROJET',desc:'1. Prise en charge de la demande de certification',fill:'#eaf4fb',text:EXPORT_TEXT},
+        {name:'OPÉRATION',desc:'1. Prise en charge de la demande de certification',fill:'#eaf4fb',text:EXPORT_TEXT},
         {name:'CONCEPTION',desc:'2. Évaluation en phase conception',fill:'#f5f5f5',text:EXPORT_TEXT},
         {name:'EXÉCUTION',desc:'3. Évaluation en phase exécution',fill:'#075838',text:'#ffffff'},
         {name:'LIVRAISON',desc:'4. Contrôle et délivrance de la certification',fill:'#c8f8db',text:EXPORT_TEXT}
@@ -3758,7 +4112,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
       // Les pictogrammes sont chargés depuis des data URLs embarquées afin
       // de garantir un canvas exportable, même avec un cache GitHub ancien.
       const tunnelIcons = await Promise.all([
-        loadExportDataImage(TUNNEL_ICON_DATA_URLS.project, 'le pictogramme Projet'),
+        loadExportDataImage(TUNNEL_ICON_DATA_URLS.project, 'le pictogramme Opération'),
         loadExportDataImage(TUNNEL_ICON_DATA_URLS.conception, 'le pictogramme Conception'),
         loadExportDataImage(TUNNEL_ICON_DATA_URLS.execution, 'le pictogramme Exécution'),
         loadExportDataImage(TUNNEL_ICON_DATA_URLS.delivery, 'le pictogramme Livraison')
@@ -3772,7 +4126,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
         const cx=areaLeft+colW*(i+.5), cy=540, cfg=colors[i]||colors[2];
         ctx.fillStyle=cfg[0];ctx.strokeStyle=cfg[2];ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,56,0,Math.PI*2);ctx.fill();ctx.stroke();
         ct(ctx,`${frSmart(item.value)}${item.key==='compliant'?'*':''}`,cx,cy+2,34,900,cfg[1],'center','middle');
-        cwrap(ctx,item.label,cx-colW/2+12,610,colW-24,12,800,EXPORT_TEXT,1.15,3,'center');
+        cwrap(ctx,item.label,cx,610,colW-24,12,800,EXPORT_TEXT,1.15,3,'center');
         cr(ctx,cx-colW/2+10,666,colW-20,48,8,'#f4f8f5','#bed6c8',1);ct(ctx,`${fr(tunnelPercent(item.value),1)} %`,cx,690,19,900,EXPORT_GREEN,'center','middle');
         if(item.key==='compliant') ct(ctx,`* dont ${frSmart(state.tunnel.sold)} soldés`,cx,733,10,500,'#526c62','center');
       });
@@ -4014,7 +4368,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     // que la slide Équipements originale et ne bascule plus vers un rendu
     // foreignObject/html2canvas susceptible de contaminer le canvas.
     if (type === 'map') return mapSlidePngBlob();
-    if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList'].includes(type)) {
+    if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList','performanceList','mentionList'].includes(type)) {
       return legacyCanvasSlidePngBlob();
     }
     throw new Error(`Type de slide non pris en charge pour l’export : ${type || activeTab}`);
@@ -4038,7 +4392,7 @@ CDC Habitat	8">${esc(state.moaList.importPaste || '')}</textarea></div>
     const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.scale(2.4, 2.4);
-    cHeader(ctx, state.map.title, state.map.subtitle, 'Une bulle = le nombre de projets renseignés');
+    cHeader(ctx, state.map.title, state.map.subtitle, 'Une bulle = le nombre d’opérations renseignées');
 
     const drawMapImage = image => {
       // Même emplacement que .map-slide-canvas à l'écran.

@@ -6,7 +6,7 @@ Base de travail : V22.
 Test automatisé dans Chromium sur les 11 onglets. Chaque export a été généré puis relu comme image PNG.
 
 - 0. Couverture — OK — 3840 × 2160
-- 1. Évolution des projets — OK — 3840 × 2160
+- 1. Évolution des opérations — OK — 3840 × 2160
 - 2. Cartographie départements — OK — 3840 × 2160
 - 3. Labels & performances — OK — 3840 × 2160
 - 4. Tunnel de certification — OK — 3840 × 2160
