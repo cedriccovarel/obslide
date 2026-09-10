@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#06402B" />
   <title>Générateur de slides - Observatoire</title>
-  <link rel="stylesheet" href="style.css?v=29.3" />
+  <link rel="stylesheet" href="style.css?v=29.5" />
 </head>
 <body class="auth-locked">
   <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
@@ -89,14 +89,14 @@
   <div id="dataConnectModal" class="data-modal" hidden>
     <div class="data-modal-backdrop" data-data-close="1"></div>
     <section class="data-modal-card" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
-      <div class="data-modal-head"><div><span class="data-kicker">V29.1 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
+      <div class="data-modal-head"><div><span class="data-kicker">V29.5 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
       <div class="data-modal-grid">
         <div class="data-source-card">
           <label>Mode</label>
           <select id="dataMode"><option value="demo">Démonstration intégrée</option><option value="appsScript">Google Apps Script (JSON)</option><option value="googleSheet">Google Sheet public (CSV)</option></select>
           <label>URL de la source</label><input id="dataUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec ou URL Google Sheet">
           <label>Nom de l’onglet Google Sheet</label><input id="dataTab" type="text" value="OPERATIONS">
-          <div class="data-actions"><button id="dataConnectBtn" class="btn btn-primary" type="button">Connecter / actualiser</button><button id="dataDisconnectBtn" class="btn btn-secondary" type="button">Revenir au mode manuel</button></div>
+          <div class="data-actions"><button id="dataConnectBtn" class="btn btn-primary" type="button">Connecter / actualiser</button><button id="dataDisconnectBtn" class="btn btn-secondary" type="button">Revenir au mode manuel</button></div><div class="data-resource-actions"><button id="dataShowGsBtn" class="btn btn-secondary btn-small" type="button">Code .gs</button><button id="dataCopyColumnsBtn" class="btn btn-secondary btn-small" type="button">Colonnes Excel</button><button id="dataHelpBtn" class="btn btn-secondary btn-small" type="button">Aide connexion</button></div>
           <div id="dataFeedback" class="data-feedback">Aucune source connectée.</div>
         </div>
         <div class="data-filter-card">
@@ -106,6 +106,15 @@
           <div class="data-connected-help"><b>Mode connecté :</b> les données manuelles restent récupérables avec « Revenir au mode manuel ». Le style, les textes et les options d’affichage des slides restent modifiables.</div>
         </div>
       </div>
+    </section>
+  </div>
+
+  <div id="dataHelpModal" class="data-modal data-help-modal" hidden>
+    <div class="data-modal-backdrop" data-data-help-close="1"></div>
+    <section class="data-modal-card data-help-card" role="dialog" aria-modal="true" aria-labelledby="dataHelpTitle">
+      <div class="data-modal-head"><div><span class="data-kicker">ASSISTANT DE CONNEXION</span><h2 id="dataHelpTitle">Aide</h2></div><button type="button" class="data-close" data-data-help-close="1">×</button></div>
+      <div id="dataHelpBody" class="data-help-body"></div>
+      <div class="data-actions data-help-footer"><button id="dataHelpCopy" class="btn btn-primary" type="button">Copier</button><button class="btn btn-secondary" type="button" data-data-help-close="1">Fermer</button></div>
     </section>
   </div>
 
@@ -120,6 +129,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
   <script src="auth.js?v=291"></script>
-  <script src="app.js?v=29.3"></script>
+  <script src="app.js?v=29.5"></script>
 </body>
 </html>

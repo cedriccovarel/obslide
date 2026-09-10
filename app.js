@@ -343,6 +343,8 @@ const MAP_GEOJSON_URLS = [
       subtitle: 'Classement des performances par nombre d’occurrences',
       note: 'Les occurrences correspondent aux performances renseignées sur les opérations du panel.',
       importPaste: '',
+      sortBy: 'operations',
+      columns: { dwellings:true, buildings:true, shareDwellings:true },
       items: [
         { name: 'IC Énergie 2028', value: 16 },
         { name: 'IC Construction 2028', value: 9 },
@@ -378,6 +380,8 @@ const MAP_GEOJSON_URLS = [
       subtitle: 'Classement des mentions par nombre d’occurrences',
       note: 'Les occurrences correspondent aux mentions renseignées sur les opérations du panel.',
       importPaste: '',
+      sortBy: 'operations',
+      columns: { dwellings:true, buildings:true, shareDwellings:true },
       items: [
         { name: 'BBCA Standard V4.1', value: 25 },
         { name: 'BEE+', value: 20 },
@@ -473,9 +477,22 @@ const MAP_GEOJSON_URLS = [
     }));
   };
   normalizeMoaModel(state.moaList);
+  const normalizeRankedModel = (model, kind) => {
+    if (!model || typeof model !== 'object') return;
+    if (!model.sortBy) model.sortBy = 'operations';
+    model.columns = deepMerge({dwellings:true,buildings:true,shareDwellings:true}, model.columns || {});
+    model.texts = deepMerge(clone(defaults[kind].texts), model.texts || {});
+    if (Array.isArray(model.items)) model.items = model.items.map(item => ({
+      name:String(item?.name || ''), value:Math.max(0,num(item?.value)),
+      dwellings:Math.max(0,num(item?.dwellings)), buildings:Math.max(0,num(item?.buildings))
+    }));
+  };
+  normalizeRankedModel(state.performanceList, 'performanceList');
+  normalizeRankedModel(state.mentionList, 'mentionList');
   Object.entries(state.presentation.instanceData || {}).forEach(([tabId, data]) => {
     const type = state.presentation.instances?.[tabId] || tabId;
     if (type === 'moaList') normalizeMoaModel(data);
+    if (type === 'performanceList' || type === 'mentionList') normalizeRankedModel(data, type);
   });
   const ensureNewDefaultSlides = () => {
     const order = state.presentation.order || [];
@@ -1546,60 +1563,83 @@ const MAP_GEOJSON_URLS = [
     return `<div class="control-section moa-import-section">
       <h3>Importer depuis Excel / Google Sheets</h3>
       <p class="help">Copie deux colonnes : <strong>${esc(singularLabel)}</strong> puis <strong>Nombre / occurrences</strong>. La ligne d’en-tête peut être incluse.</p>
-      <div class="field"><label>Liste + valeur</label><textarea rows="8" data-ranked-import-paste="1" data-kind="${esc(kind)}" placeholder="${esc(singularLabel)}\tOccurrences\nExemple 1\t12\nExemple 2\t9">${esc(model.importPaste || '')}</textarea></div>
+      <div class="field"><label>Liste + valeur</label><textarea rows="8" data-ranked-import-paste="1" data-kind="${esc(kind)}" placeholder="${esc(singularLabel)}	Occurrences
+Exemple 1	12
+Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       <div class="map-control-actions"><button type="button" class="btn btn-primary btn-small" data-ranked-import="replace" data-kind="${esc(kind)}">Importer / remplacer</button><button type="button" class="btn btn-secondary btn-small" data-ranked-import="append" data-kind="${esc(kind)}">Ajouter à la liste</button><button type="button" class="btn btn-danger btn-small" data-ranked-import-clear="1" data-kind="${esc(kind)}">Vider la zone</button></div>
       <div class="inline-note">Les doublons sont regroupés automatiquement et leurs valeurs sont additionnées.</div>
     </div>
-    <div class="control-section"><h3>${esc(singularLabel)} — saisie manuelle</h3><p class="help">Tu peux corriger ou compléter chaque ligne après l’import. La slide classe automatiquement les éléments du plus grand au plus petit.</p>${simpleNamedValueEditor(`${kind}.items`, 100)}</div>
+    <div class="control-section"><h3>Classement & colonnes</h3>
+      ${selectField('Classer selon', `${kind}.sortBy`, [{value:'operations',label:'Nombre d’opérations / occurrences'},{value:'dwellings',label:'Nombre de logements'}])}
+      <div class="toggle-grid">
+        ${toggleField('Total logements',`${kind}.columns.dwellings`)}
+        ${toggleField('Total bâtiments',`${kind}.columns.buildings`)}
+        ${toggleField('Part logements',`${kind}.columns.shareDwellings`)}
+      </div>
+      <div class="inline-note">La colonne Occurrences / Part opérations reste toujours affichée. Le classement peut suivre le nombre d’opérations ou le nombre de logements concernés.</div>
+    </div>
+    <div class="control-section"><h3>${esc(singularLabel)} — saisie manuelle</h3><p class="help">Tu peux corriger ou compléter chaque ligne après l’import.</p>${simpleNamedValueEditor(`${kind}.items`, 100)}</div>
     ${rankedListTextControls(kind)}`;
   }
 
+  function rankedItemsForDisplay(kind) {
+    const model=state[kind]||{};
+    const metric=model.sortBy==='dwellings'?'dwellings':'value';
+    return [...(model.items||[])].map(item=>({
+      name:String(item?.name||'').trim(), value:Math.max(0,num(item?.value)),
+      dwellings:Math.max(0,num(item?.dwellings)), buildings:Math.max(0,num(item?.buildings))
+    })).filter(item=>item.name).sort((a,b)=>(b[metric]-a[metric]) || (b.value-a.value) || a.name.localeCompare(b.name,'fr'));
+  }
+
   function renderRankedListSlide(kind) {
-    const model = state[kind];
-    const t = model.texts || {};
-    const items = sortedPositiveItems(model.items);
+    const model = state[kind], t = model.texts || {}, cols=model.columns||{};
+    const items = rankedItemsForDisplay(kind);
     const total = items.reduce((sum,item)=>sum+item.value,0);
-    const totalDw = model.connectedTotals?.dwellings ?? items.reduce((sum,item)=>sum+Math.max(0,num(item.dwellings)),0);
+    const totalDw = model.connectedTotals?.dwellings ?? items.reduce((sum,item)=>sum+item.dwellings,0);
     const top = items.slice(0,10);
-    const top5 = items.slice(0,5).reduce((sum,item)=>sum+item.value,0);
+    const metric=model.sortBy==='dwellings'?'dwellings':'value';
+    const metricTotal=metric==='dwellings'?totalDw:total;
+    const top5 = items.slice(0,5).reduce((sum,item)=>sum+item[metric],0);
+    const columns=[{key:'rank',label:'#',w:'44px'},{key:'name',label:t.itemHeader||'LIBELLÉ',w:'minmax(190px,1fr)'},{key:'value',label:t.valueHeader||'OCCURRENCES',w:'98px'}];
+    if(cols.dwellings!==false) columns.push({key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:'105px'});
+    if(cols.buildings!==false) columns.push({key:'buildings',label:t.buildingsHeader||'TOTAL BÂTIMENTS',w:'100px'});
+    columns.push({key:'share',label:t.shareHeader||'PART OPÉRATIONS',w:'170px'});
+    if(cols.shareDwellings!==false) columns.push({key:'shareDw',label:t.shareDwellingsHeader||'PART LOGEMENTS',w:'170px'});
+    const grid=columns.map(c=>c.w).join(' ');
+    const headCell=c=>c.label;
     return `${head(model.title, model.subtitle, '', model.note)}
       <div class="moa-table-card moa-table-card-ranked-rich card">
-        <div class="moa-table-head"><span>#</span><span>${esc(t.itemHeader || 'LIBELLÉ')}</span><span>${esc(t.valueHeader || 'OCCURRENCES')}</span><span>${esc(t.dwellingsHeader || 'TOTAL LOGEMENTS')}</span><span>${esc(t.buildingsHeader || 'TOTAL BÂTIMENTS')}</span><span>${esc(t.shareHeader || 'PART OPÉRATIONS')}</span><span>${esc(t.shareDwellingsHeader || 'PART LOGEMENTS')}</span></div>
-        <div class="moa-table-body">${top.map((item,i)=>{ const sharePct=total>0?item.value/total*100:0; const dw=Math.max(0,num(item.dwellings)); const bld=Math.max(0,num(item.buildings)); const shareDw=totalDw>0?dw/totalDw*100:0; const connected=dataRuntime.connected&&(kind==='mentionList'||kind==='performanceList'); const tagKind=kind==='mentionList'?'mention':'performance'; return `<div class="moa-table-row ${connected?'data-clickable data-ranked-clickable':''}" ${connected?`data-data-tag-kind="${tagKind}" data-data-tag-label="${esc(item.name)}" title="Afficher les opérations correspondantes"`:''}><span>${i+1}</span><b>${esc(item.name)}</b><strong>${frSmart(item.value)}</strong><strong>${frSmart(dw)}</strong><strong>${frSmart(bld)}</strong><div class="moa-share compact"><span>${fr(sharePct,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,sharePct))}%"></em></i></div><div class="moa-share compact"><span>${fr(shareDw,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,shareDw))}%"></em></i></div></div>`; }).join('')}</div>
+        <div class="moa-table-head" style="grid-template-columns:${grid}">${columns.map(c=>`<span>${esc(headCell(c))}</span>`).join('')}</div>
+        <div class="moa-table-body">${top.map((item,i)=>{const sharePct=total>0?item.value/total*100:0, shareDw=totalDw>0?item.dwellings/totalDw*100:0;const connected=dataRuntime.connected&&(kind==='mentionList'||kind==='performanceList');const tagKind=kind==='mentionList'?'mention':'performance';return `<div class="moa-table-row ${connected?'data-clickable data-ranked-clickable':''}" ${connected?`data-data-tag-kind="${tagKind}" data-data-tag-label="${esc(item.name)}" title="Afficher les opérations correspondantes"`:''} style="grid-template-columns:${grid}">${columns.map(c=>{if(c.key==='rank')return `<span>${i+1}</span>`;if(c.key==='name')return `<b>${esc(item.name)}</b>`;if(c.key==='value')return `<strong>${frSmart(item.value)}</strong>`;if(c.key==='dwellings')return `<strong>${frSmart(item.dwellings)}</strong>`;if(c.key==='buildings')return `<strong>${frSmart(item.buildings)}</strong>`;const val=c.key==='share'?sharePct:shareDw;return `<div class="moa-share compact"><span>${fr(val,1)} %</span><i><em style="width:${Math.max(0,Math.min(100,val))}%"></em></i></div>`;}).join('')}</div>`;}).join('')}</div>
         ${items.length>10?`<div class="moa-more">+ ${items.length-10} ${esc(t.hiddenLabel || 'élément(s) non affiché(s)')}</div>`:''}
       </div>
       <div class="moa-kpis">
         <div class="moa-kpi card"><span>${esc(t.kpi1Title || 'TOTAL')}</span><b>${frSmart(total)}</b><small>${esc(t.kpi1Subtitle || '')}</small></div>
         <div class="moa-kpi card"><span>${esc(t.kpi2Title || 'ÉLÉMENTS DISTINCTS')}</span><b>${frSmart(items.length)}</b><small>${esc(t.kpi2Subtitle || '')}</small></div>
-        <div class="moa-kpi card"><span>${esc(t.kpi3Title || 'TOP 5')}</span><b>${frSmart(top5)} <small>${esc(t.kpi3Unit || '')}</small></b><small>${esc(t.kpi3SubtitlePrefix || 'Soit')} ${total>0?fr(top5/total*100,1):fr(0,1)} ${esc(t.kpi3SubtitleSuffix || '% du total')}</small></div>
+        <div class="moa-kpi card"><span>${esc(t.kpi3Title || 'TOP 5')}</span><b>${frSmart(top5)} <small>${metric==='dwellings'?'logements':esc(t.kpi3Unit || '')}</small></b><small>${esc(t.kpi3SubtitlePrefix || 'Soit')} ${metricTotal>0?fr(top5/metricTotal*100,1):fr(0,1)} ${esc(t.kpi3SubtitleSuffix || '% du total')}</small></div>
       </div>`;
   }
 
   function cRankedListSlide(ctx, kind) {
-    const model = state[kind];
-    const t = model.texts || {};
-    const items = sortedPositiveItems(model.items);
-    const total = items.reduce((sum,item)=>sum+item.value,0);
-    const totalDw = model.connectedTotals?.dwellings ?? items.reduce((sum,item)=>sum+Math.max(0,num(item.dwellings)),0);
-    const top=items.slice(0,10); const top5=items.slice(0,5).reduce((sum,item)=>sum+item.value,0);
+    const model = state[kind], t = model.texts || {}, opts=model.columns||{};
+    const items = rankedItemsForDisplay(kind);
+    const total=items.reduce((s,i)=>s+i.value,0), totalDw=model.connectedTotals?.dwellings ?? items.reduce((s,i)=>s+i.dwellings,0);
+    const metric=model.sortBy==='dwellings'?'dwellings':'value', metricTotal=metric==='dwellings'?totalDw:total;
+    const top=items.slice(0,10), top5=top.slice(0,5).reduce((s,i)=>s+i[metric],0);
     cHeader(ctx,model.title,model.subtitle,model.note);
-    const x0=55,w=1010;
-    cr(ctx,x0,190,w,630,22,'#fff','#c3d2cf',1.2); cr(ctx,x0,190,w,54,22,'#eef4f1');
-    const cols=[
-      {key:'rank',label:'#',w:42},{key:'name',label:t.itemHeader||'LIBELLÉ',w:270},
-      {key:'value',label:t.valueHeader||'OCCURRENCES',w:90},{key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:105},
-      {key:'buildings',label:t.buildingsHeader||'TOTAL BÂTIMENTS',w:100},{key:'share',label:t.shareHeader||'PART OPÉRATIONS',w:180},
-      {key:'shareDw',label:t.shareDwellingsHeader||'PART LOGEMENTS',w:180}
-    ];
+    const x0=55,w=1010; cr(ctx,x0,190,w,630,22,'#fff','#c3d2cf',1.2); cr(ctx,x0,190,w,54,22,'#eef4f1');
+    const cols=[{key:'rank',label:'#',w:42},{key:'name',label:t.itemHeader||'LIBELLÉ',w:270},{key:'value',label:t.valueHeader||'OCCURRENCES',w:90}];
+    if(opts.dwellings!==false)cols.push({key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:105});
+    if(opts.buildings!==false)cols.push({key:'buildings',label:t.buildingsHeader||'TOTAL BÂTIMENTS',w:100});
+    cols.push({key:'share',label:t.shareHeader||'PART OPÉRATIONS',w:180});
+    if(opts.shareDwellings!==false)cols.push({key:'shareDw',label:t.shareDwellingsHeader||'PART LOGEMENTS',w:180});
     const base=cols.reduce((a,c)=>a+c.w,0), scale=970/base; let xx=75;
     cols.forEach(c=>{c.x=xx;c.dw=c.w*scale;xx+=c.dw;cwrap(ctx,c.label,c.x+(c.key==='rank'?c.dw/2:4),222,c.dw-8,8.7,900,EXPORT_TEXT,1.04,2,c.key==='rank'?'center':'left');});
-    top.forEach((item,i)=>{const y=270+i*49;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();const dw=Math.max(0,num(item.dwellings)), bld=Math.max(0,num(item.buildings));const pct=total>0?item.value/total*100:0, pctDw=totalDw>0?dw/totalDw*100:0;
-      cols.forEach(c=>{if(c.key==='rank')ct(ctx,String(i+1),c.x+c.dw/2,y,11,800,EXPORT_MUTED,'center','middle');else if(c.key==='name')cwrap(ctx,item.name,c.x+4,y-8,c.dw-8,12.2,800,EXPORT_TEXT,1.08,2);else if(c.key==='value')ct(ctx,frSmart(item.value),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else if(c.key==='dwellings')ct(ctx,frSmart(dw),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else if(c.key==='buildings')ct(ctx,frSmart(bld),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else {const val=c.key==='share'?pct:pctDw;ct(ctx,`${fr(val,1)} %`,c.x+4,y-5,10.5,800,EXPORT_MUTED,'left','middle');cr(ctx,c.x+4,y+7,c.dw-12,8,4,'#e7efec');cr(ctx,c.x+4,y+7,(c.dw-12)*Math.max(0,Math.min(100,val))/100,8,4,EXPORT_GREEN);}});
-    });
+    top.forEach((item,i)=>{const y=270+i*49;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(75,y+22);ctx.lineTo(1045,y+22);ctx.stroke();const pct=total>0?item.value/total*100:0,pctDw=totalDw>0?item.dwellings/totalDw*100:0;cols.forEach(c=>{if(c.key==='rank')ct(ctx,String(i+1),c.x+c.dw/2,y,11,800,EXPORT_MUTED,'center','middle');else if(c.key==='name')cwrap(ctx,item.name,c.x+4,y-8,c.dw-8,12.2,800,EXPORT_TEXT,1.08,2);else if(c.key==='value')ct(ctx,frSmart(item.value),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else if(c.key==='dwellings')ct(ctx,frSmart(item.dwellings),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else if(c.key==='buildings')ct(ctx,frSmart(item.buildings),c.x+c.dw/2,y,12.5,900,EXPORT_TEXT,'center','middle');else{const val=c.key==='share'?pct:pctDw;ct(ctx,`${fr(val,1)} %`,c.x+4,y-5,10.5,800,EXPORT_MUTED,'left','middle');cr(ctx,c.x+4,y+7,c.dw-12,8,4,'#e7efec');cr(ctx,c.x+4,y+7,(c.dw-12)*Math.max(0,Math.min(100,val))/100,8,4,EXPORT_GREEN);}});});
     if(items.length>10)ct(ctx,`+ ${items.length-10} ${t.hiddenLabel || 'élément(s) non affiché(s)'}`,140,785,13,800,EXPORT_GREEN,'left','middle');
-    cr(ctx,1100,190,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi1Title || 'TOTAL',1130,230,12,900,EXPORT_GREEN);ct(ctx,frSmart(total),1130,300,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi1Subtitle || '',1130,340,370,12,600,EXPORT_TEXT,1.15,2);
-    cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi2Title || 'ÉLÉMENTS DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi2Subtitle || '',1130,555,370,12,600,EXPORT_TEXT,1.15,2);
-    cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title || 'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5),1130,728,48,900,EXPORT_GREEN);ct(ctx,t.kpi3Unit || '',1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix || 'Soit'} ${total>0?fr(top5/total*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix || '% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,190,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi1Title||'TOTAL',1130,230,12,900,EXPORT_GREEN);ct(ctx,frSmart(total),1130,300,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi1Subtitle||'',1130,340,370,12,600,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,405,445,188,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi2Title||'ÉLÉMENTS DISTINCTS',1130,445,12,900,EXPORT_GREEN);ct(ctx,frSmart(items.length),1130,515,48,900,EXPORT_GREEN);cwrap(ctx,t.kpi2Subtitle||'',1130,555,370,12,600,EXPORT_TEXT,1.15,2);
+    cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title||'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5),1130,728,48,900,EXPORT_GREEN);ct(ctx,metric==='dwellings'?'logements':(t.kpi3Unit||''),1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix||'Soit'} ${metricTotal>0?fr(top5/metricTotal*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix||'% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
   }
 
 
@@ -5288,12 +5328,21 @@ const MAP_GEOJSON_URLS = [
   function dataSelectionCsv(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const header=['Code opération','Nom opération','Département','Référentiel','MOA','Statut','Total logements','Total bâtiments','Année','Nature','Chauffage avant','Chauffage après','ECS avant','ECS après'];const cell=v=>`"${String(v??'').replace(/"/g,'""')}"`;return [header.map(cell).join(';'),...rows.map(o=>[o.code,o.name,o.department,o.referential,o.moa,o.status,o.dwellings,o.buildings,o.year,o.nature,o.heatingBefore,o.heatingAfter,o.ecsBefore,o.ecsAfter].map(cell).join(';'))].join('\n');}
   function dataDownloadCsv(){const blob=new Blob(['\ufeff'+dataSelectionCsv()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='operations_selection.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   async function dataCopySelection(){try{await navigator.clipboard.writeText(dataSelectionCsv());toast('Liste des opérations copiée.');}catch{toast('Copie impossible dans ce navigateur.');}}
+  const DATA_HELP_GS = "/**\n * PRESTATERRE OBSERVATOIRE — V29.1 DATA CONNECTED\n *\n * Google Sheet : onglet OPERATIONS\n * Ligne 1 : libre\n * Ligne 2 : en-têtes\n * Ligne 3 : libre / formules\n * Ligne 4 et suivantes : données\n *\n * Le préfixe OBSERVATOIRE_ évite les conflits avec d'autres CONFIG du projet.\n */\nconst OBSERVATOIRE_CONFIG = {\n  SHEET_NAME: 'OPERATIONS',\n  HEADER_ROW: 2,\n  FIRST_DATA_ROW: 4\n};\n\nfunction doGet(e) {\n  try {\n    const operations = getObservatoireOperations_();\n    return ContentService\n      .createTextOutput(JSON.stringify({\n        ok: true,\n        generatedAt: new Date().toISOString(),\n        count: operations.length,\n        operations: operations\n      }))\n      .setMimeType(ContentService.MimeType.JSON);\n  } catch (error) {\n    return ContentService\n      .createTextOutput(JSON.stringify({\n        ok: false,\n        error: String(error && error.message ? error.message : error)\n      }))\n      .setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\nfunction getObservatoireOperations_() {\n  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  const sheet = spreadsheet.getSheetByName(OBSERVATOIRE_CONFIG.SHEET_NAME);\n  if (!sheet) throw new Error('Onglet \"' + OBSERVATOIRE_CONFIG.SHEET_NAME + '\" introuvable.');\n\n  const lastRow = sheet.getLastRow();\n  const lastColumn = sheet.getLastColumn();\n  if (lastColumn < 1 || lastRow < OBSERVATOIRE_CONFIG.HEADER_ROW) return [];\n\n  const headers = sheet\n    .getRange(OBSERVATOIRE_CONFIG.HEADER_ROW, 1, 1, lastColumn)\n    .getDisplayValues()[0]\n    .map(header => String(header || '').trim());\n\n  if (lastRow < OBSERVATOIRE_CONFIG.FIRST_DATA_ROW) return [];\n\n  const rows = sheet\n    .getRange(\n      OBSERVATOIRE_CONFIG.FIRST_DATA_ROW,\n      1,\n      lastRow - OBSERVATOIRE_CONFIG.FIRST_DATA_ROW + 1,\n      lastColumn\n    )\n    .getDisplayValues();\n\n  return rows\n    .filter(row => row.some(cell => String(cell || '').trim() !== ''))\n    .map(row => {\n      const operation = {};\n      headers.forEach((header, index) => {\n        if (!header) return;\n        operation[header] = row[index] == null ? '' : row[index];\n      });\n      return operation;\n    });\n}\n\nfunction testerObservatoireConnexion() {\n  const operations = getObservatoireOperations_();\n  Logger.log('Nombre de lignes de données détectées : ' + operations.length);\n  if (operations.length) Logger.log(JSON.stringify(operations[0], null, 2));\n}\n\nfunction verifierObservatoire() {\n  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  const sheet = spreadsheet.getSheetByName(OBSERVATOIRE_CONFIG.SHEET_NAME);\n  Logger.log('Fichier : ' + spreadsheet.getName());\n  if (!sheet) {\n    Logger.log('ERREUR : onglet OPERATIONS introuvable.');\n    return;\n  }\n  Logger.log('Onglet trouvé : ' + sheet.getName());\n  Logger.log('Ligne des en-têtes : ' + OBSERVATOIRE_CONFIG.HEADER_ROW);\n  Logger.log('Première ligne de données : ' + OBSERVATOIRE_CONFIG.FIRST_DATA_ROW);\n  Logger.log('Dernière ligne utilisée : ' + sheet.getLastRow());\n  Logger.log('Dernière colonne utilisée : ' + sheet.getLastColumn());\n  Logger.log('Nombre de lignes de données détectées : ' + getObservatoireOperations_().length);\n}\n";
+  const DATA_HELP_COLUMNS = "Code interne\tNom opération\tContrat: Statut\tÉvaluation: Statut\tAffaire: Étape\tNom du programme (client)\tMaître d'ouvrage: Nom de la société\tMaître d'ouvrage: Société principale: Nom de la société\tMaître d'ouvrage: Hiérarchie\tÉtape\tDate de création\tAffaire: Nom de l'affaire\tAffaire: Date de création\tAffaire: Accepté le\tMontant HT affaire\tContrat: Numéro du contrat\tContrat: Date de création\tContrat: Date d'activation\tMontant HT commande\tÉvaluation: Code interne\tÉvaluation: Date de création\tCertification: Date de décision AP\tCertification: Date de décision CD\tOuvrage\tIndividuel diffus (maison individuelle)\tIndividuel groupé - Nombre de logements\tIndividuel groupé - Nombre de bâtiments\tLogement collectif - Nombre de logements\tLogement collectif - Nombre de bâtiments\tHab. communautaire - Nombre de logements\tLogements non certifiés\tTotal logements\tTotal bâtiments\tRéférentiel: Nom du référentiel\tVersion du référentiel applicable: Version\tMentions\tPerformance\tProfil choisi\tBâtiment construit avant 1948\tBâtiment construit après 1948\tRénovation\tZone ANRU\tSans mention\tPerformance environnementale\tMention Bâtiment Performance\tMention BEE+\tMention Option TFPB\tMention Label E+C-\tDérogation E+C-\tMention Label BBCA\tDérogation BBCA\tMention option Contribution Neutralité\tMention Label Effinergie\tNiveau Énergie Carbone Effinergie 2017\tMention Label Bâtiment Biosourcé\tDérogation Biosourcé\tMention Habitat Qualité\tMention Évaluation des charges\tMention Bonus de constructibilité\tMention Qualité de l'air\tMention Acoustique renforcée\tMention Économie circulaire\tMention Taxinomie européenne\tMention Horizon Zéro Carbone\tMention Biodiversité\tProfil spécifique\tÉtiquette DPE & GES\tNiveau Énergie\tNiveau Passif\tNiveau Cep\tNiveau Cep,nr\tNiveau Bbio\tNiveau IC Construction\tNiveau IC Énergie\tPerformance renforcée\tBiosourcé 2013\tDépartement\tAvancement\tProjet\tOpération\tBâtiment\tNombre de logements\tSurface bâtiment (SHAB / Sref / SU / SURT / SRT)\tTypologies de logements\tAnnée de construction\tDH\tDH Max\tTic\tTic ref\tLogement traversant\tLogement non traversant\tNombre de brasseurs d’air\tType de brasseurs d’air\tStructure\tPlanchers hauts\tPlanchers hauts isolant\tPlanchers hauts épaisseur isolant\tPlanchers hauts R isolant\tParois verticales structure\tParois verticales type d’isolant\tParois verticales épaisseur isolant\tParois verticales R isolant\tPlanchers bas structure\tPlanchers bas isolant\tPlanchers bas épaisseur isolant\tPlanchers bas R isolant\tMenuiseries matériau\tMenuiseries vitrage\tMenuiseries occultations\tVecteur chauffage avant travaux\tVecteur chauffage après travaux\tMode de chauffage après travaux\tVecteur ECS avant travaux\tVecteur ECS après travaux\tECS\tRefroidissement\tVentilation\tBbio\tBbio Max\tGain Bbio\tCep\tCep Max\tGain Cep\tCepnr\tCepnr Max\tGain Cepnr\tCep refroidissement\tCep éclairage\tCep auxiliaires ventilation\tCep auxiliaires distribution\tCep déplacement occupants\tCep électricité\tCep gaz\tCep réseau de chaleur\tCep bois / biomasse\tUbat avant travaux\tUbat après travaux\tCep avant travaux\tCep après travaux final\tIC composants bâtiment\tIC chantier\tIC composants lot 1\tIC composants lot 2\tIC composants lot 3\tIC composants lot 4\tIC composants lot 5\tIC composants lot 6\tIC composants lot 7\tIC composants lot 8\tIC composants lot 9\tIC composants lot 10\tIC composants lot 11\tIC composants lot 12\tIC composants lot 13\tIC énergie bâtiment\tIC énergie chauffage\tIC énergie refroidissement\tIC énergie ECS\tIC énergie auxiliaires ventilation\tIC énergie auxiliaires distribution\tIC énergie déplacements\tDPE Énergie avant travaux\tDPE GES avant travaux\tDPE Énergie après travaux final\tDPE GES après travaux final\tENR oui/non\tENR type";
+  function dataOpenHelp(mode){const modal=document.getElementById('dataHelpModal'),title=document.getElementById('dataHelpTitle'),body=document.getElementById('dataHelpBody'),copy=document.getElementById('dataHelpCopy');if(!modal)return;modal.hidden=false;copy.hidden=false;if(mode==='gs'){title.textContent='Code Google Apps Script (.gs)';body.innerHTML=`<p class="data-help-intro">Copie ce code dans <b>Extensions → Apps Script → Code.gs</b>. Il lit les en-têtes en ligne 2 et les données à partir de la ligne 4.</p><pre class="data-help-code"></pre>`;body.querySelector('pre').textContent=DATA_HELP_GS;copy.textContent='Copier le code .gs';copy.dataset.copyKind='gs';}else if(mode==='columns'){title.textContent='Colonnes de l’onglet OPERATIONS';body.innerHTML=`<p class="data-help-intro">À coller directement dans la <b>ligne 2</b> de l’onglet <b>OPERATIONS</b>. Les données commencent ligne 4.</p><pre class="data-help-code data-help-columns"></pre>`;body.querySelector('pre').textContent=DATA_HELP_COLUMNS;copy.textContent='Copier les colonnes';copy.dataset.copyKind='columns';}else{title.textContent='Aide — connecter une source de données';copy.hidden=true;body.innerHTML=`<div class="data-help-steps"><h3>Connexion pas à pas</h3><ol><li><b>Prépare ton Google Sheet.</b><br>Crée ou utilise un onglet nommé <code>OPERATIONS</code>. Mets les intitulés de colonnes en ligne 2. La ligne 3 peut rester libre. Les opérations commencent ligne 4.</li><li><b>Ouvre Apps Script.</b><br>Dans Google Sheets : <b>Extensions → Apps Script</b>.</li><li><b>Ajoute le code.</b><br>Dans <code>Code.gs</code>, colle le code proposé par le bouton « Code .gs ». Enregistre.</li><li><b>Vérifie la lecture.</b><br>En haut d’Apps Script, choisis <code>verifierObservatoire</code>, clique sur <b>Exécuter</b>, puis vérifie dans le journal que l’onglet OPERATIONS est trouvé et que le nombre de lignes est cohérent.</li><li><b>Déploie l’API.</b><br>Clique sur <b>Déployer → Nouveau déploiement</b>, choisis <b>Application Web</b>, « Exécuter en tant que : Moi », puis donne l’accès le plus large autorisé. Clique sur <b>Déployer</b>.</li><li><b>Copie l’URL /exec.</b><br>Google fournit une URL se terminant par <code>/exec</code>. C’est l’adresse de ta source.</li><li><b>Connecte le générateur.</b><br>Dans ce générateur : <b>Données → Mode : Google Apps Script (JSON)</b>. Colle l’URL /exec puis clique sur <b>Connecter / actualiser</b>.</li><li><b>Contrôle que tout est à jour.</b><br>Le message doit indiquer le nombre d’opérations chargées. Modifie ensuite une valeur test dans le Sheet, puis clique à nouveau sur <b>Connecter / actualiser</b>. Si la slide change, la connexion est validée.</li><li><b>Ensuite, rien à redéployer pour les données.</b><br>Tu peux ajouter/corriger des opérations dans le Sheet. Le redéploiement Apps Script n’est nécessaire que si tu modifies le code <code>.gs</code> lui-même.</li></ol></div>`;}}
+  async function dataHelpCopy(){const kind=document.getElementById('dataHelpCopy')?.dataset.copyKind;const text=kind==='columns'?DATA_HELP_COLUMNS:DATA_HELP_GS;try{await navigator.clipboard.writeText(text);toast(kind==='columns'?'Colonnes copiées.':'Code .gs copié.');}catch{toast('Copie impossible dans ce navigateur.');}}
   function dataInitUI(){let filters={};try{filters=JSON.parse(localStorage.getItem(DATA_FILTERS_STORAGE_KEY)||'{}')||{};}catch{}dataRuntime.filters={...dataRuntime.filters,...filters};const source=(()=>{try{return JSON.parse(localStorage.getItem(DATA_SOURCE_STORAGE_KEY)||'null');}catch{return null;}})();if(source){document.getElementById('dataMode').value=source.mode||'appsScript';document.getElementById('dataUrl').value=source.url||'';document.getElementById('dataTab').value=source.tab||'OPERATIONS';}dataUpdateBadge();dataUpdateFilterUI();}
 
   if(dataSourceBtn)dataSourceBtn.addEventListener('click',()=>{dataConnectModal.hidden=false;dataPopulateFilters();dataUpdateFilterUI();});
   document.querySelectorAll('[data-data-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataConnectModal.hidden=true;}));
   document.getElementById('dataConnectBtn')?.addEventListener('click',dataConnect);
   document.getElementById('dataDisconnectBtn')?.addEventListener('click',dataDisconnect);
+  document.getElementById('dataShowGsBtn')?.addEventListener('click',()=>dataOpenHelp('gs'));
+  document.getElementById('dataCopyColumnsBtn')?.addEventListener('click',()=>dataOpenHelp('columns'));
+  document.getElementById('dataHelpBtn')?.addEventListener('click',()=>dataOpenHelp('help'));
+  document.querySelectorAll('[data-data-help-close="1"]').forEach(el=>el.addEventListener('click',()=>{document.getElementById('dataHelpModal').hidden=true;}));
+  document.getElementById('dataHelpCopy')?.addEventListener('click',dataHelpCopy);
   document.getElementById('dataApplyFilters')?.addEventListener('click',dataReadFiltersFromUI);
   document.getElementById('dataResetFilters')?.addEventListener('click',()=>{dataRuntime.filters={yearMin:'',yearMax:'',referential:'',nature:''};localStorage.setItem(DATA_FILTERS_STORAGE_KEY,JSON.stringify(dataRuntime.filters));dataUpdateFilterUI();if(dataRuntime.connected)dataSyncViews();});
   document.querySelectorAll('[data-explorer-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataExplorer.classList.remove('is-open');dataExplorer.setAttribute('aria-hidden','true');}));
