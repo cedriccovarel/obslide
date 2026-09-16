@@ -16,8 +16,40 @@ const MAP_GEOJSON_URLS = [
     'https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/departements-version-simplifiee.geojson',
     'https://etalab-datasets.geo.data.gouv.fr/contours-administratifs/latest/geojson/departements-1000m.geojson'
   ];
+  const REGION_GEOJSON_URLS = [
+    'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson',
+    'https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/regions-version-simplifiee.geojson',
+    'https://etalab-datasets.geo.data.gouv.fr/contours-administratifs/latest/geojson/regions-1000m.geojson'
+  ];
   const IDF_CODES = ['75','77','78','91','92','93','94','95'];
   const DEPARTMENTS = [{"code":"01","name":"Ain"},{"code":"02","name":"Aisne"},{"code":"03","name":"Allier"},{"code":"04","name":"Alpes-de-Haute-Provence"},{"code":"05","name":"Hautes-Alpes"},{"code":"06","name":"Alpes-Maritimes"},{"code":"07","name":"Ardèche"},{"code":"08","name":"Ardennes"},{"code":"09","name":"Ariège"},{"code":"10","name":"Aube"},{"code":"11","name":"Aude"},{"code":"12","name":"Aveyron"},{"code":"13","name":"Bouches-du-Rhône"},{"code":"14","name":"Calvados"},{"code":"15","name":"Cantal"},{"code":"16","name":"Charente"},{"code":"17","name":"Charente-Maritime"},{"code":"18","name":"Cher"},{"code":"19","name":"Corrèze"},{"code":"2A","name":"Corse-du-Sud"},{"code":"2B","name":"Haute-Corse"},{"code":"21","name":"Côte-d’Or"},{"code":"22","name":"Côtes-d’Armor"},{"code":"23","name":"Creuse"},{"code":"24","name":"Dordogne"},{"code":"25","name":"Doubs"},{"code":"26","name":"Drôme"},{"code":"27","name":"Eure"},{"code":"28","name":"Eure-et-Loir"},{"code":"29","name":"Finistère"},{"code":"30","name":"Gard"},{"code":"31","name":"Haute-Garonne"},{"code":"32","name":"Gers"},{"code":"33","name":"Gironde"},{"code":"34","name":"Hérault"},{"code":"35","name":"Ille-et-Vilaine"},{"code":"36","name":"Indre"},{"code":"37","name":"Indre-et-Loire"},{"code":"38","name":"Isère"},{"code":"39","name":"Jura"},{"code":"40","name":"Landes"},{"code":"41","name":"Loir-et-Cher"},{"code":"42","name":"Loire"},{"code":"43","name":"Haute-Loire"},{"code":"44","name":"Loire-Atlantique"},{"code":"45","name":"Loiret"},{"code":"46","name":"Lot"},{"code":"47","name":"Lot-et-Garonne"},{"code":"48","name":"Lozère"},{"code":"49","name":"Maine-et-Loire"},{"code":"50","name":"Manche"},{"code":"51","name":"Marne"},{"code":"52","name":"Haute-Marne"},{"code":"53","name":"Mayenne"},{"code":"54","name":"Meurthe-et-Moselle"},{"code":"55","name":"Meuse"},{"code":"56","name":"Morbihan"},{"code":"57","name":"Moselle"},{"code":"58","name":"Nièvre"},{"code":"59","name":"Nord"},{"code":"60","name":"Oise"},{"code":"61","name":"Orne"},{"code":"62","name":"Pas-de-Calais"},{"code":"63","name":"Puy-de-Dôme"},{"code":"64","name":"Pyrénées-Atlantiques"},{"code":"65","name":"Hautes-Pyrénées"},{"code":"66","name":"Pyrénées-Orientales"},{"code":"67","name":"Bas-Rhin"},{"code":"68","name":"Haut-Rhin"},{"code":"69","name":"Rhône"},{"code":"70","name":"Haute-Saône"},{"code":"71","name":"Saône-et-Loire"},{"code":"72","name":"Sarthe"},{"code":"73","name":"Savoie"},{"code":"74","name":"Haute-Savoie"},{"code":"75","name":"Paris"},{"code":"76","name":"Seine-Maritime"},{"code":"77","name":"Seine-et-Marne"},{"code":"78","name":"Yvelines"},{"code":"79","name":"Deux-Sèvres"},{"code":"80","name":"Somme"},{"code":"81","name":"Tarn"},{"code":"82","name":"Tarn-et-Garonne"},{"code":"83","name":"Var"},{"code":"84","name":"Vaucluse"},{"code":"85","name":"Vendée"},{"code":"86","name":"Vienne"},{"code":"87","name":"Haute-Vienne"},{"code":"88","name":"Vosges"},{"code":"89","name":"Yonne"},{"code":"90","name":"Territoire de Belfort"},{"code":"91","name":"Essonne"},{"code":"92","name":"Hauts-de-Seine"},{"code":"93","name":"Seine-Saint-Denis"},{"code":"94","name":"Val-de-Marne"},{"code":"95","name":"Val-d’Oise"},{"code":"971","name":"Guadeloupe"},{"code":"972","name":"Martinique"},{"code":"973","name":"Guyane"},{"code":"974","name":"La Réunion"},{"code":"976","name":"Mayotte"}];
+
+  const REGIONS = [
+    { code:'84', name:'Auvergne-Rhône-Alpes', departments:['01','03','07','15','26','38','42','43','63','69','73','74'] },
+    { code:'27', name:'Bourgogne-Franche-Comté', departments:['21','25','39','58','70','71','89','90'] },
+    { code:'53', name:'Bretagne', departments:['22','29','35','56'] },
+    { code:'24', name:'Centre-Val de Loire', departments:['18','28','36','37','41','45'] },
+    { code:'94', name:'Corse', departments:['2A','2B'] },
+    { code:'44', name:'Grand Est', departments:['08','10','51','52','54','55','57','67','68','88'] },
+    { code:'32', name:'Hauts-de-France', departments:['02','59','60','62','80'] },
+    { code:'11', name:'Île-de-France', departments:['75','77','78','91','92','93','94','95'] },
+    { code:'28', name:'Normandie', departments:['14','27','50','61','76'] },
+    { code:'75', name:'Nouvelle-Aquitaine', departments:['16','17','19','23','24','33','40','47','64','79','86','87'] },
+    { code:'76', name:'Occitanie', departments:['09','11','12','30','31','32','34','46','48','65','66','81','82'] },
+    { code:'52', name:'Pays de la Loire', departments:['44','49','53','72','85'] },
+    { code:'93', name:'Provence-Alpes-Côte d’Azur', departments:['04','05','06','13','83','84'] },
+    { code:'01', name:'Guadeloupe', departments:['971'], overseas:true },
+    { code:'02', name:'Martinique', departments:['972'], overseas:true },
+    { code:'03', name:'Guyane', departments:['973'], overseas:true },
+    { code:'04', name:'La Réunion', departments:['974'], overseas:true },
+    { code:'06', name:'Mayotte', departments:['976'], overseas:true }
+  ];
+  const REGION_BY_DEPARTMENT = (() => {
+    const out = {};
+    REGIONS.forEach(region => region.departments.forEach(code => { out[code] = region.name; }));
+    return out;
+  })();
+  const REGION_BY_CODE = Object.fromEntries(REGIONS.map(region => [region.code, region]));
 
   const lists = {
     labels: [
@@ -410,6 +442,7 @@ const MAP_GEOJSON_URLS = [
     map: {
       title: 'CARTOGRAPHIE DES OPÉRATIONS',
       subtitle: 'Répartition des opérations par département',
+      level: 'department',
       values: {},
       paste: '',
       search: ''
@@ -464,6 +497,8 @@ const MAP_GEOJSON_URLS = [
   if (!state.presentation.instances || typeof state.presentation.instances !== 'object') state.presentation.instances = {};
   if (!state.presentation.instanceData || typeof state.presentation.instanceData !== 'object') state.presentation.instanceData = {};
   if (!state.presentation.tabNames || typeof state.presentation.tabNames !== 'object') state.presentation.tabNames = {};
+  if (!state.map || typeof state.map !== 'object') state.map = clone(defaults.map);
+  if (!['department','region'].includes(state.map.level)) state.map.level = 'department';
   const normalizeMoaModel = model => {
     if (!model || typeof model !== 'object') return;
     if (!model.sortBy) model.sortBy = 'operations';
@@ -508,6 +543,8 @@ const MAP_GEOJSON_URLS = [
   let activeTab = state.presentation.order[0] || 'cover';
   let mapGeoJSON = null;
   let mapLoadPromise = null;
+  let regionGeoJSON = null;
+  let regionLoadPromise = null;
 
   const controls = document.getElementById('controls');
   const slide = document.getElementById('slide');
@@ -947,6 +984,26 @@ const MAP_GEOJSON_URLS = [
     return Object.values(state.map.values || {}).reduce((total, value) => total + Math.max(0, num(value)), 0);
   }
 
+  function mapRegionTotals() {
+    const totals = {};
+    REGIONS.forEach(region => { totals[region.name] = 0; });
+    Object.entries(state.map.values || {}).forEach(([code, value]) => {
+      const regionName = REGION_BY_DEPARTMENT[String(code).toUpperCase()];
+      if (regionName) totals[regionName] = (totals[regionName] || 0) + Math.max(0, num(value));
+    });
+    return totals;
+  }
+
+  function mapRegionSummaryRows() {
+    const totals = mapRegionTotals();
+    return REGIONS
+      .map(region => ({ name:region.name, value:Math.max(0, num(totals[region.name])) }))
+      .filter(item => item.value > 0)
+      .sort((a,b) => b.value - a.value)
+      .map(item => `<div class="map-region-summary-row"><span>${esc(item.name)}</span><strong>${frSmart(item.value)}</strong></div>`)
+      .join('');
+  }
+
   function mapControlRows() {
     const values = state.map.values || {};
     return DEPARTMENTS.map(dep => {
@@ -960,20 +1017,25 @@ const MAP_GEOJSON_URLS = [
   }
 
   function renderMapControls() {
+    const regionRows = mapRegionSummaryRows();
     return `<div class="control-section map-control-intro">
-      <h3>Cartographie par département</h3>
-      <p class="help">Saisie directe ou copier-coller depuis Excel / Google Sheets. Le fond de carte est chargé depuis le GeoJSON administratif Etalab.</p>
+      <h3>Cartographie géographique</h3>
+      <p class="help">Les données restent lues ou saisies par département. La vue Région regroupe automatiquement chaque département dans sa région administrative.</p>
+      <div class="field"><label>Niveau d’affichage</label><select data-map-level="1"><option value="department" ${state.map.level === 'department' ? 'selected' : ''}>Département</option><option value="region" ${state.map.level === 'region' ? 'selected' : ''}>Région</option></select></div>
       <div class="map-total-control"><span>Total opérations</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
     </div>
     <div class="control-section">
       <h3>Copier / coller</h3>
-      <div class="field"><label>Département + nombre</label><textarea id="mapPasteArea" data-map-paste="1" placeholder="Nord\t18\nPas-de-Calais\t15\nParis\t7">${esc(state.map.paste || '')}</textarea></div>
+      <div class="field"><label>Département + nombre d’opérations</label><textarea id="mapPasteArea" data-map-paste="1" placeholder="Nord	18
+Pas-de-Calais	15
+Paris	7">${esc(state.map.paste || '')}</textarea></div>
       <div class="map-control-actions">
         <button type="button" class="btn btn-primary btn-small" data-map-import="1">Importer</button>
         <button type="button" class="btn btn-danger btn-small" data-map-clear="1">Tout effacer</button>
       </div>
-      <div id="mapImportFeedback" class="inline-note">Formats acceptés : tabulations, tableau Markdown ou texte « Département 12 ».</div>
+      <div id="mapImportFeedback" class="inline-note">Formats acceptés : tabulations, tableau Markdown ou texte « Département 12 ». La région est déterminée automatiquement.</div>
     </div>
+    ${state.map.level === 'region' ? `<div class="control-section map-region-summary"><h3>Régions calculées automatiquement</h3><p class="help">Lecture seule : les totaux proviennent des départements, y compris lorsque la source est Google Sheets.</p><div class="map-region-summary-list">${regionRows || '<div class="inline-note">Aucune région renseignée.</div>'}</div></div>` : ''}
     <div class="control-section map-department-section">
       <h3>Départements</h3>
       <div class="field"><label>Rechercher</label><input id="mapSearchInput" data-map-search="1" type="text" value="${esc(state.map.search || '')}" placeholder="Nom ou code…" /></div>
@@ -1685,7 +1747,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function dataSlideFilterOptions(){const refs=[...new Set(dataRuntime.filtered.map(o=>o.referential).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));return refs;}
-  function dataRenderSlideFilterControls(){if(!dataRuntime.connected||isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';const model=state[tabType(activeTab)],f=dataSlideFilter(model),refs=dataSlideFilterOptions(),count=dataOpsForModel(model).length;const statuses=[['notStarted','Non démarrée'],['incomplete','Dossier incomplet'],['planned','Analyse planifiée'],['analysis','Analyse réalisée'],['visit','Visite réalisée'],['compliant','Évaluation conforme'],['cancelled','Annulée / abandonnée']];return `<div class="control-section connected-slide-filter"><h3>Données de cette slide</h3><p class="help">Filtre uniquement cette slide. Duplique-la pour créer par exemple une vue complète, une vue BEE Logement Neuf et une vue BEE Logement Rénovation.</p><div class="data-slide-filter-count"><strong>${frSmart(count)}</strong> opération${count>1?'s':''} prise${count>1?'s':''} en compte</div><div class="field"><label>Référentiel</label><select data-slide-filter="referential"><option value="">Tous les référentiels</option>${refs.map(r=>`<option value="${esc(r)}" ${f.referential===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div><div class="field"><label>Avancement</label><select data-slide-filter="status"><option value="">Tous les avancements</option>${statuses.map(([key,label])=>`<option value="${key}" ${f.status===key?'selected':''}>${label}</option>`).join('')}</select></div><div class="fields-2"><div class="field"><label>Année min</label><input type="number" data-slide-filter="yearMin" value="${esc(f.yearMin||'')}" placeholder="2019"></div><div class="field"><label>Année max</label><input type="number" data-slide-filter="yearMax" value="${esc(f.yearMax||'')}" placeholder="2026"></div></div><button type="button" class="btn btn-secondary btn-small" data-slide-filter-reset="1">Réinitialiser ce filtre</button></div>`;}
+  function dataRenderSlideFilterControls(){if(!dataRuntime.connected||isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';const model=state[tabType(activeTab)],f=dataSlideFilter(model),refs=dataSlideFilterOptions(),count=dataOpsForModel(model).length;return `<div class="control-section connected-slide-filter"><h3>Données de cette slide</h3><p class="help">Filtre uniquement cette slide. Duplique-la pour créer par exemple une vue complète, une vue BEE Logement Neuf et une vue BEE Logement Rénovation.</p><div class="data-slide-filter-count"><strong>${frSmart(count)}</strong> opération${count>1?'s':''} prise${count>1?'s':''} en compte</div><div class="field"><label>Référentiel</label><select data-slide-filter="referential"><option value="">Tous les référentiels</option>${refs.map(r=>`<option value="${esc(r)}" ${f.referential===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div><div class="field"><label>Nature</label><select data-slide-filter="nature"><option value="">Toutes</option><option value="Neuf" ${f.nature==='Neuf'?'selected':''}>Neuf</option><option value="Rénovation" ${f.nature==='Rénovation'?'selected':''}>Rénovation</option></select></div><div class="fields-2"><div class="field"><label>Année min</label><input type="number" data-slide-filter="yearMin" value="${esc(f.yearMin||'')}" placeholder="2019"></div><div class="field"><label>Année max</label><input type="number" data-slide-filter="yearMax" value="${esc(f.yearMax||'')}" placeholder="2026"></div></div><button type="button" class="btn btn-secondary btn-small" data-slide-filter-reset="1">Réinitialiser ce filtre</button></div>`;}
 
   function renderCommonTabControls() {
     if (isBlankTab(activeTab)) return '';
@@ -2792,9 +2854,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function renderMapSlide() {
-    return `${head(state.map.title, state.map.subtitle, '', 'Une bulle = le nombre d’opérations renseignées')}
+    const byRegion = state.map.level === 'region';
+    return `${head(state.map.title, state.map.subtitle, '', `Une bulle = le nombre d’opérations renseignées par ${byRegion ? 'région' : 'département'}`)}
       <div class="map-slide-canvas">
-        <svg id="departmentMapSvg" class="department-map-svg" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" aria-label="Carte de France des opérations par département"></svg>
+        <svg id="departmentMapSvg" class="department-map-svg" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" aria-label="Carte de France des opérations par ${byRegion ? 'région' : 'département'}"></svg>
         <div id="mapSlideStatus" class="map-slide-status">Chargement du fond cartographique…</div>
       </div>`;
   }
@@ -2917,6 +2980,37 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       });
 
     return mapLoadPromise;
+  }
+
+
+  function ensureRegionGeoJSON() {
+    if (regionGeoJSON) return Promise.resolve(regionGeoJSON);
+    if (regionLoadPromise) return regionLoadPromise;
+
+    async function trySource(index, errors) {
+      if (index >= REGION_GEOJSON_URLS.length) {
+        throw new Error(`Aucune source cartographique régionale disponible. ${errors.join(' | ')}`);
+      }
+      const url = REGION_GEOJSON_URLS[index];
+      try {
+        const response = await fetch(url, { method:'GET', mode:'cors', cache:'force-cache' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features) || !data.features.length) throw new Error('GeoJSON régional invalide');
+        regionGeoJSON = data;
+        return data;
+      } catch (error) {
+        errors.push(`${new URL(url).hostname}: ${error.message || error}`);
+        return trySource(index + 1, errors);
+      }
+    }
+    regionLoadPromise = trySource(0, []).catch(error => { regionLoadPromise = null; throw error; });
+    return regionLoadPromise;
+  }
+
+  function mapRegionFeatureCode(feature) {
+    const p = feature?.properties || {};
+    return String(p.code || p.CODE || p.code_region || p.CODE_REG || '').trim().padStart(2,'0');
   }
 
   function mapSvgEl(type, attrs = {}) {
@@ -3082,6 +3176,83 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
 
+  function drawRegionMap() {
+    const svg = document.getElementById('departmentMapSvg');
+    const status = document.getElementById('mapSlideStatus');
+    if (!svg || !regionGeoJSON) return;
+    svg.innerHTML = '';
+    const forest = '#06402B', pale = '#e7f1eb', textColor = '#173b2e';
+    svg.appendChild(mapSvgEl('rect', { x:0, y:0, width:1600, height:900, fill:'#ffffff' }));
+
+    const metroCodes = new Set(REGIONS.filter(r=>!r.overseas).map(r=>r.code));
+    const features = regionGeoJSON.features.filter(feature => metroCodes.has(mapRegionFeatureCode(feature)));
+    const project = createMapProjector(features, { x:70, y:80, width:1080, height:760 });
+    const totals = mapRegionTotals();
+    const metroRegions = REGIONS.filter(region => !region.overseas);
+    const maxValue = Math.max(1, ...metroRegions.map(region => Math.max(0, num(totals[region.name]))));
+
+    features.forEach(feature => {
+      const code = mapRegionFeatureCode(feature);
+      const region = REGION_BY_CODE[code];
+      if (!region) return;
+      const value = Math.max(0, num(totals[region.name]));
+      const ratio = Math.min(1, value / maxValue);
+      const attrs = {
+        d:mapGeometryPath(feature.geometry, project),
+        fill:value > 0 ? pale : '#ffffff',
+        'fill-opacity':value > 0 ? 0.62 + ratio * 0.22 : 1,
+        stroke:forest,
+        'stroke-width':2.2,
+        'stroke-linejoin':'round',
+        'fill-rule':'evenodd'
+      };
+      if (dataRuntime.connected) { attrs['data-data-region'] = region.name; attrs.class = 'data-map-clickable'; }
+      svg.appendChild(mapSvgEl('path', attrs));
+    });
+
+    metroRegions.forEach(region => {
+      const feature = features.find(f => mapRegionFeatureCode(f) === region.code);
+      if (!feature) return;
+      const value = Math.max(0, num(totals[region.name]));
+      if (value <= 0) return;
+      const c = mapFeatureCenter(feature, project);
+      const radius = 15 + 22 * Math.sqrt(value / maxValue);
+      const circleAttrs = { cx:c[0], cy:c[1], r:radius, fill:forest, stroke:'#ffffff', 'stroke-width':2.5 };
+      if (dataRuntime.connected) { circleAttrs['data-data-region'] = region.name; circleAttrs.class = 'data-map-clickable'; }
+      svg.appendChild(mapSvgEl('circle', circleAttrs));
+      const textAttrs = { fill:'#ffffff', size:17, weight:900, anchor:'middle' };
+      const valText = mapAddText(svg, frSmart(value), c[0], c[1] + 6, textAttrs);
+      if (dataRuntime.connected) { valText.setAttribute('data-data-region', region.name); valText.setAttribute('class','data-map-clickable'); }
+      mapAddText(svg, region.name.toUpperCase(), c[0], c[1] - radius - 9, { fill:textColor, size:9.5, weight:900, anchor:'middle' });
+    });
+
+    const total = mapTotal();
+    const filledRegions = REGIONS.filter(region => Math.max(0, num(totals[region.name])) > 0);
+    const overseas = filledRegions.filter(region => region.overseas);
+    svg.appendChild(mapSvgEl('rect', { x:1195, y:80, width:350, height:240, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
+    mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill:forest, size:14, weight:900 });
+    mapAddText(svg, frSmart(total), 1220, 185, { fill:forest, size:48, weight:900 });
+    mapAddText(svg, `Régions renseignées : ${frSmart(filledRegions.length)}`, 1220, 220, { fill:textColor, size:13, weight:700 });
+    if (overseas.length) mapAddText(svg, `DROM : ${frSmart(overseas.reduce((sum,r)=>sum+num(totals[r.name]),0))} opérations`, 1220, 248, { fill:'#557567', size:11, weight:600 });
+    mapAddText(svg, 'Les départements sont agrégés automatiquement', 1220, 286, { fill:'#557567', size:10, weight:600 });
+
+    const topRegions = filledRegions.filter(region => !region.overseas).sort((a,b)=>num(totals[b.name])-num(totals[a.name])).slice(0,8);
+    const boxX=1195, boxY=350, boxW=350, boxH=360;
+    svg.appendChild(mapSvgEl('rect', { x:boxX, y:boxY, width:boxW, height:boxH, rx:18, fill:'#ffffff', stroke:forest, 'stroke-width':1.5 }));
+    mapAddText(svg, 'RÉPARTITION PAR RÉGION', boxX+20, boxY+35, { fill:forest, size:15, weight:900 });
+    let yy=boxY+74;
+    topRegions.forEach(region => {
+      const value=Math.max(0,num(totals[region.name]));
+      const share=total>0?value/total*100:0;
+      mapAddText(svg, region.name, boxX+20, yy, { fill:textColor, size:11, weight:700 });
+      mapAddText(svg, frSmart(value), boxX+310, yy, { fill:forest, size:12, weight:900, anchor:'end' });
+      svg.appendChild(mapSvgEl('rect',{x:boxX+20,y:yy+10,width:290,height:7,rx:3.5,fill:'#edf3f0'}));
+      svg.appendChild(mapSvgEl('rect',{x:boxX+20,y:yy+10,width:Math.max(2,290*Math.min(1,share/100)),height:7,rx:3.5,fill:'#2f8059'}));
+      yy += 38;
+    });
+    if (status) status.style.display = 'none';
+  }
+
   function drawDepartmentMap() {
     const svg = document.getElementById('departmentMapSvg');
     const status = document.getElementById('mapSlideStatus');
@@ -3155,24 +3326,24 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   function renderDepartmentMap() {
     const status = document.getElementById('mapSlideStatus');
+    const byRegion = state.map.level === 'region';
+    const ready = byRegion ? !!regionGeoJSON : !!mapGeoJSON;
     if (status) {
       status.style.display = 'flex';
-      status.textContent = mapGeoJSON ? 'Mise à jour de la carte…' : 'Chargement du fond cartographique…';
+      status.textContent = ready ? 'Mise à jour de la carte…' : `Chargement du fond cartographique ${byRegion ? 'régional' : 'départemental'}…`;
     }
-    if (mapGeoJSON) {
-      drawDepartmentMap();
+    if (ready) {
+      byRegion ? drawRegionMap() : drawDepartmentMap();
       return;
     }
-    ensureMapGeoJSON()
-      .then(() => { if (tabType(activeTab) === 'map') drawDepartmentMap(); })
-      .catch(error => {
-        console.error(error);
-        const el = document.getElementById('mapSlideStatus');
-        if (el) {
-          el.style.display = 'flex';
-          el.textContent = `Impossible de charger le fond cartographique. ${error.message || error}`;
-        }
-      });
+    const loader = byRegion ? ensureRegionGeoJSON() : ensureMapGeoJSON();
+    loader.then(() => {
+      if (tabType(activeTab) === 'map') byRegion ? drawRegionMap() : drawDepartmentMap();
+    }).catch(error => {
+      console.error(error);
+      const el = document.getElementById('mapSlideStatus');
+      if (el) { el.style.display='flex'; el.textContent=`Impossible de charger le fond cartographique. ${error.message || error}`; }
+    });
   }
 
   controls.addEventListener('input', e => {
@@ -3330,6 +3501,18 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         }
       }
     }
+    if (t.dataset.mapLevel !== undefined) {
+      const previous = state.map.level;
+      state.map.level = t.value === 'region' ? 'region' : 'department';
+      const depSubtitle = 'Répartition des opérations par département';
+      const regSubtitle = 'Répartition des opérations par région';
+      if (!state.map.subtitle || state.map.subtitle === depSubtitle || state.map.subtitle === regSubtitle) state.map.subtitle = state.map.level === 'region' ? regSubtitle : depSubtitle;
+      saveState();
+      renderControls();
+      renderSlide();
+      if (previous !== state.map.level) toast(`Vue cartographique : ${state.map.level === 'region' ? 'régions' : 'départements'}.`);
+      return;
+    }
     if (t.dataset.coverLogoInput !== undefined) {
       const file = t.files && t.files[0];
       if (!file) return;
@@ -3353,7 +3536,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   controls.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.dataset.slideFilterReset !== undefined) { const model=state[tabType(activeTab)]; if(model){ model.dataFilter={referential:'',status:'',yearMin:'',yearMax:''}; dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveTabData(activeTab); saveState(); renderControls(); renderSlide(); } return; }
+    if (t.dataset.slideFilterReset !== undefined) { const model=state[tabType(activeTab)]; if(model){ model.dataFilter={referential:'',nature:'',yearMin:'',yearMax:''}; dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveTabData(activeTab); saveState(); renderControls(); renderSlide(); } return; }
     if (t.dataset.moaImport !== undefined) {
       importMoaExcelPaste(t.dataset.moaImport === 'append' ? 'append' : 'replace');
       return;
@@ -4457,8 +4640,13 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   async function mapSlidePngBlob() {
-    if (!mapGeoJSON) await ensureMapGeoJSON();
-    if (tabType(activeTab) === 'map') drawDepartmentMap();
+    if (state.map.level === 'region') {
+      if (!regionGeoJSON) await ensureRegionGeoJSON();
+      if (tabType(activeTab) === 'map') drawRegionMap();
+    } else {
+      if (!mapGeoJSON) await ensureMapGeoJSON();
+      if (tabType(activeTab) === 'map') drawDepartmentMap();
+    }
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     const svg = document.getElementById('departmentMapSvg');
     if (!svg) throw new Error('Carte non disponible.');
@@ -4470,7 +4658,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.scale(2.4, 2.4);
-    cHeader(ctx, state.map.title, state.map.subtitle, 'Une bulle = le nombre d’opérations renseignées');
+    cHeader(ctx, state.map.title, state.map.subtitle, `Une bulle = le nombre d’opérations renseignées par ${state.map.level === 'region' ? 'région' : 'département'}`);
 
     const drawMapImage = image => {
       // Même emplacement que .map-slide-canvas à l'écran.
@@ -5223,9 +5411,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const DATA_CONNECTED_TYPES=['tunnel','map','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
-  function dataFilterOps(ops,f={}){return ops.filter(o=>(!f.yearMin||Number(o.year)>=Number(f.yearMin))&&(!f.yearMax||Number(o.year)<=Number(f.yearMax))&&(!f.referential||o.referential===f.referential)&&(!f.nature||dataNorm(o.nature).includes(dataNorm(f.nature)))&&(!f.status||o.status===f.status));}
+  function dataFilterOps(ops,f={}){return ops.filter(o=>(!f.yearMin||Number(o.year)>=Number(f.yearMin))&&(!f.yearMax||Number(o.year)<=Number(f.yearMax))&&(!f.referential||o.referential===f.referential)&&(!f.nature||dataNorm(o.nature).includes(dataNorm(f.nature))));}
   function dataFilteredOperations(){return dataFilterOps(dataRuntime.operations,dataRuntime.filters);}
-  function dataSlideFilter(model){if(!model.dataFilter||typeof model.dataFilter!=='object')model.dataFilter={referential:'',status:'',yearMin:'',yearMax:''};if(Object.prototype.hasOwnProperty.call(model.dataFilter,'nature'))delete model.dataFilter.nature;if(!Object.prototype.hasOwnProperty.call(model.dataFilter,'status'))model.dataFilter.status='';return model.dataFilter;}
+  function dataSlideFilter(model){if(!model.dataFilter||typeof model.dataFilter!=='object')model.dataFilter={referential:'',nature:'',yearMin:'',yearMax:''};return model.dataFilter;}
   function dataOpsForModel(model){return dataFilterOps(dataRuntime.filtered,dataSlideFilter(model));}
   function dataAggregateTunnel(ops){const counts={notStarted:0,incomplete:0,planned:0,analysis:0,visit:0,compliant:0};let cancelled=0,sold=0;ops.forEach(o=>{if(o.status==='cancelled')cancelled++;else if(counts[o.status]!==undefined)counts[o.status]++;if(o.sold)sold++;});return {counts,cancelled,sold};}
   function dataAggregateMap(ops){const values={};ops.forEach(o=>{const code=dataDepartment(o.department);if(code)values[code]=(values[code]||0)+1;});return values;}
@@ -5349,7 +5537,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   document.getElementById('dataExplorerSearch')?.addEventListener('input',dataRenderExplorer);
   document.getElementById('dataExplorerCsv')?.addEventListener('click',dataDownloadCsv);
   document.getElementById('dataExplorerCopy')?.addEventListener('click',dataCopySelection);
-  slide.addEventListener('click',e=>{if(!dataRuntime.connected)return;const activeModel=state[tabType(activeTab)];const clickOps=DATA_CONNECTED_TYPES.includes(tabType(activeTab))&&activeModel?dataOpsForModel(activeModel):dataRuntime.filtered;const status=e.target.closest('[data-data-status-key]');if(status){const key=status.dataset.dataStatusKey;const ops=clickOps.filter(o=>o.status===key);const labels={notStarted:'Non démarrée',incomplete:'Dossier incomplet',planned:'Analyse planifiée',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};dataOpenExplorer(labels[key]||key,ops,`${ops.length} opération${ops.length>1?'s':''} · tunnel de certification`);return;}const tag=e.target.closest('[data-data-tag-kind][data-data-tag-label]');if(tag){const kind=tag.dataset.dataTagKind,label=tag.dataset.dataTagLabel;const ops=clickOps.filter(o=>dataOperationHasTag(o,kind,label));dataOpenExplorer(label,ops,`${ops.length} opération${ops.length>1?'s':''} · ${kind==='mention'?'mention':'performance'}`);return;}const moa=e.target.closest('[data-data-moa]');if(moa){const name=moa.dataset.dataMoa;const ops=clickOps.filter(o=>o.moa===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''} · ${frSmart(ops.reduce((s,o)=>s+o.dwellings,0))} logements`);return;}const dep=e.target.closest('[data-data-department]');if(dep){const code=dep.dataset.dataDepartment;const ops=code==='IDF'?clickOps.filter(o=>DATA_IDF_CODES.includes(o.department)):clickOps.filter(o=>o.department===code);dataOpenExplorer(code==='IDF'?'Île-de-France':dataDepartmentName(code),ops,`${ops.length} opération${ops.length>1?'s':''}`);}});
+  slide.addEventListener('click',e=>{if(!dataRuntime.connected)return;const activeModel=state[tabType(activeTab)];const clickOps=DATA_CONNECTED_TYPES.includes(tabType(activeTab))&&activeModel?dataOpsForModel(activeModel):dataRuntime.filtered;const status=e.target.closest('[data-data-status-key]');if(status){const key=status.dataset.dataStatusKey;const ops=clickOps.filter(o=>o.status===key);const labels={notStarted:'Non démarrée',incomplete:'Dossier incomplet',planned:'Analyse planifiée',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};dataOpenExplorer(labels[key]||key,ops,`${ops.length} opération${ops.length>1?'s':''} · tunnel de certification`);return;}const tag=e.target.closest('[data-data-tag-kind][data-data-tag-label]');if(tag){const kind=tag.dataset.dataTagKind,label=tag.dataset.dataTagLabel;const ops=clickOps.filter(o=>dataOperationHasTag(o,kind,label));dataOpenExplorer(label,ops,`${ops.length} opération${ops.length>1?'s':''} · ${kind==='mention'?'mention':'performance'}`);return;}const moa=e.target.closest('[data-data-moa]');if(moa){const name=moa.dataset.dataMoa;const ops=clickOps.filter(o=>o.moa===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''} · ${frSmart(ops.reduce((s,o)=>s+o.dwellings,0))} logements`);return;}const region=e.target.closest('[data-data-region]');if(region){const name=region.dataset.dataRegion;const ops=clickOps.filter(o=>REGION_BY_DEPARTMENT[o.department]===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''}`);return;}const dep=e.target.closest('[data-data-department]');if(dep){const code=dep.dataset.dataDepartment;const ops=code==='IDF'?clickOps.filter(o=>DATA_IDF_CODES.includes(o.department)):clickOps.filter(o=>o.department===code);dataOpenExplorer(code==='IDF'?'Île-de-France':dataDepartmentName(code),ops,`${ops.length} opération${ops.length>1?'s':''}`);}});
 
   dataInitUI();
 
