@@ -1806,7 +1806,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const search=dataFilterUiState.openKey===def.key?dataFilterUiState.search:'';
     const visible=search?options.filter(v=>dataNorm(v).includes(dataNorm(search))):options;
     const rows=visible.map((v,i)=>`<label class="slide-filter-option"><input type="checkbox" data-slide-filter-check="${esc(def.key)}" data-filter-value="${esc(v)}" ${dataSelectionIncludes(selection,v)?'checked':''}><span>${esc(v)}</span></label>`).join('');
-    return `<div class="slide-filter-popover" data-filter-popover="${esc(def.key)}" onclick="event.stopPropagation()">
+    return `<div class="slide-filter-popover" data-filter-popover="${esc(def.key)}">
       <div class="slide-filter-search"><input type="search" data-slide-filter-search="${esc(def.key)}" value="${esc(search)}" placeholder="Rechercher…"></div>
       <div class="slide-filter-quick"><button type="button" data-slide-filter-all="${esc(def.key)}">Tout sélectionner</button><button type="button" data-slide-filter-none="${esc(def.key)}">Aucun</button></div>
       <div class="slide-filter-options">${rows||'<div class="slide-filter-empty">Aucun résultat</div>'}</div>
@@ -1817,7 +1817,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const model=state[tabType(activeTab)];if(!model)return'';
     const sourceConfigured=!!localStorage.getItem(DATA_SOURCE_STORAGE_KEY);
     if(!dataRuntime.connected){
-      return `<div class="slide-filter-bar slide-filter-bar-waiting" data-slide-filter-bar="1" onclick="event.stopPropagation()">
+      return `<div class="slide-filter-bar slide-filter-bar-waiting" data-slide-filter-bar="1">
         <div class="slide-filter-count"><strong>—</strong><span>opérations</span></div>
         <div class="slide-filter-waiting"><b>FILTRES GOOGLE SHEET</b><span>${sourceConfigured?'Connexion aux données en cours…':'Connecte une source Google Sheet pour activer les filtres.'}</span></div>
       </div>`;
@@ -1832,7 +1832,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         ${open?dataRenderFilterPopup(def,selection,options):''}
       </div>`;
     }).join('');
-    return `<div class="slide-filter-bar" data-slide-filter-bar="1" onclick="event.stopPropagation()">
+    return `<div class="slide-filter-bar" data-slide-filter-bar="1">
       <div class="slide-filter-count"><strong>${frSmart(count)}</strong><span>opération${count>1?'s':''}</span></div>
       <div class="slide-filter-chips">${chips}</div>
       <button type="button" class="slide-filter-reset" data-slide-filter-reset-bar="1" title="Réinitialiser tous les filtres de cette slide">↺ Réinitialiser</button>
@@ -5648,7 +5648,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
   if(slideFilterToolbar){
     slideFilterToolbar.addEventListener('click',e=>{
+      // Capture phase: garantit le fonctionnement des boutons même si un élément
+      // interne arrête la propagation du clic.
       if(!dataRuntime.connected)return;
+      e.stopPropagation();
       const toggle=e.target.closest('[data-slide-filter-toggle]');
       if(toggle){const key=toggle.dataset.slideFilterToggle;dataFilterUiState.openKey=dataFilterUiState.openKey===key?null:key;dataFilterUiState.search='';renderSlide();return;}
       const all=e.target.closest('[data-slide-filter-all]');
@@ -5657,7 +5660,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       if(none){const model=state[tabType(activeTab)],f=dataSlideFilter(model);f[none.dataset.slideFilterNone]=[];dataRefreshActiveSlideFromFilter();return;}
       const reset=e.target.closest('[data-slide-filter-reset-bar]');
       if(reset){const model=state[tabType(activeTab)],f=dataSlideFilter(model);DATA_SLIDE_FILTER_DEFS.forEach(d=>f[d.key]=null);dataFilterUiState.openKey=null;dataFilterUiState.search='';dataRefreshActiveSlideFromFilter();return;}
-    });
+    },true);
     slideFilterToolbar.addEventListener('change',e=>{
       const cb=e.target.closest('[data-slide-filter-check]');if(!cb||!dataRuntime.connected)return;
       const type=tabType(activeTab),model=state[type];if(!model)return;const f=dataSlideFilter(model),key=cb.dataset.slideFilterCheck,value=cb.dataset.filterValue,options=dataSlideFilterValues(key);
