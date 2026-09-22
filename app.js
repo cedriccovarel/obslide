@@ -566,6 +566,7 @@ const MAP_GEOJSON_URLS = [
   const zoomRange = document.getElementById('zoomRange');
   const zoomValue = document.getElementById('zoomValue');
   const slideStage = document.getElementById('slideStage');
+  const slideFilterToolbar = document.getElementById('slideFilterToolbar');
   const toastEl = document.getElementById('toast');
   const dataSourceBtn = document.getElementById('dataSourceBtn');
   const dataConnectModal = document.getElementById('dataConnectModal');
@@ -1746,8 +1747,97 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title||'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5Metric),1130,728,48,900,EXPORT_GREEN);ct(ctx,metric==='dwellings'?'logements':(t.kpi3Unit||'opérations'),1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix||'Soit'} ${metricTotal>0?fr(top5Metric/metricTotal*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix||'% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
   }
 
-  function dataSlideFilterOptions(){const refs=[...new Set(dataRuntime.filtered.map(o=>o.referential).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));return refs;}
-  function dataRenderSlideFilterControls(){if(!dataRuntime.connected||isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';const model=state[tabType(activeTab)],f=dataSlideFilter(model),refs=dataSlideFilterOptions(),count=dataOpsForModel(model).length;return `<div class="control-section connected-slide-filter"><h3>Données de cette slide</h3><p class="help">Filtre uniquement cette slide. Duplique-la pour créer par exemple une vue complète, une vue BEE Logement Neuf et une vue BEE Logement Rénovation.</p><div class="data-slide-filter-count"><strong>${frSmart(count)}</strong> opération${count>1?'s':''} prise${count>1?'s':''} en compte</div><div class="field"><label>Référentiel</label><select data-slide-filter="referential"><option value="">Tous les référentiels</option>${refs.map(r=>`<option value="${esc(r)}" ${f.referential===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div><div class="field"><label>Nature</label><select data-slide-filter="nature"><option value="">Toutes</option><option value="Neuf" ${f.nature==='Neuf'?'selected':''}>Neuf</option><option value="Rénovation" ${f.nature==='Rénovation'?'selected':''}>Rénovation</option></select></div><div class="fields-2"><div class="field"><label>Année min</label><input type="number" data-slide-filter="yearMin" value="${esc(f.yearMin||'')}" placeholder="2019"></div><div class="field"><label>Année max</label><input type="number" data-slide-filter="yearMax" value="${esc(f.yearMax||'')}" placeholder="2026"></div></div><button type="button" class="btn btn-secondary btn-small" data-slide-filter-reset="1">Réinitialiser ce filtre</button></div>`;}
+  const DATA_SLIDE_FILTER_DEFS = [
+    {key:'years', label:'Année'},
+    {key:'referentials', label:'Référentiel'},
+    {key:'mentions', label:'Mentions'},
+    {key:'moas', label:'Maître d’ouvrage'},
+    {key:'statuses', label:'Évaluation : Statut'}
+  ];
+  const dataFilterUiState={openKey:null,search:''};
+  function dataNaturalSort(a,b){return String(a).localeCompare(String(b),'fr',{numeric:true,sensitivity:'base'});}
+  function dataSlideFilter(model){
+    if(!model.dataFilter||typeof model.dataFilter!=='object')model.dataFilter={};
+    const f=model.dataFilter;
+    // Migration silencieuse depuis les anciens filtres simples V29.1–V29.6.
+    if(!Object.prototype.hasOwnProperty.call(f,'referentials') && f.referential){f.referentials=[String(f.referential)];}
+    if(!Object.prototype.hasOwnProperty.call(f,'years') && (f.yearMin||f.yearMax)){
+      const min=Number(f.yearMin)||-Infinity,max=Number(f.yearMax)||Infinity;
+      f.years=[...new Set(dataRuntime.filtered.map(o=>Number(o.year)).filter(y=>Number.isFinite(y)&&y>=min&&y<=max))].map(String).sort(dataNaturalSort);
+    }
+    DATA_SLIDE_FILTER_DEFS.forEach(d=>{if(!Object.prototype.hasOwnProperty.call(f,d.key))f[d.key]=null;});
+    delete f.referential;delete f.nature;delete f.yearMin;delete f.yearMax;
+    return f;
+  }
+  function dataSlideFilterValues(key,ops=dataRuntime.filtered){
+    if(key==='years')return [...new Set(ops.map(o=>String(o.year||'').trim()).filter(Boolean))].sort(dataNaturalSort);
+    if(key==='referentials')return [...new Set(ops.map(o=>String(o.referential||'').trim()).filter(Boolean))].sort(dataNaturalSort);
+    if(key==='moas')return [...new Set(ops.map(o=>String(o.moa||'').trim()).filter(Boolean))].sort(dataNaturalSort);
+    if(key==='statuses')return [...new Set(ops.map(o=>String(o.rawStatus||'').trim()).filter(Boolean))].sort(dataNaturalSort);
+    if(key==='mentions')return dataAggregateTags(ops,'mention').map(x=>x.name).sort(dataNaturalSort);
+    return [];
+  }
+  function dataSelectionIncludes(selection,value){return selection===null||selection===undefined||selection.some(v=>dataNorm(v)===dataNorm(value));}
+  function dataFilterOps(ops,f={}){
+    const ff=f||{};
+    return ops.filter(o=>{
+      if(Array.isArray(ff.years) && !ff.years.some(v=>String(v)===String(o.year||'')))return false;
+      if(Array.isArray(ff.referentials) && !ff.referentials.some(v=>dataNorm(v)===dataNorm(o.referential)))return false;
+      if(Array.isArray(ff.moas) && !ff.moas.some(v=>dataNorm(v)===dataNorm(o.moa)))return false;
+      if(Array.isArray(ff.statuses) && !ff.statuses.some(v=>dataNorm(v)===dataNorm(o.rawStatus)))return false;
+      if(Array.isArray(ff.mentions) && !ff.mentions.some(v=>dataOperationHasTag(o,'mention',v)))return false;
+      // Compatibilité avec les filtres globaux / anciens objets simples.
+      if(ff.yearMin&&Number(o.year)<Number(ff.yearMin))return false;
+      if(ff.yearMax&&Number(o.year)>Number(ff.yearMax))return false;
+      if(ff.referential&&o.referential!==ff.referential)return false;
+      if(ff.nature&&!dataNorm(o.nature).includes(dataNorm(ff.nature)))return false;
+      return true;
+    });
+  }
+  function dataOpsForModel(model){return dataFilterOps(dataRuntime.filtered,dataSlideFilter(model));}
+  function dataSlideFilterLabel(def,selection,totalOptions){
+    if(selection===null||selection===undefined)return `${def.label} · Tous`;
+    if(!selection.length)return `${def.label} · Aucun`;
+    if(selection.length===1)return `${def.label} · ${selection[0]}`;
+    if(totalOptions&&selection.length===totalOptions)return `${def.label} · Tous`;
+    return `${def.label} · ${selection.length} sélectionnés`;
+  }
+  function dataRenderFilterPopup(def,selection,options){
+    const search=dataFilterUiState.openKey===def.key?dataFilterUiState.search:'';
+    const visible=search?options.filter(v=>dataNorm(v).includes(dataNorm(search))):options;
+    const rows=visible.map((v,i)=>`<label class="slide-filter-option"><input type="checkbox" data-slide-filter-check="${esc(def.key)}" data-filter-value="${esc(v)}" ${dataSelectionIncludes(selection,v)?'checked':''}><span>${esc(v)}</span></label>`).join('');
+    return `<div class="slide-filter-popover" data-filter-popover="${esc(def.key)}" onclick="event.stopPropagation()">
+      <div class="slide-filter-search"><input type="search" data-slide-filter-search="${esc(def.key)}" value="${esc(search)}" placeholder="Rechercher…"></div>
+      <div class="slide-filter-quick"><button type="button" data-slide-filter-all="${esc(def.key)}">Tout sélectionner</button><button type="button" data-slide-filter-none="${esc(def.key)}">Aucun</button></div>
+      <div class="slide-filter-options">${rows||'<div class="slide-filter-empty">Aucun résultat</div>'}</div>
+    </div>`;
+  }
+  function dataRenderSlideFilterBar(){
+    if(isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';
+    const model=state[tabType(activeTab)];if(!model)return'';
+    const sourceConfigured=!!localStorage.getItem(DATA_SOURCE_STORAGE_KEY);
+    if(!dataRuntime.connected){
+      return `<div class="slide-filter-bar slide-filter-bar-waiting" data-slide-filter-bar="1" onclick="event.stopPropagation()">
+        <div class="slide-filter-count"><strong>—</strong><span>opérations</span></div>
+        <div class="slide-filter-waiting"><b>FILTRES GOOGLE SHEET</b><span>${sourceConfigured?'Connexion aux données en cours…':'Connecte une source Google Sheet pour activer les filtres.'}</span></div>
+      </div>`;
+    }
+    const f=dataSlideFilter(model),count=dataOpsForModel(model).length;
+    const chips=DATA_SLIDE_FILTER_DEFS.map(def=>{
+      const options=dataSlideFilterValues(def.key),selection=f[def.key];
+      const active=Array.isArray(selection);
+      const open=dataFilterUiState.openKey===def.key;
+      return `<div class="slide-filter-item ${active?'is-active':''} ${open?'is-open':''}">
+        <button type="button" class="slide-filter-chip" data-slide-filter-toggle="${esc(def.key)}" title="${esc(def.label)}"><span>${esc(dataSlideFilterLabel(def,selection,options.length))}</span><i>⌄</i></button>
+        ${open?dataRenderFilterPopup(def,selection,options):''}
+      </div>`;
+    }).join('');
+    return `<div class="slide-filter-bar" data-slide-filter-bar="1" onclick="event.stopPropagation()">
+      <div class="slide-filter-count"><strong>${frSmart(count)}</strong><span>opération${count>1?'s':''}</span></div>
+      <div class="slide-filter-chips">${chips}</div>
+      <button type="button" class="slide-filter-reset" data-slide-filter-reset-bar="1" title="Réinitialiser tous les filtres de cette slide">↺ Réinitialiser</button>
+    </div>`;
+  }
 
   function renderCommonTabControls() {
     if (isBlankTab(activeTab)) return '';
@@ -2007,8 +2097,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
     const commonControls = renderCommonTabControls();
     if (commonControls) controls.insertAdjacentHTML('afterbegin', commonControls);
-    const connectedFilters = dataRenderSlideFilterControls();
-    if (connectedFilters) controls.insertAdjacentHTML('afterbegin', connectedFilters);
   }
 
   function sumWarning(items) {
@@ -2035,6 +2123,11 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
+    if(slideFilterToolbar){
+      const connectedFilterBar=dataRenderSlideFilterBar();
+      slideFilterToolbar.innerHTML=connectedFilterBar||'';
+      slideFilterToolbar.classList.toggle('is-empty',!connectedFilterBar);
+    }
     slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
     const slideClasses = {
       cover: 'cover-slide',
@@ -2984,27 +3077,19 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
 
   function ensureRegionGeoJSON() {
-    if (regionGeoJSON) return Promise.resolve(regionGeoJSON);
-    if (regionLoadPromise) return regionLoadPromise;
-
-    async function trySource(index, errors) {
-      if (index >= REGION_GEOJSON_URLS.length) {
-        throw new Error(`Aucune source cartographique régionale disponible. ${errors.join(' | ')}`);
-      }
-      const url = REGION_GEOJSON_URLS[index];
-      try {
-        const response = await fetch(url, { method:'GET', mode:'cors', cache:'force-cache' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features) || !data.features.length) throw new Error('GeoJSON régional invalide');
-        regionGeoJSON = data;
-        return data;
-      } catch (error) {
-        errors.push(`${new URL(url).hostname}: ${error.message || error}`);
-        return trySource(index + 1, errors);
-      }
+    // V29.6.1 : la vue Région réutilise volontairement le fond départemental
+    // déjà utilisé et validé par la V29.5. Les départements sont regroupés
+    // visuellement par région, sans second appel réseau vers un GeoJSON régional.
+    // Cela évite le 404 observé sur la seule cartographie Région tout en
+    // conservant la connexion Google Sheets inchangée.
+    if (mapGeoJSON) {
+      regionGeoJSON = mapGeoJSON;
+      return Promise.resolve(regionGeoJSON);
     }
-    regionLoadPromise = trySource(0, []).catch(error => { regionLoadPromise = null; throw error; });
+    if (regionLoadPromise) return regionLoadPromise;
+    regionLoadPromise = ensureMapGeoJSON()
+      .then(data => { regionGeoJSON = data; return data; })
+      .catch(error => { regionLoadPromise = null; throw error; });
     return regionLoadPromise;
   }
 
@@ -3176,83 +3261,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
 
-  function drawRegionMap() {
-    const svg = document.getElementById('departmentMapSvg');
-    const status = document.getElementById('mapSlideStatus');
-    if (!svg || !regionGeoJSON) return;
-    svg.innerHTML = '';
-    const forest = '#06402B', pale = '#e7f1eb', textColor = '#173b2e';
-    svg.appendChild(mapSvgEl('rect', { x:0, y:0, width:1600, height:900, fill:'#ffffff' }));
-
-    const metroCodes = new Set(REGIONS.filter(r=>!r.overseas).map(r=>r.code));
-    const features = regionGeoJSON.features.filter(feature => metroCodes.has(mapRegionFeatureCode(feature)));
-    const project = createMapProjector(features, { x:70, y:80, width:1080, height:760 });
-    const totals = mapRegionTotals();
-    const metroRegions = REGIONS.filter(region => !region.overseas);
-    const maxValue = Math.max(1, ...metroRegions.map(region => Math.max(0, num(totals[region.name]))));
-
-    features.forEach(feature => {
-      const code = mapRegionFeatureCode(feature);
-      const region = REGION_BY_CODE[code];
-      if (!region) return;
-      const value = Math.max(0, num(totals[region.name]));
-      const ratio = Math.min(1, value / maxValue);
-      const attrs = {
-        d:mapGeometryPath(feature.geometry, project),
-        fill:value > 0 ? pale : '#ffffff',
-        'fill-opacity':value > 0 ? 0.62 + ratio * 0.22 : 1,
-        stroke:forest,
-        'stroke-width':2.2,
-        'stroke-linejoin':'round',
-        'fill-rule':'evenodd'
-      };
-      if (dataRuntime.connected) { attrs['data-data-region'] = region.name; attrs.class = 'data-map-clickable'; }
-      svg.appendChild(mapSvgEl('path', attrs));
-    });
-
-    metroRegions.forEach(region => {
-      const feature = features.find(f => mapRegionFeatureCode(f) === region.code);
-      if (!feature) return;
-      const value = Math.max(0, num(totals[region.name]));
-      if (value <= 0) return;
-      const c = mapFeatureCenter(feature, project);
-      const radius = 15 + 22 * Math.sqrt(value / maxValue);
-      const circleAttrs = { cx:c[0], cy:c[1], r:radius, fill:forest, stroke:'#ffffff', 'stroke-width':2.5 };
-      if (dataRuntime.connected) { circleAttrs['data-data-region'] = region.name; circleAttrs.class = 'data-map-clickable'; }
-      svg.appendChild(mapSvgEl('circle', circleAttrs));
-      const textAttrs = { fill:'#ffffff', size:17, weight:900, anchor:'middle' };
-      const valText = mapAddText(svg, frSmart(value), c[0], c[1] + 6, textAttrs);
-      if (dataRuntime.connected) { valText.setAttribute('data-data-region', region.name); valText.setAttribute('class','data-map-clickable'); }
-      mapAddText(svg, region.name.toUpperCase(), c[0], c[1] - radius - 9, { fill:textColor, size:9.5, weight:900, anchor:'middle' });
-    });
-
-    const total = mapTotal();
-    const filledRegions = REGIONS.filter(region => Math.max(0, num(totals[region.name])) > 0);
-    const overseas = filledRegions.filter(region => region.overseas);
-    svg.appendChild(mapSvgEl('rect', { x:1195, y:80, width:350, height:240, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
-    mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill:forest, size:14, weight:900 });
-    mapAddText(svg, frSmart(total), 1220, 185, { fill:forest, size:48, weight:900 });
-    mapAddText(svg, `Régions renseignées : ${frSmart(filledRegions.length)}`, 1220, 220, { fill:textColor, size:13, weight:700 });
-    if (overseas.length) mapAddText(svg, `DROM : ${frSmart(overseas.reduce((sum,r)=>sum+num(totals[r.name]),0))} opérations`, 1220, 248, { fill:'#557567', size:11, weight:600 });
-    mapAddText(svg, 'Les départements sont agrégés automatiquement', 1220, 286, { fill:'#557567', size:10, weight:600 });
-
-    const topRegions = filledRegions.filter(region => !region.overseas).sort((a,b)=>num(totals[b.name])-num(totals[a.name])).slice(0,8);
-    const boxX=1195, boxY=350, boxW=350, boxH=360;
-    svg.appendChild(mapSvgEl('rect', { x:boxX, y:boxY, width:boxW, height:boxH, rx:18, fill:'#ffffff', stroke:forest, 'stroke-width':1.5 }));
-    mapAddText(svg, 'RÉPARTITION PAR RÉGION', boxX+20, boxY+35, { fill:forest, size:15, weight:900 });
-    let yy=boxY+74;
-    topRegions.forEach(region => {
-      const value=Math.max(0,num(totals[region.name]));
-      const share=total>0?value/total*100:0;
-      mapAddText(svg, region.name, boxX+20, yy, { fill:textColor, size:11, weight:700 });
-      mapAddText(svg, frSmart(value), boxX+310, yy, { fill:forest, size:12, weight:900, anchor:'end' });
-      svg.appendChild(mapSvgEl('rect',{x:boxX+20,y:yy+10,width:290,height:7,rx:3.5,fill:'#edf3f0'}));
-      svg.appendChild(mapSvgEl('rect',{x:boxX+20,y:yy+10,width:Math.max(2,290*Math.min(1,share/100)),height:7,rx:3.5,fill:'#2f8059'}));
-      yy += 38;
-    });
-    if (status) status.style.display = 'none';
-  }
-
   function drawDepartmentMap() {
     const svg = document.getElementById('departmentMapSvg');
     const status = document.getElementById('mapSlideStatus');
@@ -3324,10 +3332,112 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (status) status.style.display = 'none';
   }
 
+  function drawRegionMap() {
+    const svg = document.getElementById('departmentMapSvg');
+    const status = document.getElementById('mapSlideStatus');
+    if (!svg || !mapGeoJSON) return;
+    svg.innerHTML = '';
+
+    const forest = '#06402B';
+    const textColor = '#173b2e';
+    const metroDepartments = new Set(REGIONS.filter(r => !r.overseas).flatMap(r => r.departments));
+    const features = mapGeoJSON.features.filter(feature => metroDepartments.has(mapFeatureCode(feature)));
+    const project = createMapProjector(features, { x:70, y:80, width:1080, height:760 });
+    const totals = mapRegionTotals();
+    const metroRegions = REGIONS.filter(region => !region.overseas);
+    const maxValue = Math.max(1, ...metroRegions.map(region => Math.max(0, num(totals[region.name]))));
+
+    svg.appendChild(mapSvgEl('rect', { x:0, y:0, width:1600, height:900, fill:'#ffffff' }));
+
+    // Une teinte homogène par région : les limites départementales ne sont plus
+    // dessinées. Les départements adjacents d'une même région fusionnent
+    // visuellement pour former un seul bloc régional.
+    const regionIndex = Object.fromEntries(metroRegions.map((r,i) => [r.name, i]));
+    const paleScale = ['#eef5f1','#e7f1eb','#e0ede5','#d9e9df','#d1e5d9','#c9e0d2','#c1dccb','#b9d7c4','#b1d3bd','#a9ceb6','#a1caaf','#99c5a8','#91c1a1'];
+
+    features.forEach(feature => {
+      const code = mapFeatureCode(feature);
+      const regionName = REGION_BY_DEPARTMENT[String(code).toUpperCase()];
+      if (!regionName) return;
+      const region = metroRegions.find(r => r.name === regionName);
+      if (!region) return;
+      const value = Math.max(0, num(totals[regionName]));
+      const idx = regionIndex[regionName] || 0;
+      const baseFill = paleScale[idx % paleScale.length];
+      const ratio = Math.min(1, value / maxValue);
+      const fill = value > 0 ? baseFill : '#f7faf8';
+      const attrs = {
+        d: mapGeometryPath(feature.geometry, project),
+        fill,
+        'fill-opacity': value > 0 ? 0.86 + ratio * 0.12 : 1,
+        stroke: fill,
+        'stroke-width': 1.8,
+        'stroke-linejoin':'round',
+        'fill-rule':'evenodd'
+      };
+      if (dataRuntime.connected) {
+        attrs['data-data-region'] = regionName;
+        attrs.class = 'data-map-clickable';
+      }
+      svg.appendChild(mapSvgEl('path', attrs));
+    });
+
+    // Libellés + bulles au centre de chaque groupe de départements.
+    metroRegions.forEach(region => {
+      const regionFeatures = features.filter(feature => region.departments.includes(mapFeatureCode(feature)));
+      if (!regionFeatures.length) return;
+      const value = Math.max(0, num(totals[region.name]));
+      const c = mapGroupCenter(regionFeatures, project);
+      const radius = value > 0 ? 14 + 20 * Math.sqrt(value / maxValue) : 0;
+
+      if (value > 0) {
+        const circleAttrs = { cx:c[0], cy:c[1], r:radius, fill:forest, stroke:'#ffffff', 'stroke-width':2.5 };
+        if (dataRuntime.connected) { circleAttrs['data-data-region'] = region.name; circleAttrs.class = 'data-map-clickable'; }
+        svg.appendChild(mapSvgEl('circle', circleAttrs));
+        const valText = mapAddText(svg, frSmart(value), c[0], c[1] + 6, { fill:'#ffffff', size:17, weight:900, anchor:'middle' });
+        if (dataRuntime.connected) { valText.setAttribute('data-data-region', region.name); valText.setAttribute('class','data-map-clickable'); }
+      }
+
+      const labelY = c[1] - (value > 0 ? radius + 10 : 0);
+      const label = mapAddText(svg, region.name.toUpperCase(), c[0], labelY, { fill:textColor, size:9.5, weight:900, anchor:'middle' });
+      if (dataRuntime.connected) { label.setAttribute('data-data-region', region.name); label.setAttribute('class','data-map-clickable'); }
+    });
+
+    const nationalTotal = mapTotal();
+    const dromRegions = REGIONS.filter(region => region.overseas);
+    const dromTotal = dromRegions.reduce((total, region) => total + Math.max(0, num(totals[region.name])), 0);
+
+    svg.appendChild(mapSvgEl('rect', { x:1195, y:80, width:350, height:300, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
+    mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill:forest, size:14, weight:900 });
+    mapAddText(svg, frSmart(nationalTotal), 1220, 185, { fill:forest, size:48, weight:900 });
+    mapAddText(svg, 'VUE PAR RÉGION', 1220, 225, { fill:forest, size:13, weight:900 });
+    mapAddText(svg, 'Départements regroupés automatiquement', 1220, 250, { fill:textColor, size:11, weight:600 });
+    mapAddText(svg, 'Limites départementales masquées', 1220, 272, { fill:textColor, size:11, weight:600 });
+    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, 302, { fill:'#557567', size:10.5, weight:600 });
+
+    const topRegions = metroRegions
+      .map(region => ({ name:region.name, value:Math.max(0, num(totals[region.name])) }))
+      .filter(item => item.value > 0)
+      .sort((a,b) => b.value - a.value)
+      .slice(0, 6);
+    if (topRegions.length) {
+      svg.appendChild(mapSvgEl('rect', { x:1195, y:405, width:350, height:300, rx:18, fill:'#ffffff', stroke:'#c9ddd1', 'stroke-width':1.2 }));
+      mapAddText(svg, 'RÉGIONS LES PLUS REPRÉSENTÉES', 1220, 440, { fill:forest, size:12, weight:900 });
+      let yy = 478;
+      topRegions.forEach((item, i) => {
+        mapAddText(svg, `${i+1}. ${item.name}`, 1220, yy, { fill:textColor, size:11, weight:700 });
+        mapAddText(svg, frSmart(item.value), 1518, yy, { fill:forest, size:12, weight:900, anchor:'end' });
+        yy += 36;
+      });
+    }
+
+    if (status) status.style.display = 'none';
+  }
+
   function renderDepartmentMap() {
     const status = document.getElementById('mapSlideStatus');
     const byRegion = state.map.level === 'region';
-    const ready = byRegion ? !!regionGeoJSON : !!mapGeoJSON;
+    const ready = !!mapGeoJSON;
     if (status) {
       status.style.display = 'flex';
       status.textContent = ready ? 'Mise à jour de la carte…' : `Chargement du fond cartographique ${byRegion ? 'régional' : 'départemental'}…`;
@@ -3336,7 +3446,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       byRegion ? drawRegionMap() : drawDepartmentMap();
       return;
     }
-    const loader = byRegion ? ensureRegionGeoJSON() : ensureMapGeoJSON();
+    const loader = ensureMapGeoJSON();
     loader.then(() => {
       if (tabType(activeTab) === 'map') byRegion ? drawRegionMap() : drawDepartmentMap();
     }).catch(error => {
@@ -3348,7 +3458,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   controls.addEventListener('input', e => {
     const t = e.target;
-    if (t.dataset.slideFilter !== undefined) { const model=state[tabType(activeTab)]; if(model){ const f=dataSlideFilter(model); f[t.dataset.slideFilter]=t.value; saveTabData(activeTab); dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveState(); renderSlide(); const c=controls.querySelector('.data-slide-filter-count strong'); if(c)c.textContent=frSmart(dataOpsForModel(model).length); } return; }
     if (t.dataset.tabName !== undefined) {
       const value = String(t.value || '').trim();
       if (value) state.presentation.tabNames[activeTab] = value;
@@ -3536,7 +3645,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   controls.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.dataset.slideFilterReset !== undefined) { const model=state[tabType(activeTab)]; if(model){ model.dataFilter={referential:'',nature:'',yearMin:'',yearMax:''}; dataApplyToModel(tabType(activeTab),model,dataRuntime.filtered); saveTabData(activeTab); saveState(); renderControls(); renderSlide(); } return; }
     if (t.dataset.moaImport !== undefined) {
       importMoaExcelPaste(t.dataset.moaImport === 'append' ? 'append' : 'replace');
       return;
@@ -4641,7 +4749,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   async function mapSlidePngBlob() {
     if (state.map.level === 'region') {
-      if (!regionGeoJSON) await ensureRegionGeoJSON();
+      if (!mapGeoJSON) await ensureMapGeoJSON();
       if (tabType(activeTab) === 'map') drawRegionMap();
     } else {
       if (!mapGeoJSON) await ensureMapGeoJSON();
@@ -5411,10 +5519,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const DATA_CONNECTED_TYPES=['tunnel','map','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
-  function dataFilterOps(ops,f={}){return ops.filter(o=>(!f.yearMin||Number(o.year)>=Number(f.yearMin))&&(!f.yearMax||Number(o.year)<=Number(f.yearMax))&&(!f.referential||o.referential===f.referential)&&(!f.nature||dataNorm(o.nature).includes(dataNorm(f.nature))));}
   function dataFilteredOperations(){return dataFilterOps(dataRuntime.operations,dataRuntime.filters);}
-  function dataSlideFilter(model){if(!model.dataFilter||typeof model.dataFilter!=='object')model.dataFilter={referential:'',nature:'',yearMin:'',yearMax:''};return model.dataFilter;}
-  function dataOpsForModel(model){return dataFilterOps(dataRuntime.filtered,dataSlideFilter(model));}
   function dataAggregateTunnel(ops){const counts={notStarted:0,incomplete:0,planned:0,analysis:0,visit:0,compliant:0};let cancelled=0,sold=0;ops.forEach(o=>{if(o.status==='cancelled')cancelled++;else if(counts[o.status]!==undefined)counts[o.status]++;if(o.sold)sold++;});return {counts,cancelled,sold};}
   function dataAggregateMap(ops){const values={};ops.forEach(o=>{const code=dataDepartment(o.department);if(code)values[code]=(values[code]||0)+1;});return values;}
   function dataAggregateMoa(ops){const map=new Map();ops.forEach(o=>{const name=o.moa||'Non précisé';const key=dataNorm(name);if(!map.has(key))map.set(key,{name,value:0,dwellings:0,buildings:0});const x=map.get(key);x.value+=1;x.dwellings+=dataNumber(o.dwellings);x.buildings+=dataNumber(o.buildings);});return [...map.values()];}
@@ -5537,6 +5642,40 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   document.getElementById('dataExplorerSearch')?.addEventListener('input',dataRenderExplorer);
   document.getElementById('dataExplorerCsv')?.addEventListener('click',dataDownloadCsv);
   document.getElementById('dataExplorerCopy')?.addEventListener('click',dataCopySelection);
+  function dataRefreshActiveSlideFromFilter(){
+    const type=tabType(activeTab),model=state[type];if(!model||!DATA_CONNECTED_TYPES.includes(type))return;
+    dataApplyToModel(type,model,dataRuntime.filtered);saveTabData(activeTab);saveState();renderSlide();
+  }
+  if(slideFilterToolbar){
+    slideFilterToolbar.addEventListener('click',e=>{
+      if(!dataRuntime.connected)return;
+      const toggle=e.target.closest('[data-slide-filter-toggle]');
+      if(toggle){const key=toggle.dataset.slideFilterToggle;dataFilterUiState.openKey=dataFilterUiState.openKey===key?null:key;dataFilterUiState.search='';renderSlide();return;}
+      const all=e.target.closest('[data-slide-filter-all]');
+      if(all){const model=state[tabType(activeTab)],f=dataSlideFilter(model);f[all.dataset.slideFilterAll]=null;dataRefreshActiveSlideFromFilter();return;}
+      const none=e.target.closest('[data-slide-filter-none]');
+      if(none){const model=state[tabType(activeTab)],f=dataSlideFilter(model);f[none.dataset.slideFilterNone]=[];dataRefreshActiveSlideFromFilter();return;}
+      const reset=e.target.closest('[data-slide-filter-reset-bar]');
+      if(reset){const model=state[tabType(activeTab)],f=dataSlideFilter(model);DATA_SLIDE_FILTER_DEFS.forEach(d=>f[d.key]=null);dataFilterUiState.openKey=null;dataFilterUiState.search='';dataRefreshActiveSlideFromFilter();return;}
+    });
+    slideFilterToolbar.addEventListener('change',e=>{
+      const cb=e.target.closest('[data-slide-filter-check]');if(!cb||!dataRuntime.connected)return;
+      const type=tabType(activeTab),model=state[type];if(!model)return;const f=dataSlideFilter(model),key=cb.dataset.slideFilterCheck,value=cb.dataset.filterValue,options=dataSlideFilterValues(key);
+      let sel=f[key]===null||f[key]===undefined?[...options]:[...f[key]];
+      const idx=sel.findIndex(v=>dataNorm(v)===dataNorm(value));
+      if(cb.checked&&idx<0)sel.push(value);if(!cb.checked&&idx>=0)sel.splice(idx,1);
+      f[key]=sel.length===options.length?null:sel;
+      dataRefreshActiveSlideFromFilter();
+    });
+    slideFilterToolbar.addEventListener('input',e=>{
+      const input=e.target.closest('[data-slide-filter-search]');if(!input)return;
+      dataFilterUiState.openKey=input.dataset.slideFilterSearch;dataFilterUiState.search=input.value;
+      const pop=input.closest('.slide-filter-popover');if(!pop)return;
+      pop.querySelectorAll('.slide-filter-option').forEach(row=>{row.style.display=dataNorm(row.textContent).includes(dataNorm(input.value))?'':'none';});
+    });
+  }
+  document.addEventListener('click',e=>{if(dataFilterUiState.openKey&&!e.target.closest('[data-slide-filter-bar]')){dataFilterUiState.openKey=null;dataFilterUiState.search='';if(dataRuntime.connected&&DATA_CONNECTED_TYPES.includes(tabType(activeTab)))renderSlide();}});
+
   slide.addEventListener('click',e=>{if(!dataRuntime.connected)return;const activeModel=state[tabType(activeTab)];const clickOps=DATA_CONNECTED_TYPES.includes(tabType(activeTab))&&activeModel?dataOpsForModel(activeModel):dataRuntime.filtered;const status=e.target.closest('[data-data-status-key]');if(status){const key=status.dataset.dataStatusKey;const ops=clickOps.filter(o=>o.status===key);const labels={notStarted:'Non démarrée',incomplete:'Dossier incomplet',planned:'Analyse planifiée',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};dataOpenExplorer(labels[key]||key,ops,`${ops.length} opération${ops.length>1?'s':''} · tunnel de certification`);return;}const tag=e.target.closest('[data-data-tag-kind][data-data-tag-label]');if(tag){const kind=tag.dataset.dataTagKind,label=tag.dataset.dataTagLabel;const ops=clickOps.filter(o=>dataOperationHasTag(o,kind,label));dataOpenExplorer(label,ops,`${ops.length} opération${ops.length>1?'s':''} · ${kind==='mention'?'mention':'performance'}`);return;}const moa=e.target.closest('[data-data-moa]');if(moa){const name=moa.dataset.dataMoa;const ops=clickOps.filter(o=>o.moa===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''} · ${frSmart(ops.reduce((s,o)=>s+o.dwellings,0))} logements`);return;}const region=e.target.closest('[data-data-region]');if(region){const name=region.dataset.dataRegion;const ops=clickOps.filter(o=>REGION_BY_DEPARTMENT[o.department]===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''}`);return;}const dep=e.target.closest('[data-data-department]');if(dep){const code=dep.dataset.dataDepartment;const ops=code==='IDF'?clickOps.filter(o=>DATA_IDF_CODES.includes(o.department)):clickOps.filter(o=>o.department===code);dataOpenExplorer(code==='IDF'?'Île-de-France':dataDepartmentName(code),ops,`${ops.length} opération${ops.length>1?'s':''}`);}});
 
   dataInitUI();

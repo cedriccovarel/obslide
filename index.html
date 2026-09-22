@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#06402B" />
   <title>Générateur de slides - Observatoire</title>
-  <link rel="stylesheet" href="style.css?v=29.5" />
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/favicon.png" />
+  <link rel="stylesheet" href="style.css?v=29.7.3" />
 </head>
 <body class="auth-locked">
   <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
@@ -78,6 +80,7 @@
           <span id="zoomValue">52 %</span>
         </div>
       </div>
+      <div id="slideFilterToolbar" class="slide-filter-toolbar" aria-label="Filtres de la slide active"></div>
       <div id="slideViewport" class="slide-viewport">
         <div id="slideStage" class="slide-stage">
           <section id="slide" class="slide" aria-label="Aperçu de la slide"></section>
@@ -89,7 +92,7 @@
   <div id="dataConnectModal" class="data-modal" hidden>
     <div class="data-modal-backdrop" data-data-close="1"></div>
     <section class="data-modal-card" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
-      <div class="data-modal-head"><div><span class="data-kicker">V29.5 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
+      <div class="data-modal-head"><div><span class="data-kicker">V29.7.3 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
       <div class="data-modal-grid">
         <div class="data-source-card">
           <label>Mode</label>
@@ -129,6 +132,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
   <script src="auth.js?v=291"></script>
-  <script src="app.js?v=29.5"></script>
+  <script src="app.js?v=29.7.3"></script>
 </body>
 </html>
