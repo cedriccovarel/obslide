@@ -443,6 +443,7 @@ const MAP_GEOJSON_URLS = [
       title: 'CARTOGRAPHIE DES OPÉRATIONS',
       subtitle: 'Répartition des opérations par département',
       level: 'department',
+      regionZoom: 'all',
       values: {},
       paste: '',
       search: ''
@@ -499,6 +500,7 @@ const MAP_GEOJSON_URLS = [
   if (!state.presentation.tabNames || typeof state.presentation.tabNames !== 'object') state.presentation.tabNames = {};
   if (!state.map || typeof state.map !== 'object') state.map = clone(defaults.map);
   if (!['department','region'].includes(state.map.level)) state.map.level = 'department';
+  if (state.map.regionZoom !== 'all' && !REGIONS.some(region => !region.overseas && region.name === state.map.regionZoom)) state.map.regionZoom = 'all';
   const normalizeMoaModel = model => {
     if (!model || typeof model !== 'object') return;
     if (!model.sortBy) model.sortBy = 'operations';
@@ -1017,29 +1019,37 @@ const MAP_GEOJSON_URLS = [
     }).join('');
   }
 
+  function mapRegionZoomOptions() {
+    const selected = state.map.regionZoom || 'all';
+    return [`<option value="all" ${selected === 'all' ? 'selected' : ''}>France enti&egrave;re</option>`]
+      .concat(REGIONS.filter(region => !region.overseas).map(region => `<option value="${esc(region.name)}" ${selected === region.name ? 'selected' : ''}>${esc(region.name)}</option>`))
+      .join('');
+  }
+
   function renderMapControls() {
     const regionRows = mapRegionSummaryRows();
     return `<div class="control-section map-control-intro">
-      <h3>Cartographie géographique</h3>
-      <p class="help">Les données restent lues ou saisies par département. La vue Région regroupe automatiquement chaque département dans sa région administrative.</p>
-      <div class="field"><label>Niveau d’affichage</label><select data-map-level="1"><option value="department" ${state.map.level === 'department' ? 'selected' : ''}>Département</option><option value="region" ${state.map.level === 'region' ? 'selected' : ''}>Région</option></select></div>
-      <div class="map-total-control"><span>Total opérations</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
+      <h3>Cartographie g&eacute;ographique</h3>
+      <p class="help">Les donn&eacute;es restent lues ou saisies par d&eacute;partement. La vue R&eacute;gion regroupe automatiquement chaque d&eacute;partement dans sa r&eacute;gion administrative.</p>
+      <div class="field"><label>Niveau d&rsquo;affichage</label><select data-map-level="1"><option value="department" ${state.map.level === 'department' ? 'selected' : ''}>D&eacute;partement</option><option value="region" ${state.map.level === 'region' ? 'selected' : ''}>R&eacute;gion</option></select></div>
+      ${state.map.level === 'department' ? `<div class="field map-region-zoom-control"><label>Zoom r&eacute;gional</label><select data-map-region-zoom="1">${mapRegionZoomOptions()}</select><div class="field-hint">France enti&egrave;re conserve la carte nationale. Une r&eacute;gion recadre la carte et affiche uniquement ses d&eacute;partements.</div></div>` : ''}
+      <div class="map-total-control"><span>Total op&eacute;rations</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
     </div>
     <div class="control-section">
       <h3>Copier / coller</h3>
-      <div class="field"><label>Département + nombre d’opérations</label><textarea id="mapPasteArea" data-map-paste="1" placeholder="Nord	18
-Pas-de-Calais	15
-Paris	7">${esc(state.map.paste || '')}</textarea></div>
+      <div class="field"><label>D&eacute;partement + nombre d&rsquo;op&eacute;rations</label><textarea id="mapPasteArea" data-map-paste="1" placeholder="Nord\t18
+Pas-de-Calais\t15
+Paris\t7">${esc(state.map.paste || '')}</textarea></div>
       <div class="map-control-actions">
         <button type="button" class="btn btn-primary btn-small" data-map-import="1">Importer</button>
         <button type="button" class="btn btn-danger btn-small" data-map-clear="1">Tout effacer</button>
       </div>
-      <div id="mapImportFeedback" class="inline-note">Formats acceptés : tabulations, tableau Markdown ou texte « Département 12 ». La région est déterminée automatiquement.</div>
+      <div id="mapImportFeedback" class="inline-note">Formats accept&eacute;s : tabulations, tableau Markdown ou texte &laquo; D&eacute;partement 12 &raquo;. La r&eacute;gion est d&eacute;termin&eacute;e automatiquement.</div>
     </div>
-    ${state.map.level === 'region' ? `<div class="control-section map-region-summary"><h3>Régions calculées automatiquement</h3><p class="help">Lecture seule : les totaux proviennent des départements, y compris lorsque la source est Google Sheets.</p><div class="map-region-summary-list">${regionRows || '<div class="inline-note">Aucune région renseignée.</div>'}</div></div>` : ''}
+    ${state.map.level === 'region' ? `<div class="control-section map-region-summary"><h3>R&eacute;gions calcul&eacute;es automatiquement</h3><p class="help">Lecture seule : les totaux proviennent des d&eacute;partements, y compris lorsque la source est Google Sheets.</p><div class="map-region-summary-list">${regionRows || '<div class="inline-note">Aucune r&eacute;gion renseign&eacute;e.</div>'}</div></div>` : ''}
     <div class="control-section map-department-section">
-      <h3>Départements</h3>
-      <div class="field"><label>Rechercher</label><input id="mapSearchInput" data-map-search="1" type="text" value="${esc(state.map.search || '')}" placeholder="Nom ou code…" /></div>
+      <h3>D&eacute;partements</h3>
+      <div class="field"><label>Rechercher</label><input id="mapSearchInput" data-map-search="1" type="text" value="${esc(state.map.search || '')}" placeholder="Nom ou code&hellip;" /></div>
       <div class="map-dept-list" id="mapDepartmentList">${mapControlRows()}</div>
     </div>`;
   }
@@ -3339,10 +3349,100 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
 
+  function mapSelectedZoomRegion() {
+    if (state.map.level !== 'department' || !state.map.regionZoom || state.map.regionZoom === 'all') return null;
+    return REGIONS.find(region => !region.overseas && region.name === state.map.regionZoom) || null;
+  }
+
+  function drawDepartmentRegionZoom(svg, status, region) {
+    const forest = '#06402B';
+    const pale = '#e7f1eb';
+    const text = '#173b2e';
+    svg.innerHTML = '';
+    svg.appendChild(mapSvgEl('rect', { x:0, y:0, width:1600, height:900, fill:'#ffffff' }));
+
+    const features = mapGeoJSON.features.filter(feature => region.departments.includes(mapFeatureCode(feature)));
+    if (!features.length) {
+      if (status) { status.style.display = 'flex'; status.textContent = `Aucun fond d\u00e9partemental disponible pour ${region.name}.`; }
+      return;
+    }
+
+    const project = createMapProjector(features, { x:55, y:58, width:1090, height:790 });
+    const departmentValues = region.departments.map(code => Math.max(0, num(state.map.values?.[code])));
+    const maxValue = Math.max(1, ...departmentValues);
+    const total = departmentValues.reduce((sum, value) => sum + value, 0);
+
+    features.forEach(feature => {
+      const code = mapFeatureCode(feature);
+      const value = Math.max(0, num(state.map.values?.[code]));
+      const ratio = Math.min(1, value / maxValue);
+      const attrs = {
+        d: mapGeometryPath(feature.geometry, project),
+        fill: value > 0 ? pale : '#ffffff',
+        'fill-opacity': value > 0 ? 0.58 + ratio * 0.28 : 1,
+        stroke: forest,
+        'stroke-width': value > 0 ? 2.2 : 1.5,
+        'stroke-opacity': 1,
+        'stroke-linejoin': 'round',
+        'fill-rule': 'evenodd'
+      };
+      if (dataRuntime.connected) { attrs['data-data-department'] = code; attrs.class = 'data-map-clickable'; }
+      svg.appendChild(mapSvgEl('path', attrs));
+    });
+
+    features.forEach(feature => {
+      const code = mapFeatureCode(feature);
+      const value = Math.max(0, num(state.map.values?.[code]));
+      const dep = DEPARTMENTS.find(item => item.code === code);
+      const c = mapFeatureCenter(feature, project);
+      let departmentLabelY = c[1] + 20;
+      if (value > 0) {
+        const radius = Math.min(38, 13 + 23 * Math.sqrt(value / maxValue));
+        const circleAttrs = { cx:c[0], cy:c[1], r:radius, fill:forest, stroke:'#ffffff', 'stroke-width':2.4 };
+        if (dataRuntime.connected) { circleAttrs['data-data-department'] = code; circleAttrs.class = 'data-map-clickable'; }
+        svg.appendChild(mapSvgEl('circle', circleAttrs));
+        mapAddText(svg, frSmart(value), c[0], c[1] + 5, { fill:'#ffffff', size:15, weight:900, anchor:'middle' });
+        mapAddText(svg, code, c[0], c[1] - radius - 7, { fill:text, size:10, weight:900, anchor:'middle' });
+        departmentLabelY = c[1] + radius + 15;
+      } else {
+        mapAddText(svg, code, c[0], c[1] + 4, { fill:forest, size:11, weight:900, anchor:'middle' });
+      }
+      if (dep && features.length <= 8) mapAddText(svg, dep.name.toUpperCase(), c[0], departmentLabelY, { fill:text, size:7.5, weight:700, anchor:'middle' });
+    });
+
+    svg.appendChild(mapSvgEl('rect', { x:1188, y:62, width:357, height:786, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
+    mapAddText(svg, 'ZOOM R\u00c9GIONAL', 1214, 102, { fill:forest, size:12, weight:900 });
+    mapAddText(svg, region.name.toUpperCase(), 1214, 132, { fill:text, size:15, weight:900 });
+    mapAddText(svg, 'TOTAL OP\u00c9RATIONS', 1214, 178, { fill:forest, size:12, weight:900 });
+    mapAddText(svg, frSmart(total), 1214, 233, { fill:forest, size:46, weight:900 });
+    mapAddText(svg, `${region.departments.length} d\u00e9partements affich\u00e9s`, 1214, 263, { fill:'#557567', size:11, weight:700 });
+    mapAddText(svg, 'R\u00c9PARTITION PAR D\u00c9PARTEMENT', 1214, 310, { fill:forest, size:11, weight:900 });
+
+    const rows = region.departments
+      .map(code => ({ code, dep:DEPARTMENTS.find(item => item.code === code), value:Math.max(0, num(state.map.values?.[code])) }))
+      .sort((a,b) => b.value - a.value || a.code.localeCompare(b.code, 'fr'));
+    const rowHeight = Math.min(38, 470 / Math.max(1, rows.length));
+    let yy = 345;
+    rows.forEach(item => {
+      mapAddText(svg, item.code, 1214, yy, { fill:forest, size:10.5, weight:900 });
+      mapAddText(svg, item.dep ? item.dep.name : item.code, 1250, yy, { fill:text, size:9.5, weight:700 });
+      mapAddText(svg, frSmart(item.value), 1518, yy, { fill:forest, size:11, weight:900, anchor:'end' });
+      yy += rowHeight;
+    });
+
+    if (dataRuntime.connected) {
+      const filtered = Math.max(0, num(state.map.dataConnectedCount));
+      mapAddText(svg, `P\u00e9rim\u00e8tre filtr\u00e9 : ${frSmart(filtered)} op\u00e9rations`, 1214, 824, { fill:'#557567', size:10, weight:600 });
+    }
+    if (status) status.style.display = 'none';
+  }
+
   function drawDepartmentMap() {
     const svg = document.getElementById('departmentMapSvg');
     const status = document.getElementById('mapSlideStatus');
     if (!svg || !mapGeoJSON) return;
+    const zoomRegion = mapSelectedZoomRegion();
+    if (zoomRegion) { drawDepartmentRegionZoom(svg, status, zoomRegion); return; }
     svg.innerHTML = '';
     const forest = '#06402B';
     const pale = '#e7f1eb';
@@ -3689,6 +3789,15 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
           return;
         }
       }
+    }
+    if (t.dataset.mapRegionZoom !== undefined) {
+      const requested = String(t.value || 'all');
+      state.map.regionZoom = requested === 'all' || REGIONS.some(region => !region.overseas && region.name === requested) ? requested : 'all';
+      saveState();
+      renderControls();
+      renderSlide();
+      toast(state.map.regionZoom === 'all' ? 'Zoom cartographique : France entière.' : `Zoom cartographique : ${state.map.regionZoom}.`);
+      return;
     }
     if (t.dataset.mapLevel !== undefined) {
       const previous = state.map.level;

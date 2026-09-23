@@ -629,6 +629,8 @@ button { cursor: pointer; }
 .map-total-control span { font-size: 12px; font-weight: 800; }
 .map-total-control strong { font-size: 24px; }
 .map-control-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.map-region-zoom-control select { font-weight: 800; color: var(--green-900); }
+.map-region-zoom-control .field-hint { margin-top: 6px; font-size: 10px; line-height: 1.35; color: #60786f; }
 .map-department-section { padding-bottom: 0; }
 .map-dept-list {
   display: flex;
