@@ -7,7 +7,7 @@
   <title>Générateur de slides - Observatoire</title>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="style.css?v=29.7.4" />
+  <link rel="stylesheet" href="style.css?v=29.7.6" />
 </head>
 <body class="auth-locked">
   <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
@@ -59,6 +59,10 @@
 
   <nav id="tabsNav" class="tabs" aria-label="Slides"></nav>
 
+  <section id="globalFilterStrip" class="global-filter-strip" aria-label="Filtres de la slide active">
+    <div id="slideFilterToolbar" class="slide-filter-toolbar" aria-label="Filtres de la slide active"></div>
+  </section>
+
   <main class="workspace">
     <aside class="control-panel">
       <div class="control-panel-title">
@@ -80,7 +84,6 @@
           <span id="zoomValue">52 %</span>
         </div>
       </div>
-      <div id="slideFilterToolbar" class="slide-filter-toolbar" aria-label="Filtres de la slide active"></div>
       <div id="slideViewport" class="slide-viewport">
         <div id="slideStage" class="slide-stage">
           <section id="slide" class="slide" aria-label="Aperçu de la slide"></section>
@@ -92,7 +95,7 @@
   <div id="dataConnectModal" class="data-modal" hidden>
     <div class="data-modal-backdrop" data-data-close="1"></div>
     <section class="data-modal-card" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
-      <div class="data-modal-head"><div><span class="data-kicker">V29.7.4 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
+      <div class="data-modal-head"><div><span class="data-kicker">V29.7.6 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
       <div class="data-modal-grid">
         <div class="data-source-card">
           <label>Mode</label>
@@ -102,11 +105,9 @@
           <div class="data-actions"><button id="dataConnectBtn" class="btn btn-primary" type="button">Connecter / actualiser</button><button id="dataDisconnectBtn" class="btn btn-secondary" type="button">Revenir au mode manuel</button></div><div class="data-resource-actions"><button id="dataShowGsBtn" class="btn btn-secondary btn-small" type="button">Code .gs</button><button id="dataCopyColumnsBtn" class="btn btn-secondary btn-small" type="button">Colonnes Excel</button><button id="dataHelpBtn" class="btn btn-secondary btn-small" type="button">Aide connexion</button></div>
           <div id="dataFeedback" class="data-feedback">Aucune source connectée.</div>
         </div>
-        <div class="data-filter-card">
-          <div class="data-filter-title"><b>Filtres globaux</b><span id="dataFilteredCount">0 opération</span></div>
-          <div class="data-filter-grid"><label>Année min<input id="dataYearMin" type="number" placeholder="2019"></label><label>Année max<input id="dataYearMax" type="number" placeholder="2026"></label><label>Référentiel<select id="dataReferential"><option value="">Tous</option></select></label><label>Nature<select id="dataNature"><option value="">Toutes</option><option>Neuf</option><option>Rénovation</option></select></label></div>
-          <div class="data-actions"><button id="dataApplyFilters" class="btn btn-primary" type="button">Appliquer les filtres</button><button id="dataResetFilters" class="btn btn-secondary" type="button">Réinitialiser</button></div>
-          <div class="data-connected-help"><b>Mode connecté :</b> les données manuelles restent récupérables avec « Revenir au mode manuel ». Le style, les textes et les options d’affichage des slides restent modifiables.</div>
+        <div class="data-filter-card data-filter-info-card">
+          <div class="data-filter-title"><b>Filtres par slide</b><span id="dataFilteredCount">0 opération</span></div>
+          <div class="data-connected-help"><b>Les filtres sont maintenant dans la barre horizontale générale, sous les onglets.</b><br>Chaque slide conserve son propre jeu de filtres : Année, Référentiel, Mentions, Maître d’ouvrage et Évaluation : Statut.</div>
         </div>
       </div>
     </section>
@@ -132,6 +133,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
   <script src="auth.js?v=291"></script>
-  <script src="app.js?v=29.7.4"></script>
+  <script src="app.js?v=29.7.6"></script>
 </body>
 </html>

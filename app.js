@@ -1763,13 +1763,13 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if(!Object.prototype.hasOwnProperty.call(f,'referentials') && f.referential){f.referentials=[String(f.referential)];}
     if(!Object.prototype.hasOwnProperty.call(f,'years') && (f.yearMin||f.yearMax)){
       const min=Number(f.yearMin)||-Infinity,max=Number(f.yearMax)||Infinity;
-      f.years=[...new Set(dataRuntime.filtered.map(o=>Number(o.year)).filter(y=>Number.isFinite(y)&&y>=min&&y<=max))].map(String).sort(dataNaturalSort);
+      f.years=[...new Set(dataRuntime.operations.map(o=>Number(o.year)).filter(y=>Number.isFinite(y)&&y>=min&&y<=max))].map(String).sort(dataNaturalSort);
     }
     DATA_SLIDE_FILTER_DEFS.forEach(d=>{if(!Object.prototype.hasOwnProperty.call(f,d.key))f[d.key]=null;});
     delete f.referential;delete f.nature;delete f.yearMin;delete f.yearMax;
     return f;
   }
-  function dataSlideFilterValues(key,ops=dataRuntime.filtered){
+  function dataSlideFilterValues(key,ops=dataRuntime.operations){
     if(key==='years')return [...new Set(ops.map(o=>String(o.year||'').trim()).filter(Boolean))].sort(dataNaturalSort);
     if(key==='referentials')return [...new Set(ops.map(o=>String(o.referential||'').trim()).filter(Boolean))].sort(dataNaturalSort);
     if(key==='moas')return [...new Set(ops.map(o=>String(o.moa||'').trim()).filter(Boolean))].sort(dataNaturalSort);
@@ -1794,7 +1794,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       return true;
     });
   }
-  function dataOpsForModel(model){return dataFilterOps(dataRuntime.filtered,dataSlideFilter(model));}
+  function dataOpsForModel(model){return dataFilterOps(dataRuntime.operations,dataSlideFilter(model));}
   function dataSlideFilterLabel(def,selection,totalOptions){
     if(selection===null||selection===undefined)return `${def.label} · Tous`;
     if(!selection.length)return `${def.label} · Aucun`;
@@ -1838,6 +1838,88 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       <button type="button" class="slide-filter-reset" data-slide-filter-reset-bar="1" title="Réinitialiser tous les filtres de cette slide">↺ Réinitialiser</button>
     </div>`;
   }
+
+  function dataRenderSlideFilterToolbar(){
+    if(!slideFilterToolbar)return;
+    const connectedFilterBar=dataRenderSlideFilterBar();
+    slideFilterToolbar.innerHTML=connectedFilterBar||'';
+    slideFilterToolbar.classList.toggle('is-empty',!connectedFilterBar);
+  }
+
+  function dataInitSlideFilterToolbar(){
+    if(!slideFilterToolbar||slideFilterToolbar.dataset.bound==='1')return;
+    slideFilterToolbar.dataset.bound='1';
+
+    slideFilterToolbar.addEventListener('click',e=>{
+      const toggle=e.target.closest('[data-slide-filter-toggle]');
+      if(toggle){
+        e.preventDefault();e.stopPropagation();
+        if(!dataRuntime.connected)return;
+        const key=toggle.dataset.slideFilterToggle;
+        dataFilterUiState.openKey=dataFilterUiState.openKey===key?null:key;
+        dataFilterUiState.search='';
+        dataRenderSlideFilterToolbar();
+        return;
+      }
+      const all=e.target.closest('[data-slide-filter-all]');
+      if(all){
+        e.preventDefault();e.stopPropagation();
+        if(!dataRuntime.connected)return;
+        const model=state[tabType(activeTab)];if(!model)return;
+        dataSlideFilter(model)[all.dataset.slideFilterAll]=null;
+        dataFilterUiState.openKey=all.dataset.slideFilterAll;
+        dataRefreshActiveSlideFromFilter();
+        return;
+      }
+      const none=e.target.closest('[data-slide-filter-none]');
+      if(none){
+        e.preventDefault();e.stopPropagation();
+        if(!dataRuntime.connected)return;
+        const model=state[tabType(activeTab)];if(!model)return;
+        dataSlideFilter(model)[none.dataset.slideFilterNone]=[];
+        dataFilterUiState.openKey=none.dataset.slideFilterNone;
+        dataRefreshActiveSlideFromFilter();
+        return;
+      }
+      const reset=e.target.closest('[data-slide-filter-reset-bar]');
+      if(reset){
+        e.preventDefault();e.stopPropagation();
+        if(!dataRuntime.connected)return;
+        const model=state[tabType(activeTab)];if(!model)return;
+        const f=dataSlideFilter(model);DATA_SLIDE_FILTER_DEFS.forEach(d=>f[d.key]=null);
+        dataFilterUiState.openKey=null;dataFilterUiState.search='';
+        dataRefreshActiveSlideFromFilter();
+      }
+    });
+
+    slideFilterToolbar.addEventListener('change',e=>{
+      const cb=e.target.closest('[data-slide-filter-check]');
+      if(!cb||!dataRuntime.connected)return;
+      e.stopPropagation();
+      const model=state[tabType(activeTab)];if(!model)return;
+      const f=dataSlideFilter(model),key=cb.dataset.slideFilterCheck,value=cb.dataset.filterValue,options=dataSlideFilterValues(key);
+      let sel=f[key]===null||f[key]===undefined?[...options]:[...f[key]];
+      const idx=sel.findIndex(v=>dataNorm(v)===dataNorm(value));
+      if(cb.checked&&idx<0)sel.push(value);
+      if(!cb.checked&&idx>=0)sel.splice(idx,1);
+      f[key]=sel.length===options.length?null:sel;
+      dataFilterUiState.openKey=key;
+      dataRefreshActiveSlideFromFilter();
+    });
+
+    slideFilterToolbar.addEventListener('input',e=>{
+      const input=e.target.closest('[data-slide-filter-search]');
+      if(!input)return;
+      e.stopPropagation();
+      dataFilterUiState.openKey=input.dataset.slideFilterSearch;
+      dataFilterUiState.search=input.value;
+      const pop=input.closest('.slide-filter-popover');if(!pop)return;
+      pop.querySelectorAll('.slide-filter-option').forEach(row=>{
+        row.style.display=dataNorm(row.textContent).includes(dataNorm(input.value))?'':'none';
+      });
+    });
+  }
+
 
   function renderCommonTabControls() {
     if (isBlankTab(activeTab)) return '';
@@ -2123,11 +2205,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
-    if(slideFilterToolbar){
-      const connectedFilterBar=dataRenderSlideFilterBar();
-      slideFilterToolbar.innerHTML=connectedFilterBar||'';
-      slideFilterToolbar.classList.toggle('is-empty',!connectedFilterBar);
-    }
+    dataRenderSlideFilterToolbar();
     slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
     const slideClasses = {
       cover: 'cover-slide',
@@ -3324,9 +3402,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     svg.appendChild(mapSvgEl('rect', { x: 1195, y: 80, width: 350, height: 240, rx: 18, fill: '#f7faf8', stroke: forest, 'stroke-width': 1.5 }));
     mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill: forest, size: 14, weight: 900 });
     mapAddText(svg, frSmart(nationalTotal), 1220, 185, { fill: forest, size: 48, weight: 900 });
-    mapAddText(svg, `Île-de-France : ${frSmart(idfTotal)}`, 1220, 220, { fill: text, size: 13, weight: 700 });
-    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, 248, { fill: '#557567', size: 11, weight: 600 });
-    mapAddText(svg, 'Fond blanc · contours départementaux vert forêt', 1220, 286, { fill: '#557567', size: 10, weight: 600 });
+    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1220, 214, { fill:text, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1220, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
+    mapAddText(svg, `Île-de-France : ${frSmart(idfTotal)}`, 1220, dataRuntime.connected?262:220, { fill: text, size: 13, weight: 700 });
+    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, dataRuntime.connected?286:248, { fill: '#557567', size: 11, weight: 600 });
+    mapAddText(svg, 'Fond blanc · contours départementaux vert forêt', 1220, dataRuntime.connected?310:286, { fill: '#557567', size: 10, weight: 600 });
 
     drawIdfMapInset(svg, features);
     if (status) status.style.display = 'none';
@@ -3410,10 +3489,11 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     svg.appendChild(mapSvgEl('rect', { x:1195, y:80, width:350, height:300, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
     mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill:forest, size:14, weight:900 });
     mapAddText(svg, frSmart(nationalTotal), 1220, 185, { fill:forest, size:48, weight:900 });
-    mapAddText(svg, 'VUE PAR RÉGION', 1220, 225, { fill:forest, size:13, weight:900 });
-    mapAddText(svg, 'Départements regroupés automatiquement', 1220, 250, { fill:textColor, size:11, weight:600 });
-    mapAddText(svg, 'Limites départementales masquées', 1220, 272, { fill:textColor, size:11, weight:600 });
-    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, 302, { fill:'#557567', size:10.5, weight:600 });
+    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1220, 214, { fill:textColor, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1220, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
+    mapAddText(svg, 'VUE PAR RÉGION', 1220, dataRuntime.connected?266:225, { fill:forest, size:13, weight:900 });
+    mapAddText(svg, 'Départements regroupés automatiquement', 1220, dataRuntime.connected?290:250, { fill:textColor, size:11, weight:600 });
+    mapAddText(svg, 'Limites départementales masquées', 1220, dataRuntime.connected?312:272, { fill:textColor, size:11, weight:600 });
+    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, dataRuntime.connected?340:302, { fill:'#557567', size:10.5, weight:600 });
 
     const topRegions = metroRegions
       .map(region => ({ name:region.name, value:Math.max(0, num(totals[region.name])) }))
@@ -5452,7 +5532,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const DATA_FIELD_ALIASES = {
     code:['code interne','code opération','code operation','code','id opération','id operation'],
     name:['nom opération','nom operation',"nom de l'opération (interne)","nom de l'opération",'nom du programme (client)','opération','operation'],
-    department:['département','departement','dept','code département','code departement'],
+    department:['département','departement','dept','code département','code departement'], postalCode:['code postal','cp','postal code'], address:['adresse opération','adresse operation','adresse'],
     referential:['référentiel: nom du référentiel','referentiel: nom du referentiel','référentiel','referentiel','referential'],
     moa:["maître d'ouvrage: nom de la société","maitre d'ouvrage: nom de la societe","maître d'ouvrage: société principale: nom de la société","maitre d'ouvrage: societe principale: nom de la societe","maître d'ouvrage",'maitre ouvrage','moa'],
     moaType:['type moa',"maître d'ouvrage: hiérarchie",'maitre d ouvrage: hierarchie'],
@@ -5484,12 +5564,26 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     certificationDate:['certification: date de décision cd','certification: date de decision cd']
   };
   const DATA_IDF_CODES=['75','77','78','91','92','93','94','95'];
-  const dataRuntime={connected:false,mode:'manual',operations:[],filtered:[],manualSnapshot:null,selection:[],selectionTitle:'',selectionSub:'',filters:{yearMin:'',yearMax:'',referential:'',nature:''}};
+  const dataRuntime={connected:false,mode:'manual',operations:[],filtered:[],manualSnapshot:null,selection:[],selectionTitle:'',selectionSub:'',filters:{}};
 
   function dataNorm(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' ').trim();}
   function dataNumber(v){const n=Number(String(v??'').replace(/\s/g,'').replace(',','.').replace(/[^0-9.+-]/g,''));return Number.isFinite(n)?Math.max(0,n):0;}
   function dataResolveHeader(headers,aliases){const hh=headers.map(dataNorm);for(const alias of aliases){const a=dataNorm(alias);let i=hh.findIndex(h=>h===a);if(i>=0)return i;i=hh.findIndex(h=>h.includes(a));if(i>=0)return i;}return -1;}
-  function dataDepartment(v){const s=String(v??'').trim();const m=s.match(/\b(2A|2B|97[1-6]|\d{2})\b/i);return m?m[1].toUpperCase():s;}
+  function dataDepartment(v){
+    const raw=String(v??'').trim();
+    if(!raw)return'';
+    const s=dataNorm(raw);
+    const knownCodes=new Set(DEPARTMENTS.map(d=>String(d.code).toUpperCase()));
+    // Code département explicite (01..95, 2A/2B, DROM).
+    let m=raw.match(/(?:^|[^0-9A-Z])(2A|2B|97[1-6]|0?[1-9]|[1-8]\d|9[0-5])(?:[^0-9A-Z]|$)/i);
+    if(m){let code=m[1].toUpperCase();if(/^\d$/.test(code))code=code.padStart(2,'0');if(knownCodes.has(code))return code;}
+    // Code postal français : on dérive le département quand aucun code département n'est fourni.
+    m=raw.match(/\b(97[1-6]\d{2}|\d{5})\b/);
+    if(m){const cp=m[1];if(/^97[1-6]/.test(cp))return cp.slice(0,3);if(cp.startsWith('20')){const n=Number(cp);return (n>=20200||n>=20600)?'2B':'2A';}const code=cp.slice(0,2);if(knownCodes.has(code))return code;}
+    // Nom de département : "Gironde", "Nord", "Val-de-Marne", etc.
+    const byName=DEPARTMENTS.find(d=>{const n=dataNorm(d.name);return s===n||s.includes(n)||n.includes(s);});
+    return byName?byName.code:'';
+  }
   function dataStatus(v){const s=dataNorm(v);if(/annul|aband/.test(s))return 'cancelled';if(/evaluation conforme|eval conforme|conforme|solde/.test(s))return 'compliant';if(/visite realisee|visite realise|visite/.test(s))return 'visit';if(/analyse realisee|analyse realise/.test(s))return 'analysis';if(/analyse planifiee|analyse planifie/.test(s))return 'planned';if(/dossier incomplet|incomplet/.test(s))return 'incomplete';if(/non demarree|non demarre|non demar/.test(s))return 'notStarted';return 'notStarted';}
   function dataRawValue(row, field){ return field ? row[field] : ''; }
   function dataFirstNonEmpty(values){ for(const v of values){ if(String(v??'').trim()!=='') return v; } return ''; }
@@ -5506,7 +5600,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       let nature=String(dataRawValue(r,fields.nature)||'').trim();
       if(fields.nature && dataNorm(fields.nature)==='renovation') nature=dataBoolish(dataRawValue(r,fields.nature))?'Rénovation':''; if(!nature){const rr=dataNorm(dataRawValue(r,fields.referential));nature=/renov/.test(rr)?'Rénovation':(/neuf/.test(rr)?'Neuf':'');}
       const code=String(dataRawValue(r,fields.code)||`OPE-${i+1}`).trim();
-      return {code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataRawValue(r,fields.department)),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
+      return {code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataFirstNonEmpty([dataRawValue(r,fields.department),dataRawValue(r,fields.postalCode),dataRawValue(r,fields.address)])),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
     }).filter(o=>o.code||o.name);
     // Une opération peut apparaître sur plusieurs lignes/bâtiments : on la compte une seule fois.
     const grouped=new Map();
@@ -5515,13 +5609,22 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
   function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
   function dataGoogleCsvUrl(input,tab){const url=String(input||'').trim();if(!url)return'';if(/\.csv($|\?)/i.test(url)||url.includes('output=csv'))return url;const m=url.match(/\/spreadsheets\/d\/([^/]+)/);if(!m)return url;return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab||'OPERATIONS')}`;}
-  function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
+  function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const mentions=['BEE+','BBCA','Option TFPB'];const statusLabels={notStarted:'Non démarrée',complete:'Dossier complet',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,rawStatus:statusLabels[status]||status,mentions:mentions[i%mentions.length],performance:i%2?'IC Construction 2028':'Cep RE2020 -5%',sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
   const DATA_CONNECTED_TYPES=['tunnel','map','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
-  function dataFilteredOperations(){return dataFilterOps(dataRuntime.operations,dataRuntime.filters);}
+  function dataFilteredOperations(){return [...dataRuntime.operations];}
   function dataAggregateTunnel(ops){const counts={notStarted:0,incomplete:0,planned:0,analysis:0,visit:0,compliant:0};let cancelled=0,sold=0;ops.forEach(o=>{if(o.status==='cancelled')cancelled++;else if(counts[o.status]!==undefined)counts[o.status]++;if(o.sold)sold++;});return {counts,cancelled,sold};}
-  function dataAggregateMap(ops){const values={};ops.forEach(o=>{const code=dataDepartment(o.department);if(code)values[code]=(values[code]||0)+1;});return values;}
+  function dataAggregateMap(ops){
+    const values={};
+    ops.forEach(o=>{const code=dataDepartment(o.department);if(code&&DEPARTMENTS.some(d=>d.code===code))values[code]=(values[code]||0)+1;});
+    return values;
+  }
+  function dataMapCoverage(ops){
+    let mapped=0;const unmapped=[];
+    (ops||[]).forEach(o=>{const code=dataDepartment(o.department);if(code&&DEPARTMENTS.some(d=>d.code===code))mapped++;else unmapped.push(o);});
+    return {mapped,unmapped,total:(ops||[]).length};
+  }
   function dataAggregateMoa(ops){const map=new Map();ops.forEach(o=>{const name=o.moa||'Non précisé';const key=dataNorm(name);if(!map.has(key))map.set(key,{name,value:0,dwellings:0,buildings:0});const x=map.get(key);x.value+=1;x.dwellings+=dataNumber(o.dwellings);x.buildings+=dataNumber(o.buildings);});return [...map.values()];}
   function dataAggregateNamed(ops,getter){const m=new Map();ops.forEach(o=>{const v=String(getter(o)||'').trim();if(!v)return;const k=dataNorm(v);if(!m.has(k))m.set(k,{name:v,value:0});m.get(k).value++;});const total=Math.max(1,ops.length);return [...m.values()].sort((a,b)=>b.value-a.value).map(x=>({...x,pct:x.value/total*100}));}
   function dataSplitValues(v){
@@ -5589,11 +5692,11 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const current=new Map((model.statuses||[]).map(x=>[x.key,x]));
     model.statuses=wanted.map(([key,label])=>({key,label,value:Number(current.get(key)?.value)||0}));
   }
-  function dataApplyToModel(type,model,baseOps){
-    if(!model)return;if(type==='tunnel')dataEnsureTunnelStatuses(model);const ops=dataOpsForModel(model);
+  function dataApplyToModel(type,model,baseOps=dataRuntime.operations){
+    if(!model)return;if(type==='tunnel')dataEnsureTunnelStatuses(model);const ops=dataFilterOps(baseOps||dataRuntime.operations,dataSlideFilter(model));
     model.dataConnectedCount=ops.length;
     if(type==='tunnel'){const a=dataAggregateTunnel(ops);(model.statuses||[]).forEach(s=>{if(a.counts[s.key]!==undefined)s.value=a.counts[s.key];});model.cancelled=a.cancelled;model.sold=a.sold;}
-    else if(type==='map')model.values=dataAggregateMap(ops);
+    else if(type==='map'){const coverage=dataMapCoverage(ops);model.values=dataAggregateMap(ops);model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;model.dataConnectedCount=coverage.total;}
     else if(type==='moaList')model.items=dataAggregateMoa(ops);
     else if(type==='stakeholderSplit')model.items=dataAggregateNamed(ops,o=>o.moaType||'Non précisé').map(x=>({name:x.name,value:x.value}));
     else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
@@ -5607,14 +5710,20 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     else if(type==='carbon'){const e=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icEnergy),em=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icEnergyMax),c=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icConstruction),cm=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icConstructionMax);if(e!==null)model.energyAvg=e;if(em!==null)model.energyMaxAvg=em;if(c!==null)model.constructionAvg=c;if(cm!==null)model.constructionMaxAvg=cm;}
     else if(type==='dpe'){const eb=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepBefore),ea=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepAfter),esb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyBefore),esa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyAfter),gsb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesBefore),gsa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesAfter);if(eb!==null)model.before.energy=eb;if(ea!==null)model.after.energy=ea;if(esb!==null)model.before.energyScore=esb;if(esa!==null)model.after.energyScore=esa;if(gsb!==null)model.before.gesScore=gsb;if(gsa!==null)model.after.gesScore=gsa;}
   }
-  function dataSyncViews(){if(!dataRuntime.connected)return;dataRuntime.filtered=dataFilteredOperations();DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataApplyToModel(type,state[type],dataRuntime.filtered);});Object.entries(state.presentation.instanceData||{}).forEach(([id,model])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataApplyToModel(type,model,dataRuntime.filtered);});loadTabData(activeTab);if(DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataApplyToModel(tabType(activeTab),state[tabType(activeTab)],dataRuntime.filtered);dataUpdateBadge();dataUpdateFilterUI();saveState();renderControls();renderSlide();}
-  function dataUpdateBadge(){const dot=document.getElementById('dataSourceDot'),label=document.getElementById('dataSourceLabel');if(dot)dot.classList.toggle('is-live',dataRuntime.connected);if(label)label.textContent=dataRuntime.connected?`${dataRuntime.filtered.length} opérations`:'Données';}
-  function dataPopulateFilters(){const sel=document.getElementById('dataReferential');if(!sel)return;const cur=dataRuntime.filters.referential||'';const refs=[...new Set(dataRuntime.operations.map(o=>o.referential).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));sel.innerHTML='<option value="">Tous</option>'+refs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');sel.value=cur;const years=dataRuntime.operations.map(o=>Number(o.year)).filter(Boolean);if(years.length){document.getElementById('dataYearMin').placeholder=Math.min(...years);document.getElementById('dataYearMax').placeholder=Math.max(...years);}}
-  function dataUpdateFilterUI(){const el=document.getElementById('dataFilteredCount');if(el)el.textContent=`${dataRuntime.filtered.length} opération${dataRuntime.filtered.length>1?'s':''}`;['dataYearMin','dataYearMax'].forEach((id,i)=>{const n=document.getElementById(id);if(n&&document.activeElement!==n)n.value=i?dataRuntime.filters.yearMax:dataRuntime.filters.yearMin;});const r=document.getElementById('dataReferential'),n=document.getElementById('dataNature');if(r&&document.activeElement!==r)r.value=dataRuntime.filters.referential||'';if(n&&document.activeElement!==n)n.value=dataRuntime.filters.nature||'';}
+  function dataSyncViews(){if(!dataRuntime.connected)return;dataRuntime.filtered=[...dataRuntime.operations];DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataApplyToModel(type,state[type],dataRuntime.operations);});Object.entries(state.presentation.instanceData||{}).forEach(([id,model])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataApplyToModel(type,model,dataRuntime.operations);});loadTabData(activeTab);if(DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataApplyToModel(tabType(activeTab),state[tabType(activeTab)],dataRuntime.operations);dataUpdateBadge();dataUpdateFilterUI();saveState();renderControls();renderSlide();}
+  function dataUpdateBadge(){const dot=document.getElementById('dataSourceDot'),label=document.getElementById('dataSourceLabel');if(dot)dot.classList.toggle('is-live',dataRuntime.connected);if(label)label.textContent=dataRuntime.connected?`${dataRuntime.operations.length} opérations`:'Données';}
+  function dataPopulateFilters(){
+    const el=document.getElementById('dataFilteredCount');
+    if(el)el.textContent=`${dataRuntime.operations.length} opération${dataRuntime.operations.length>1?'s':''}`;
+  }
+  function dataUpdateFilterUI(){
+    const el=document.getElementById('dataFilteredCount');
+    if(el)el.textContent=`${dataRuntime.operations.length} opération${dataRuntime.operations.length>1?'s':''}`;
+  }
+
   function dataFeedback(msg,error=false){const el=document.getElementById('dataFeedback');if(el){el.textContent=msg;el.classList.toggle('is-error',error);}}
-  async function dataConnect(){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';dataFeedback('Chargement de la source…');try{let ops=[];if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.operations=ops;localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataFeedback(`Erreur : ${err.message||err}`,true);}}
+  async function dataConnect(){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';dataFeedback('Chargement de la source…');try{let ops=[];if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataFeedback(`Erreur : ${err.message||err}`,true);}}
   function dataDisconnect(){if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
-  function dataReadFiltersFromUI(){dataRuntime.filters={yearMin:document.getElementById('dataYearMin').value,yearMax:document.getElementById('dataYearMax').value,referential:document.getElementById('dataReferential').value,nature:document.getElementById('dataNature').value};localStorage.setItem(DATA_FILTERS_STORAGE_KEY,JSON.stringify(dataRuntime.filters));dataSyncViews();}
   function dataDepartmentName(code){return DEPARTMENTS.find(d=>d.code===code)?.name||code;}
   function dataOpenExplorer(title,ops,sub=''){dataRuntime.selection=[...ops];dataRuntime.selectionTitle=title;dataRuntime.selectionSub=sub;document.getElementById('dataExplorerTitle').textContent=title;document.getElementById('dataExplorerSub').textContent=sub||`${ops.length} opération${ops.length>1?'s':''}`;document.getElementById('dataExplorerSearch').value='';dataRenderExplorer();dataExplorer.classList.add('is-open');dataExplorer.setAttribute('aria-hidden','false');}
   function dataRenderExplorer(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const el=document.getElementById('dataExplorerList');if(!el)return;el.innerHTML=rows.length?rows.map(o=>`<article class="data-operation-card"><div class="data-op-main"><b>${esc(o.code)}</b><strong>${esc(o.name)}</strong><span>${esc(o.moa)} · ${esc(dataDepartmentName(o.department))} · ${esc(o.referential)}</span></div><div class="data-op-kpis"><span><b>${frSmart(o.dwellings)}</b> logements</span><span><b>${frSmart(o.buildings)}</b> bâtiments</span><span><b>${esc(o.year||'—')}</b> année</span></div><details><summary>Voir la fiche</summary><div class="data-op-detail"><span>Nature<b>${esc(o.nature||'—')}</b></span><span>Statut<b>${esc(o.status)}</b></span><span>Chauffage<b>${esc(o.heatingBefore||'—')} → ${esc(o.heatingAfter||'—')}</b></span><span>ECS<b>${esc(o.ecsBefore||'—')} → ${esc(o.ecsAfter||'—')}</b></span></div></details></article>`).join(''):'<div class="data-empty">Aucune opération correspondante.</div>';}
@@ -5625,7 +5734,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const DATA_HELP_COLUMNS = "Code interne\tNom opération\tContrat: Statut\tÉvaluation: Statut\tAffaire: Étape\tNom du programme (client)\tMaître d'ouvrage: Nom de la société\tMaître d'ouvrage: Société principale: Nom de la société\tMaître d'ouvrage: Hiérarchie\tÉtape\tDate de création\tAffaire: Nom de l'affaire\tAffaire: Date de création\tAffaire: Accepté le\tMontant HT affaire\tContrat: Numéro du contrat\tContrat: Date de création\tContrat: Date d'activation\tMontant HT commande\tÉvaluation: Code interne\tÉvaluation: Date de création\tCertification: Date de décision AP\tCertification: Date de décision CD\tOuvrage\tIndividuel diffus (maison individuelle)\tIndividuel groupé - Nombre de logements\tIndividuel groupé - Nombre de bâtiments\tLogement collectif - Nombre de logements\tLogement collectif - Nombre de bâtiments\tHab. communautaire - Nombre de logements\tLogements non certifiés\tTotal logements\tTotal bâtiments\tRéférentiel: Nom du référentiel\tVersion du référentiel applicable: Version\tMentions\tPerformance\tProfil choisi\tBâtiment construit avant 1948\tBâtiment construit après 1948\tRénovation\tZone ANRU\tSans mention\tPerformance environnementale\tMention Bâtiment Performance\tMention BEE+\tMention Option TFPB\tMention Label E+C-\tDérogation E+C-\tMention Label BBCA\tDérogation BBCA\tMention option Contribution Neutralité\tMention Label Effinergie\tNiveau Énergie Carbone Effinergie 2017\tMention Label Bâtiment Biosourcé\tDérogation Biosourcé\tMention Habitat Qualité\tMention Évaluation des charges\tMention Bonus de constructibilité\tMention Qualité de l'air\tMention Acoustique renforcée\tMention Économie circulaire\tMention Taxinomie européenne\tMention Horizon Zéro Carbone\tMention Biodiversité\tProfil spécifique\tÉtiquette DPE & GES\tNiveau Énergie\tNiveau Passif\tNiveau Cep\tNiveau Cep,nr\tNiveau Bbio\tNiveau IC Construction\tNiveau IC Énergie\tPerformance renforcée\tBiosourcé 2013\tDépartement\tAvancement\tProjet\tOpération\tBâtiment\tNombre de logements\tSurface bâtiment (SHAB / Sref / SU / SURT / SRT)\tTypologies de logements\tAnnée de construction\tDH\tDH Max\tTic\tTic ref\tLogement traversant\tLogement non traversant\tNombre de brasseurs d’air\tType de brasseurs d’air\tStructure\tPlanchers hauts\tPlanchers hauts isolant\tPlanchers hauts épaisseur isolant\tPlanchers hauts R isolant\tParois verticales structure\tParois verticales type d’isolant\tParois verticales épaisseur isolant\tParois verticales R isolant\tPlanchers bas structure\tPlanchers bas isolant\tPlanchers bas épaisseur isolant\tPlanchers bas R isolant\tMenuiseries matériau\tMenuiseries vitrage\tMenuiseries occultations\tVecteur chauffage avant travaux\tVecteur chauffage après travaux\tMode de chauffage après travaux\tVecteur ECS avant travaux\tVecteur ECS après travaux\tECS\tRefroidissement\tVentilation\tBbio\tBbio Max\tGain Bbio\tCep\tCep Max\tGain Cep\tCepnr\tCepnr Max\tGain Cepnr\tCep refroidissement\tCep éclairage\tCep auxiliaires ventilation\tCep auxiliaires distribution\tCep déplacement occupants\tCep électricité\tCep gaz\tCep réseau de chaleur\tCep bois / biomasse\tUbat avant travaux\tUbat après travaux\tCep avant travaux\tCep après travaux final\tIC composants bâtiment\tIC chantier\tIC composants lot 1\tIC composants lot 2\tIC composants lot 3\tIC composants lot 4\tIC composants lot 5\tIC composants lot 6\tIC composants lot 7\tIC composants lot 8\tIC composants lot 9\tIC composants lot 10\tIC composants lot 11\tIC composants lot 12\tIC composants lot 13\tIC énergie bâtiment\tIC énergie chauffage\tIC énergie refroidissement\tIC énergie ECS\tIC énergie auxiliaires ventilation\tIC énergie auxiliaires distribution\tIC énergie déplacements\tDPE Énergie avant travaux\tDPE GES avant travaux\tDPE Énergie après travaux final\tDPE GES après travaux final\tENR oui/non\tENR type";
   function dataOpenHelp(mode){const modal=document.getElementById('dataHelpModal'),title=document.getElementById('dataHelpTitle'),body=document.getElementById('dataHelpBody'),copy=document.getElementById('dataHelpCopy');if(!modal)return;modal.hidden=false;copy.hidden=false;if(mode==='gs'){title.textContent='Code Google Apps Script (.gs)';body.innerHTML=`<p class="data-help-intro">Copie ce code dans <b>Extensions → Apps Script → Code.gs</b>. Il lit les en-têtes en ligne 2 et les données à partir de la ligne 4.</p><pre class="data-help-code"></pre>`;body.querySelector('pre').textContent=DATA_HELP_GS;copy.textContent='Copier le code .gs';copy.dataset.copyKind='gs';}else if(mode==='columns'){title.textContent='Colonnes de l’onglet OPERATIONS';body.innerHTML=`<p class="data-help-intro">À coller directement dans la <b>ligne 2</b> de l’onglet <b>OPERATIONS</b>. Les données commencent ligne 4.</p><pre class="data-help-code data-help-columns"></pre>`;body.querySelector('pre').textContent=DATA_HELP_COLUMNS;copy.textContent='Copier les colonnes';copy.dataset.copyKind='columns';}else{title.textContent='Aide — connecter une source de données';copy.hidden=true;body.innerHTML=`<div class="data-help-steps"><h3>Connexion pas à pas</h3><ol><li><b>Prépare ton Google Sheet.</b><br>Crée ou utilise un onglet nommé <code>OPERATIONS</code>. Mets les intitulés de colonnes en ligne 2. La ligne 3 peut rester libre. Les opérations commencent ligne 4.</li><li><b>Ouvre Apps Script.</b><br>Dans Google Sheets : <b>Extensions → Apps Script</b>.</li><li><b>Ajoute le code.</b><br>Dans <code>Code.gs</code>, colle le code proposé par le bouton « Code .gs ». Enregistre.</li><li><b>Vérifie la lecture.</b><br>En haut d’Apps Script, choisis <code>verifierObservatoire</code>, clique sur <b>Exécuter</b>, puis vérifie dans le journal que l’onglet OPERATIONS est trouvé et que le nombre de lignes est cohérent.</li><li><b>Déploie l’API.</b><br>Clique sur <b>Déployer → Nouveau déploiement</b>, choisis <b>Application Web</b>, « Exécuter en tant que : Moi », puis donne l’accès le plus large autorisé. Clique sur <b>Déployer</b>.</li><li><b>Copie l’URL /exec.</b><br>Google fournit une URL se terminant par <code>/exec</code>. C’est l’adresse de ta source.</li><li><b>Connecte le générateur.</b><br>Dans ce générateur : <b>Données → Mode : Google Apps Script (JSON)</b>. Colle l’URL /exec puis clique sur <b>Connecter / actualiser</b>.</li><li><b>Contrôle que tout est à jour.</b><br>Le message doit indiquer le nombre d’opérations chargées. Modifie ensuite une valeur test dans le Sheet, puis clique à nouveau sur <b>Connecter / actualiser</b>. Si la slide change, la connexion est validée.</li><li><b>Ensuite, rien à redéployer pour les données.</b><br>Tu peux ajouter/corriger des opérations dans le Sheet. Le redéploiement Apps Script n’est nécessaire que si tu modifies le code <code>.gs</code> lui-même.</li></ol></div>`;}}
   async function dataHelpCopy(){const kind=document.getElementById('dataHelpCopy')?.dataset.copyKind;const text=kind==='columns'?DATA_HELP_COLUMNS:DATA_HELP_GS;try{await navigator.clipboard.writeText(text);toast(kind==='columns'?'Colonnes copiées.':'Code .gs copié.');}catch{toast('Copie impossible dans ce navigateur.');}}
-  function dataInitUI(){let filters={};try{filters=JSON.parse(localStorage.getItem(DATA_FILTERS_STORAGE_KEY)||'{}')||{};}catch{}dataRuntime.filters={...dataRuntime.filters,...filters};const source=(()=>{try{return JSON.parse(localStorage.getItem(DATA_SOURCE_STORAGE_KEY)||'null');}catch{return null;}})();if(source){document.getElementById('dataMode').value=source.mode||'appsScript';document.getElementById('dataUrl').value=source.url||'';document.getElementById('dataTab').value=source.tab||'OPERATIONS';}dataUpdateBadge();dataUpdateFilterUI();}
+  function dataInitUI(){dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}const source=(()=>{try{return JSON.parse(localStorage.getItem(DATA_SOURCE_STORAGE_KEY)||'null');}catch{return null;}})();if(source){document.getElementById('dataMode').value=source.mode||'appsScript';document.getElementById('dataUrl').value=source.url||'';document.getElementById('dataTab').value=source.tab||'OPERATIONS';}dataUpdateBadge();dataUpdateFilterUI();}
 
   if(dataSourceBtn)dataSourceBtn.addEventListener('click',()=>{dataConnectModal.hidden=false;dataPopulateFilters();dataUpdateFilterUI();});
   document.querySelectorAll('[data-data-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataConnectModal.hidden=true;}));
@@ -5636,52 +5745,25 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   document.getElementById('dataHelpBtn')?.addEventListener('click',()=>dataOpenHelp('help'));
   document.querySelectorAll('[data-data-help-close="1"]').forEach(el=>el.addEventListener('click',()=>{document.getElementById('dataHelpModal').hidden=true;}));
   document.getElementById('dataHelpCopy')?.addEventListener('click',dataHelpCopy);
-  document.getElementById('dataApplyFilters')?.addEventListener('click',dataReadFiltersFromUI);
-  document.getElementById('dataResetFilters')?.addEventListener('click',()=>{dataRuntime.filters={yearMin:'',yearMax:'',referential:'',nature:''};localStorage.setItem(DATA_FILTERS_STORAGE_KEY,JSON.stringify(dataRuntime.filters));dataUpdateFilterUI();if(dataRuntime.connected)dataSyncViews();});
   document.querySelectorAll('[data-explorer-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataExplorer.classList.remove('is-open');dataExplorer.setAttribute('aria-hidden','true');}));
   document.getElementById('dataExplorerSearch')?.addEventListener('input',dataRenderExplorer);
   document.getElementById('dataExplorerCsv')?.addEventListener('click',dataDownloadCsv);
   document.getElementById('dataExplorerCopy')?.addEventListener('click',dataCopySelection);
   function dataRefreshActiveSlideFromFilter(){
     const type=tabType(activeTab),model=state[type];if(!model||!DATA_CONNECTED_TYPES.includes(type))return;
-    dataApplyToModel(type,model,dataRuntime.filtered);saveTabData(activeTab);saveState();renderSlide();
+    dataApplyToModel(type,model,dataRuntime.operations);
+    if(type==='map'){
+      const ops=dataOpsForModel(model),coverage=dataMapCoverage(ops);
+      model.values=dataAggregateMap(ops);model.dataConnectedCount=coverage.total;model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;
+    }
+    saveTabData(activeTab);saveState();renderSlide();
   }
-  if(slideFilterToolbar){
-    slideFilterToolbar.addEventListener('click',e=>{
-      // Capture phase: garantit le fonctionnement des boutons même si un élément
-      // interne arrête la propagation du clic.
-      if(!dataRuntime.connected)return;
-      e.stopPropagation();
-      const toggle=e.target.closest('[data-slide-filter-toggle]');
-      if(toggle){const key=toggle.dataset.slideFilterToggle;dataFilterUiState.openKey=dataFilterUiState.openKey===key?null:key;dataFilterUiState.search='';renderSlide();return;}
-      const all=e.target.closest('[data-slide-filter-all]');
-      if(all){const model=state[tabType(activeTab)],f=dataSlideFilter(model);f[all.dataset.slideFilterAll]=null;dataRefreshActiveSlideFromFilter();return;}
-      const none=e.target.closest('[data-slide-filter-none]');
-      if(none){const model=state[tabType(activeTab)],f=dataSlideFilter(model);f[none.dataset.slideFilterNone]=[];dataRefreshActiveSlideFromFilter();return;}
-      const reset=e.target.closest('[data-slide-filter-reset-bar]');
-      if(reset){const model=state[tabType(activeTab)],f=dataSlideFilter(model);DATA_SLIDE_FILTER_DEFS.forEach(d=>f[d.key]=null);dataFilterUiState.openKey=null;dataFilterUiState.search='';dataRefreshActiveSlideFromFilter();return;}
-    },true);
-    slideFilterToolbar.addEventListener('change',e=>{
-      const cb=e.target.closest('[data-slide-filter-check]');if(!cb||!dataRuntime.connected)return;
-      const type=tabType(activeTab),model=state[type];if(!model)return;const f=dataSlideFilter(model),key=cb.dataset.slideFilterCheck,value=cb.dataset.filterValue,options=dataSlideFilterValues(key);
-      let sel=f[key]===null||f[key]===undefined?[...options]:[...f[key]];
-      const idx=sel.findIndex(v=>dataNorm(v)===dataNorm(value));
-      if(cb.checked&&idx<0)sel.push(value);if(!cb.checked&&idx>=0)sel.splice(idx,1);
-      f[key]=sel.length===options.length?null:sel;
-      dataRefreshActiveSlideFromFilter();
-    });
-    slideFilterToolbar.addEventListener('input',e=>{
-      const input=e.target.closest('[data-slide-filter-search]');if(!input)return;
-      dataFilterUiState.openKey=input.dataset.slideFilterSearch;dataFilterUiState.search=input.value;
-      const pop=input.closest('.slide-filter-popover');if(!pop)return;
-      pop.querySelectorAll('.slide-filter-option').forEach(row=>{row.style.display=dataNorm(row.textContent).includes(dataNorm(input.value))?'':'none';});
-    });
-  }
-  document.addEventListener('click',e=>{if(dataFilterUiState.openKey&&!e.target.closest('[data-slide-filter-bar]')){dataFilterUiState.openKey=null;dataFilterUiState.search='';if(dataRuntime.connected&&DATA_CONNECTED_TYPES.includes(tabType(activeTab)))renderSlide();}});
+  document.addEventListener('click',e=>{if(dataFilterUiState.openKey&&!e.target.closest('[data-slide-filter-bar]')){dataFilterUiState.openKey=null;dataFilterUiState.search='';if(dataRuntime.connected&&DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataRenderSlideFilterToolbar();}});
 
   slide.addEventListener('click',e=>{if(!dataRuntime.connected)return;const activeModel=state[tabType(activeTab)];const clickOps=DATA_CONNECTED_TYPES.includes(tabType(activeTab))&&activeModel?dataOpsForModel(activeModel):dataRuntime.filtered;const status=e.target.closest('[data-data-status-key]');if(status){const key=status.dataset.dataStatusKey;const ops=clickOps.filter(o=>o.status===key);const labels={notStarted:'Non démarrée',incomplete:'Dossier incomplet',planned:'Analyse planifiée',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};dataOpenExplorer(labels[key]||key,ops,`${ops.length} opération${ops.length>1?'s':''} · tunnel de certification`);return;}const tag=e.target.closest('[data-data-tag-kind][data-data-tag-label]');if(tag){const kind=tag.dataset.dataTagKind,label=tag.dataset.dataTagLabel;const ops=clickOps.filter(o=>dataOperationHasTag(o,kind,label));dataOpenExplorer(label,ops,`${ops.length} opération${ops.length>1?'s':''} · ${kind==='mention'?'mention':'performance'}`);return;}const moa=e.target.closest('[data-data-moa]');if(moa){const name=moa.dataset.dataMoa;const ops=clickOps.filter(o=>o.moa===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''} · ${frSmart(ops.reduce((s,o)=>s+o.dwellings,0))} logements`);return;}const region=e.target.closest('[data-data-region]');if(region){const name=region.dataset.dataRegion;const ops=clickOps.filter(o=>REGION_BY_DEPARTMENT[o.department]===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''}`);return;}const dep=e.target.closest('[data-data-department]');if(dep){const code=dep.dataset.dataDepartment;const ops=code==='IDF'?clickOps.filter(o=>DATA_IDF_CODES.includes(o.department)):clickOps.filter(o=>o.department===code);dataOpenExplorer(code==='IDF'?'Île-de-France':dataDepartmentName(code),ops,`${ops.length} opération${ops.length>1?'s':''}`);}});
 
   dataInitUI();
+  dataInitSlideFilterToolbar();
 
   ensureInstanceData();
   loadTabData(activeTab);

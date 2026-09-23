@@ -1372,3 +1372,58 @@ body.presentation-mode .tab-close{display:none!important}
 .slide-filter-toolbar::before{content:"FILTRES DE LA SLIDE";display:block;margin:0 0 6px 2px;color:#60746d;font:800 9px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em}
 .slide-filter-chips{overflow-x:auto;overflow-y:visible;padding-bottom:1px;scrollbar-width:thin}
 .slide-filter-toolbar .slide-filter-popover{z-index:500}
+
+/* V29.7.6 — barre generale de filtres, hors slide */
+.global-filter-strip{
+  position:relative;
+  z-index:300;
+  padding:8px 18px 9px;
+  background:#eef3f0;
+  border-bottom:1px solid #d3dfda;
+  box-shadow:0 3px 10px rgba(6,64,43,.04);
+}
+.global-filter-strip:has(.slide-filter-toolbar.is-empty){display:none}
+.global-filter-strip .slide-filter-toolbar{
+  margin:0;
+  min-height:0;
+  position:relative;
+  z-index:310;
+}
+.global-filter-strip .slide-filter-toolbar::before{
+  content:"FILTRES DE LA SLIDE ACTIVE";
+  display:block;
+  margin:0 0 6px 2px;
+  color:#516b62;
+  font:800 9px/1 Arial,Helvetica,sans-serif;
+  letter-spacing:.08em;
+}
+.global-filter-strip .slide-filter-bar{
+  border-radius:10px;
+  box-shadow:none;
+  min-height:44px;
+  padding:6px 9px;
+  overflow:visible;
+}
+.global-filter-strip .slide-filter-chips{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex:1;
+  min-width:0;
+  overflow:visible;
+  flex-wrap:nowrap;
+  padding-bottom:0;
+}
+.global-filter-strip .slide-filter-item{position:relative;flex:1 1 0;min-width:120px;max-width:255px}
+.global-filter-strip .slide-filter-chip{width:100%;max-width:none;justify-content:space-between}
+.global-filter-strip .slide-filter-popover{
+  top:37px;
+  left:0;
+  z-index:1000;
+}
+.global-filter-strip .slide-filter-item:nth-last-child(-n+2) .slide-filter-popover{left:auto;right:0}
+@media(max-width:1200px){
+  .global-filter-strip .slide-filter-item{min-width:105px}
+  .global-filter-strip .slide-filter-chip{font-size:9px;padding:0 8px}
+  .global-filter-strip .slide-filter-count{min-width:74px;padding:0 7px}
+}
