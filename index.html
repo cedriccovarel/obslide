@@ -7,7 +7,8 @@
   <title>Générateur de slides - Observatoire</title>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="style.css?v=29.7.7" />
+  <link rel="stylesheet" href="style.css?v=29.7.16" />
+  <link rel="stylesheet" href="nexity-map.css?v=29.7.18" />
 </head>
 <body class="auth-locked">
   <section id="authScreen" class="auth-screen" aria-label="Accès au générateur">
@@ -78,10 +79,23 @@
           <strong>Aperçu 16:9</strong>
           <span>Export : 3840 × 2160 px</span>
         </div>
-        <div class="zoom-control">
-          <label for="zoomRange">Zoom</label>
-          <input id="zoomRange" type="range" min="30" max="100" value="52" />
-          <span id="zoomValue">52 %</span>
+        <div class="preview-controls">
+          <div class="zoom-control">
+            <label for="globalTextScaleRange">Textes globaux</label>
+            <input id="globalTextScaleRange" type="range" min="70" max="160" value="100" />
+            <span id="globalTextScaleValue">100 %</span>
+          </div>
+          <div class="zoom-control">
+            <label for="slideTextScaleRange">Textes slide</label>
+            <input id="slideTextScaleRange" type="range" min="70" max="160" value="100" />
+            <span id="slideTextScaleValue">100 %</span>
+          </div>
+          <div class="zoom-control">
+            <label for="zoomRange">Zoom aperçu</label>
+            <input id="zoomRange" type="range" min="15" max="100" value="52" />
+            <button id="fitPreviewBtn" class="preview-fit-btn" type="button" title="Afficher la slide entière dans la zone d’aperçu">Ajuster</button>
+            <span id="zoomValue">52 %</span>
+          </div>
         </div>
       </div>
       <div id="slideViewport" class="slide-viewport">
@@ -95,7 +109,7 @@
   <div id="dataConnectModal" class="data-modal" hidden>
     <div class="data-modal-backdrop" data-data-close="1"></div>
     <section class="data-modal-card" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
-      <div class="data-modal-head"><div><span class="data-kicker">V29.7.7 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
+      <div class="data-modal-head"><div><span class="data-kicker">V29.7.16 · DATA CONNECTED</span><h2 id="dataModalTitle">Source de données</h2><p>Les slides compatibles se recalculent depuis une même base d’opérations, avec des filtres indépendants par slide.</p></div><button type="button" class="data-close" data-data-close="1">×</button></div>
       <div class="data-modal-grid">
         <div class="data-source-card">
           <label>Mode</label>
@@ -133,6 +147,11 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
   <script src="auth.js?v=291"></script>
-  <script src="app.js?v=29.7.7"></script>
+  <script src="nexity-geography.js?v=29.7.16"></script>
+  <script src="nexity-core.js?v=29.7.18"></script>
+  <script src="nexity-xlsx.js?v=29.7.16"></script>
+  <script src="nexity-map.js?v=29.7.18"></script>
+  <script src="nexity-podium.js?v=29.7.18"></script>
+  <script src="app.js?v=29.7.16"></script>
 </body>
 </html>

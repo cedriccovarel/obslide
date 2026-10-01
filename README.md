@@ -1,3 +1,7 @@
+# V29.7.14 - Nouvelle cartographie Nexity
+
+Voir **LIRE_MOI_NEXITY_V29_7_14.md** pour la mise en route et **QA_V29_7_14_NEXITY.md** pour les tests.
+
 # Générateur de slides — Observatoire
 
 Site statique prêt pour GitHub Pages. Aucun build, aucune base de données et aucun serveur applicatif ne sont nécessaires.

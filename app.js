@@ -448,12 +448,25 @@ const MAP_GEOJSON_URLS = [
       paste: '',
       search: ''
     },
+    socialZoning: {
+      title: 'ZONAGE DES LOGEMENTS SOCIAUX',
+      subtitle: 'Répartition des opérations selon le zonage officiel 1 / 2 / 3 à partir des communes',
+      scope: 'national',
+      regionFocus: 'all',
+      departmentFocus: 'all',
+      zoneFilter: 'all',
+      dataConnectedCount: 0,
+      dataMatchedCount: 0,
+      dataUnmatchedCount: 0
+    },
     presentation: {
-      order: ['cover','evolution','map','stakeholderSplit','moaList','performanceList','mentionList','labels','tunnel','envelope','equipments','heatingMatrix','ecsMatrix','carbon','dpe'],
+      order: ['cover','evolution','map','socialZoning','stakeholderSplit','moaList','performanceList','mentionList','labels','tunnel','envelope','equipments','heatingMatrix','ecsMatrix','carbon','dpe'],
       blanks: {},
       instances: {},
       instanceData: {},
-      tabNames: {}
+      tabNames: {},
+      globalTextScale: 1,
+      textScaleByTab: {}
     }
   };
 
@@ -464,6 +477,9 @@ const MAP_GEOJSON_URLS = [
     {type:'cover', label:'Couverture'},
     {type:'evolution', label:'Évolution des opérations'},
     {type:'map', label:'Cartographie départements'},
+    {type:'nexityMap', label:'Nexity - Directions régionales'},
+    {type:'nexityPodium', label:'Nexity - Podium DG BBCA'},
+    {type:'socialZoning', label:'Zonage logement social 1 / 2 / 3'},
     {type:'stakeholderSplit', label:'Répartition bailleurs / promoteurs'},
     {type:'moaList', label:'Maîtres d’ouvrage'},
     {type:'performanceList', label:'Performances'},
@@ -478,6 +494,10 @@ const MAP_GEOJSON_URLS = [
     {type:'dpe', label:'DPE avant / après'},
     {type:'blank', label:'Vide'}
   ];
+
+  defaults.nexityMap = clone(window.OBSNexityMap.defaults);
+  defaults.nexityPodium = clone(window.OBSNexityPodium.defaults);
+  defaults.presentation.order.splice(defaults.presentation.order.indexOf('map') + 1, 0, 'nexityMap', 'nexityPodium');
 
   let state = loadState();
   if (state.tunnel && Array.isArray(state.tunnel.statuses)) {
@@ -498,9 +518,17 @@ const MAP_GEOJSON_URLS = [
   if (!state.presentation.instances || typeof state.presentation.instances !== 'object') state.presentation.instances = {};
   if (!state.presentation.instanceData || typeof state.presentation.instanceData !== 'object') state.presentation.instanceData = {};
   if (!state.presentation.tabNames || typeof state.presentation.tabNames !== 'object') state.presentation.tabNames = {};
+  if (!Number.isFinite(Number(state.presentation.globalTextScale))) state.presentation.globalTextScale = 1;
+  state.presentation.globalTextScale = Math.max(.7, Math.min(1.6, Number(state.presentation.globalTextScale) || 1));
+  if (!state.presentation.textScaleByTab || typeof state.presentation.textScaleByTab !== 'object') state.presentation.textScaleByTab = {};
   if (!state.map || typeof state.map !== 'object') state.map = clone(defaults.map);
   if (!['department','region'].includes(state.map.level)) state.map.level = 'department';
   if (state.map.regionZoom !== 'all' && !REGIONS.some(region => !region.overseas && region.name === state.map.regionZoom)) state.map.regionZoom = 'all';
+  if (!state.socialZoning || typeof state.socialZoning !== 'object') state.socialZoning = clone(defaults.socialZoning);
+  state.socialZoning = deepMerge(clone(defaults.socialZoning), state.socialZoning || {});
+  if (!['national','region','department'].includes(state.socialZoning.scope)) state.socialZoning.scope = 'national';
+  if (state.socialZoning.regionFocus !== 'all' && !REGIONS.some(region => !region.overseas && region.name === state.socialZoning.regionFocus)) state.socialZoning.regionFocus = 'all';
+  if (state.socialZoning.departmentFocus !== 'all' && !DEPARTMENTS.some(dep => dep.code === state.socialZoning.departmentFocus)) state.socialZoning.departmentFocus = 'all';
   const normalizeMoaModel = model => {
     if (!model || typeof model !== 'object') return;
     if (!model.sortBy) model.sortBy = 'operations';
@@ -535,6 +563,17 @@ const MAP_GEOJSON_URLS = [
     const order = state.presentation.order || [];
     const typeOf = id => String(id || '').startsWith('blank-') ? 'blank' : (state.presentation.instances?.[id] || id);
     let insertAt = Math.max(0, order.findIndex(id => typeOf(id) === 'map') + 1);
+    if (!state.presentation.nexityMapAdded) {
+      if (!order.some(id => typeOf(id) === 'nexityMap')) order.splice(insertAt, 0, 'nexityMap');
+      state.presentation.nexityMapAdded = true;
+    }
+    if (typeOf(order[insertAt]) === 'nexityMap') insertAt += 1;
+    if (!state.presentation.nexityPodiumAdded) {
+      if (!order.some(id => typeOf(id) === 'nexityPodium')) order.splice(insertAt, 0, 'nexityPodium');
+      state.presentation.nexityPodiumAdded = true;
+    }
+    if (typeOf(order[insertAt]) === 'nexityPodium') insertAt += 1;
+    if (!order.some(id => typeOf(id) === 'socialZoning')) { order.splice(insertAt, 0, 'socialZoning'); insertAt += 1; }
     if (!order.some(id => typeOf(id) === 'stakeholderSplit')) { order.splice(insertAt, 0, 'stakeholderSplit'); insertAt += 1; }
     if (!order.some(id => typeOf(id) === 'moaList')) { order.splice(insertAt, 0, 'moaList'); insertAt += 1; }
     else insertAt = Math.max(insertAt, order.findIndex(id => typeOf(id) === 'moaList') + 1);
@@ -547,6 +586,19 @@ const MAP_GEOJSON_URLS = [
   let mapLoadPromise = null;
   let regionGeoJSON = null;
   let regionLoadPromise = null;
+  const SOCIAL_ZONE_JSON_URLS = [
+    'https://gitlab.com/pidila/sp-simulateurs-data/-/raw/master/donnees-de-reference/Zone123.json',
+    'https://www.data.gouv.fr/api/1/datasets/r/eedf8bf6-052f-4354-b80c-fe9c1065693a'
+  ];
+  const SOCIAL_COMMUNE_API_URL = 'https://geo.api.gouv.fr/communes';
+  const SOCIAL_ZONE_COLORS = {
+    'Zone 1 bis':'#06402B',
+    'Zone 1':'#16864f',
+    'Zone 2':'#d6a21a',
+    'Zone 3':'#9aa8a2',
+    'Non déterminé':'#c9d6d0'
+  };
+  const socialZoneRuntime = { index:null, loadPromise:null, resolveCache:new Map(), byTab:{}, requestToken:0, detail:{ department:'', insee:'', commune:'' } };
 
   const controls = document.getElementById('controls');
   const slide = document.getElementById('slide');
@@ -567,6 +619,12 @@ const MAP_GEOJSON_URLS = [
   const resetBtn = document.getElementById('resetBtn');
   const zoomRange = document.getElementById('zoomRange');
   const zoomValue = document.getElementById('zoomValue');
+  const fitPreviewBtn = document.getElementById('fitPreviewBtn');
+  const slideViewport = document.getElementById('slideViewport');
+  const globalTextScaleRange = document.getElementById('globalTextScaleRange');
+  const globalTextScaleValue = document.getElementById('globalTextScaleValue');
+  const slideTextScaleRange = document.getElementById('slideTextScaleRange');
+  const slideTextScaleValue = document.getElementById('slideTextScaleValue');
   const slideStage = document.getElementById('slideStage');
   const slideFilterToolbar = document.getElementById('slideFilterToolbar');
   const toastEl = document.getElementById('toast');
@@ -629,6 +687,48 @@ const MAP_GEOJSON_URLS = [
     state[type] = deepMerge(clone(defaults[type]), stored);
     state.presentation.instanceData[tabId] = clone(state[type]);
   }
+
+  function globalTextScale() { return Math.max(.7, Math.min(1.6, Number(state.presentation.globalTextScale) || 1)); }
+  function slideTextScale(tabId = activeTab) { return Math.max(.7, Math.min(1.6, Number(state.presentation.textScaleByTab?.[tabId]) || 1)); }
+  function currentTextScale(tabId = activeTab) { return globalTextScale() * slideTextScale(tabId); }
+  function applyTextScaleToSlide() {
+    if (tabType(activeTab) === 'nexityMap') { slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap); return; }
+    if (tabType(activeTab) === 'nexityPodium') { slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium); return; }
+    if (!slide) return;
+    const scale = currentTextScale();
+    slide.dataset.textScale = String(scale);
+    const selectors = 'h1,h2,h3,h4,h5,h6,p,span,b,strong,small,div,button,label,text,tspan';
+    const nodes = [...slide.querySelectorAll(selectors)].filter(el => {
+      if (el.closest('foreignObject')) return false;
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      return Number.isFinite(fs) && fs > 0;
+    });
+    nodes.forEach(el => {
+      let base = Number(el.dataset?.ptBaseFontSize || 0);
+      if (!(base > 0)) {
+        base = parseFloat(getComputedStyle(el).fontSize);
+        try { el.dataset.ptBaseFontSize = String(base); } catch {}
+      }
+      el.style.fontSize = `${Math.max(6, base * scale).toFixed(2)}px`;
+    });
+  }
+  function resetTextScaleOnSlide() {
+    if (!slide) return;
+    slide.querySelectorAll('[data-pt-base-font-size]').forEach(el => {
+      const base = Number(el.dataset.ptBaseFontSize || 0);
+      if (base > 0) el.style.fontSize = `${base}px`;
+    });
+  }
+
+  function updateTextScaleToolbar() {
+    const g = document.getElementById('globalTextScaleRange');
+    const gv = document.getElementById('globalTextScaleValue');
+    const s = document.getElementById('slideTextScaleRange');
+    const sv = document.getElementById('slideTextScaleValue');
+    const gPct = Math.round(globalTextScale() * 100), sPct = Math.round(slideTextScale() * 100);
+    if (g) g.value = String(gPct); if (gv) gv.textContent = `${gPct} %`;
+    if (s) s.value = String(sPct); if (sv) sv.textContent = `${sPct} %`;
+  }
   function refreshTabsArray() { tabs = [...tabsNav.querySelectorAll('.tab')]; }
   function renumberedTabTitle(tabId, index) {
     return `${index}. ${tabLabel(tabId)}`;
@@ -667,6 +767,7 @@ const MAP_GEOJSON_URLS = [
     if (state.presentation.instances?.[tabId]) delete state.presentation.instances[tabId];
     if (state.presentation.instanceData?.[tabId]) delete state.presentation.instanceData[tabId];
     if (state.presentation.tabNames?.[tabId]) delete state.presentation.tabNames[tabId];
+    if (state.presentation.textScaleByTab?.[tabId]) delete state.presentation.textScaleByTab[tabId];
     if (wasActive) activeTab = order[Math.min(idx, order.length - 1)];
     loadTabData(activeTab);
     saveState();
@@ -689,6 +790,7 @@ const MAP_GEOJSON_URLS = [
       if (!state.presentation.instanceData || typeof state.presentation.instanceData !== 'object') state.presentation.instanceData = {};
       state.presentation.instanceData[tabId] = deepMerge(clone(defaults[type]), clone(state[type] || defaults[type]));
     }
+    if (state.presentation.textScaleByTab && state.presentation.textScaleByTab[activeTab] && !state.presentation.textScaleByTab[tabId]) state.presentation.textScaleByTab[tabId] = state.presentation.textScaleByTab[activeTab];
     state.presentation.order.push(tabId);
     saveState();
     renderTabsNav();
@@ -850,6 +952,9 @@ const MAP_GEOJSON_URLS = [
       if (!state.presentation.instances || typeof state.presentation.instances !== 'object') state.presentation.instances = {};
       if (!state.presentation.instanceData || typeof state.presentation.instanceData !== 'object') state.presentation.instanceData = {};
       if (!state.presentation.tabNames || typeof state.presentation.tabNames !== 'object') state.presentation.tabNames = {};
+  if (!Number.isFinite(Number(state.presentation.globalTextScale))) state.presentation.globalTextScale = 1;
+  state.presentation.globalTextScale = Math.max(.7, Math.min(1.6, Number(state.presentation.globalTextScale) || 1));
+  if (!state.presentation.textScaleByTab || typeof state.presentation.textScaleByTab !== 'object') state.presentation.textScaleByTab = {};
       ensureNewDefaultSlides();
       ensureInstanceData();
       const requestedTab = parsed && typeof parsed.activeTab === 'string' ? parsed.activeTab : activeTab;
@@ -1051,6 +1156,95 @@ Paris\t7">${esc(state.map.paste || '')}</textarea></div>
       <h3>D&eacute;partements</h3>
       <div class="field"><label>Rechercher</label><input id="mapSearchInput" data-map-search="1" type="text" value="${esc(state.map.search || '')}" placeholder="Nom ou code&hellip;" /></div>
       <div class="map-dept-list" id="mapDepartmentList">${mapControlRows()}</div>
+    </div>`;
+  }
+
+
+  function socialZoneDefaultLabels() {
+    return ['Zone 1 bis','Zone 1','Zone 2','Zone 3'];
+  }
+
+  function socialZoneColor(label) {
+    return SOCIAL_ZONE_COLORS[label] || '#7f958d';
+  }
+
+  function socialZoneLabelRank(label) {
+    const ranks = { 'Zone 1 bis':0, 'Zone 1':1, 'Zone 2':2, 'Zone 3':3, 'Non déterminé':9 };
+    return ranks[label] ?? 8;
+  }
+
+  function socialZoneSortLabels(labels) {
+    return [...new Set((labels || []).filter(Boolean))].sort((a,b) => {
+      const ra = socialZoneLabelRank(a), rb = socialZoneLabelRank(b);
+      return ra === rb ? String(a).localeCompare(String(b), 'fr') : ra - rb;
+    });
+  }
+
+  function socialZoneActiveLabels(runtimeData) {
+    const labels = socialZoneSortLabels([...(runtimeData?.zoneLabels || []), ...socialZoneDefaultLabels()]);
+    return labels.filter(label => label !== 'Non déterminé');
+  }
+
+  function socialZoneRuntimeData() {
+    return socialZoneRuntime.byTab?.[activeTab] || null;
+  }
+
+  function renderSocialZoningControls() {
+    const model = state.socialZoning || defaults.socialZoning;
+    const runtimeData = socialZoneRuntimeData();
+    const zoneLabels = socialZoneActiveLabels(runtimeData);
+    const availableDepartments = (() => {
+      const staticList = DEPARTMENTS.filter(dep => model.regionFocus === 'all' || REGION_BY_DEPARTMENT[dep.code] === model.regionFocus);
+      const runtimeSet = new Set((runtimeData?.availableDepartments || []).map(dep => dep.code));
+      return staticList.filter(dep => !runtimeData || !runtimeSet.size || runtimeSet.has(dep.code));
+    })();
+    return `<div class="control-section">
+      <h3>Slide zonage logement social</h3>
+      <div class="field"><label>Titre</label><input data-bind="socialZoning.title" value="${esc(model.title)}"></div>
+      <div class="field"><label>Sous-titre</label><textarea data-bind="socialZoning.subtitle">${esc(model.subtitle)}</textarea></div>
+      <div class="field"><label>Niveau g&eacute;ographique</label><select data-social-scope="1"><option value="national" ${model.scope === 'national' ? 'selected' : ''}>National</option><option value="region" ${model.scope === 'region' ? 'selected' : ''}>R&eacute;gion</option><option value="department" ${model.scope === 'department' ? 'selected' : ''}>D&eacute;partement</option></select></div>
+      <div class="field"><label>Filtre de zonage</label><select data-social-zone="1"><option value="all" ${model.zoneFilter === 'all' ? 'selected' : ''}>Toutes les zones</option>${zoneLabels.map(label => `<option value="${esc(label)}" ${model.zoneFilter === label ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></div>
+      <div class="field"><label>R&eacute;gion cibl&eacute;e</label><select data-social-region="1"><option value="all" ${model.regionFocus === 'all' ? 'selected' : ''}>Toutes les r&eacute;gions</option>${REGIONS.filter(region => !region.overseas).map(region => `<option value="${esc(region.name)}" ${model.regionFocus === region.name ? 'selected' : ''}>${esc(region.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>D&eacute;partement cibl&eacute;</label><select data-social-department="1"><option value="all" ${model.departmentFocus === 'all' ? 'selected' : ''}>Tous les d&eacute;partements</option>${availableDepartments.map(dep => `<option value="${esc(dep.code)}" ${model.departmentFocus === dep.code ? 'selected' : ''}>${esc(dep.code)} — ${esc(dep.name)}</option>`).join('')}</select></div>
+      <div class="inline-note">Source officielle : r&eacute;f&eacute;rentiel Zone123 DILA / Service-Public. En mode Apps Script, le zonage est calcul&eacute; c&ocirc;t&eacute; serveur puis renvoy&eacute; dans la m&ecirc;me r&eacute;ponse /exec que les op&eacute;rations : aucun appel Zone123 suppl&eacute;mentaire n&rsquo;est effectu&eacute; par le navigateur.</div>
+    </div>
+    <div class="control-section">
+      <h3>Couverture des donn&eacute;es</h3>
+      <div class="map-total-control"><span>Op&eacute;rations prises en compte</span><strong>${frSmart(model.dataConnectedCount || 0)}</strong></div>
+      <div class="inline-note">${runtimeData ? `${frSmart(runtimeData.matchedCount || 0)} rattach&eacute;e(s) &agrave; une commune / zone officielle · ${frSmart(runtimeData.unmatchedCount || 0)} &agrave; compl&eacute;ter.` : 'La slide se remplit automatiquement &agrave; partir de la source de donn&eacute;es active.'}</div>
+      ${runtimeData?.unmatchedSamples?.length ? `<div class="inline-note">Exemples non r&eacute;solus : ${esc(runtimeData.unmatchedSamples.join(' · '))}</div>` : ''}
+    </div>`;
+  }
+
+  function renderSocialZoneCards(data) {
+    const labels = socialZoneActiveLabels(data);
+    return labels.map(label => {
+      const count = Math.max(0, num(data?.zoneCounts?.[label]));
+      const active = (state.socialZoning.zoneFilter || 'all') === label;
+      return `<button type="button" class="social-zone-card ${active ? 'is-active' : ''}" data-social-zone="${esc(label)}">
+        <span class="social-zone-chip" style="background:${esc(socialZoneColor(label))}"></span>
+        <span class="social-zone-card-title">${esc(label)}</span>
+        <strong>${frSmart(count)}</strong>
+        <small>op&eacute;ration${count > 1 ? 's' : ''}</small>
+      </button>`;
+    }).join('');
+  }
+
+  function renderSocialZoningSlide() {
+    return `<div class="slide-inner social-zoning-slide">
+      ${head(state.socialZoning.title, state.socialZoning.subtitle, 'La couleur du fond cartographique reprend le zonage des opérations localisées.', 'Molette = zoom · clic-glissé = déplacement · clic sur une zone localisée = détail à droite.')}
+      <div class="social-zone-main social-zone-main-full">
+        <div class="social-zone-map-wrap">
+          <svg id="socialZoneMapSvg" class="social-zone-map-svg" viewBox="0 0 1600 900" aria-label="Carte zonage logement social"></svg>
+          <div id="socialZoneMapStatus" class="social-zone-map-status">Chargement du zonage officiel…</div>
+          <div class="social-zone-map-legend" id="socialZoneLegend"></div>
+        </div>
+        <aside class="social-zone-side">
+          <section class="social-zone-side-card social-zone-detail-card"><h4 id="socialZoneRankingTitle">D&eacute;tail des op&eacute;rations localis&eacute;es</h4><div id="socialZoneRanking" class="social-zone-ranking"><div class="social-zone-empty">Clique sur la carte pour afficher le d&eacute;tail.</div></div></section>
+          <section class="social-zone-side-card social-zone-summary-card"><h4>Lecture rapide</h4><div id="socialZoneMeta" class="social-zone-meta">Chargement…</div></section>
+          <section class="social-zone-side-card social-zone-unmatched-card"><h4>&Agrave; compl&eacute;ter</h4><div id="socialZoneUnmatched" class="social-zone-unmatched"><div class="social-zone-empty">Chargement…</div></div></section>
+        </aside>
+      </div>
     </div>`;
   }
 
@@ -1823,6 +2017,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     </div>`;
   }
   function dataRenderSlideFilterBar(){
+    if(tabType(activeTab)==='nexityMap') return window.OBSNexityMap.toolbar(state.nexityMap);
+    if(tabType(activeTab)==='nexityPodium') return window.OBSNexityPodium.toolbar(state.nexityPodium);
     if(isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';
     const model=state[tabType(activeTab)];if(!model)return'';
     const sourceConfigured=!!localStorage.getItem(DATA_SOURCE_STORAGE_KEY);
@@ -2187,6 +2383,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'tunnel') {
       controls.innerHTML = `<div class="control-section"><h3>Tunnel de certification</h3><p class="help">Les pourcentages se recalculent automatiquement sur le total des bulles.</p><div class="tunnel-total-control"><span>Total dossiers</span><strong>${frSmart(tunnelTotal())}</strong></div>${state.tunnel.statuses.map((item,i)=>`<div class="tunnel-status-editor"><div class="field"><label>${i+1}. ${esc(item.label)}</label><input type="number" min="0" step="1" data-tunnel-value="${i}" value="${esc(item.value)}"></div><div class="auto-percent">${fr(tunnelPercent(item.value),1)} %</div></div>`).join('')}</div><div class="control-section"><h3>Informations complémentaires</h3>${field('Période d’étude','tunnel.period','text')}${field('Annulés / abandonnés','tunnel.cancelled')}${field('Dont soldés','tunnel.sold')}</div>`;
     }
+    if (tabType(activeTab) === 'nexityMap') controls.innerHTML = window.OBSNexityMap.controls(state.nexityMap);
+    if (tabType(activeTab) === 'nexityPodium') controls.innerHTML = window.OBSNexityPodium.controls(state.nexityPodium);
     const commonControls = renderCommonTabControls();
     if (commonControls) controls.insertAdjacentHTML('afterbegin', commonControls);
   }
@@ -2207,6 +2405,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'dpe') slide.innerHTML = renderDpeSlide();
     if (tabType(activeTab) === 'carbon') slide.innerHTML = renderCarbonSlide();
     if (tabType(activeTab) === 'map') slide.innerHTML = renderMapSlide();
+    if (tabType(activeTab) === 'nexityMap') slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap);
+    if (tabType(activeTab) === 'nexityPodium') slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium);
+    if (tabType(activeTab) === 'socialZoning') slide.innerHTML = renderSocialZoningSlide();
     if (tabType(activeTab) === 'stakeholderSplit') slide.innerHTML = renderStakeholderSplitSlide();
     if (tabType(activeTab) === 'moaList') slide.innerHTML = renderMoaListSlide();
     if (tabType(activeTab) === 'performanceList') slide.innerHTML = renderRankedListSlide('performanceList');
@@ -2216,7 +2417,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
     dataRenderSlideFilterToolbar();
-    slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
+    if (!['nexityMap','nexityPodium'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
     const slideClasses = {
       cover: 'cover-slide',
       labels: 'labels-slide',
@@ -2225,6 +2426,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       dpe: 'dpe-slide',
       carbon: 'carbon-slide',
       map: 'map-slide',
+      nexityMap: 'nexity-map-slide',
+      nexityPodium: 'nexity-map-slide nexity-podium-slide',
+      socialZoning: 'social-zoning-slide',
       stakeholderSplit: 'stakeholder-split-slide',
       moaList: 'moa-list-slide',
       performanceList: 'moa-list-slide performance-list-slide',
@@ -2236,7 +2440,11 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     };
     const currentType = tabType(activeTab);
     slide.className = `slide ${isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
-    if (tabType(activeTab) === 'map') requestAnimationFrame(renderDepartmentMap);
+    updateTextScaleToolbar();
+    if (!['map','socialZoning','nexityMap','nexityPodium'].includes(currentType)) applyTextScaleToSlide();
+    if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
+    if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
+    if (typeof schedulePreviewFit === 'function') schedulePreviewFit();
   }
 
 
@@ -3355,6 +3563,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function drawDepartmentRegionZoom(svg, status, region) {
+    resetTextScaleOnSlide();
     const forest = '#06402B';
     const pale = '#e7f1eb';
     const text = '#173b2e';
@@ -3434,10 +3643,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       const filtered = Math.max(0, num(state.map.dataConnectedCount));
       mapAddText(svg, `P\u00e9rim\u00e8tre filtr\u00e9 : ${frSmart(filtered)} op\u00e9rations`, 1214, 824, { fill:'#557567', size:10, weight:600 });
     }
+    applyTextScaleToSlide();
     if (status) status.style.display = 'none';
   }
 
   function drawDepartmentMap() {
+    resetTextScaleOnSlide();
     const svg = document.getElementById('departmentMapSvg');
     const status = document.getElementById('mapSlideStatus');
     if (!svg || !mapGeoJSON) return;
@@ -3508,10 +3719,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     mapAddText(svg, 'Fond blanc · contours départementaux vert forêt', 1220, dataRuntime.connected?310:286, { fill: '#557567', size: 10, weight: 600 });
 
     drawIdfMapInset(svg, features);
+    applyTextScaleToSlide();
     if (status) status.style.display = 'none';
   }
 
   function drawRegionMap() {
+    resetTextScaleOnSlide();
     const svg = document.getElementById('departmentMapSvg');
     const status = document.getElementById('mapSlideStatus');
     if (!svg || !mapGeoJSON) return;
@@ -3611,8 +3824,668 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       });
     }
 
+    applyTextScaleToSlide();
     if (status) status.style.display = 'none';
   }
+
+
+  function socialNormalizeDepartmentCode(value) {
+    const raw = String(value || '').toUpperCase().trim().replace(/\s+/g, '');
+    if (!raw) return '';
+    if (/^97[1-6]$/.test(raw)) return raw;
+    if (raw === '2A' || raw === '2B') return raw;
+    const m = raw.match(/(2A|2B|97[1-6]|\d{1,2})/);
+    if (!m) return raw;
+    const code = m[1];
+    if (code === '2A' || code === '2B' || /^97[1-6]$/.test(code)) return code;
+    return code.padStart(2, '0');
+  }
+
+  function socialNormalizeKey(value) {
+    return dataNorm(String(value || ''))
+      .replace(/\bsaint\b/g, 'st')
+      .replace(/\bsainte\b/g, 'ste')
+      .replace(/['’`]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function socialZoneNormalizeLabel(value) {
+    const raw = String(value || '').trim();
+    const norm = dataNorm(raw).replace(/\s+/g, '');
+    if (!norm) return '';
+    if (norm.includes('1bis') || norm.includes('ibis') || /\b1bis\b/.test(dataNorm(raw))) return 'Zone 1 bis';
+    if (norm === 'iii' || norm === '3' || norm === 'zoneiii' || norm === 'zone3') return 'Zone 3';
+    if (norm === 'ii' || norm === '2' || norm === 'zoneii' || norm === 'zone2') return 'Zone 2';
+    if (norm === 'i' || norm === '1' || norm === 'zonei' || norm === 'zone1') return 'Zone 1';
+    return raw;
+  }
+
+  function socialGetProp(props, candidates) {
+    const keys = Object.keys(props || {});
+    for (const key of candidates) {
+      const found = keys.find(k => dataNorm(k) === dataNorm(key));
+      if (found && props[found] !== undefined && props[found] !== null && String(props[found]).trim() !== '') return props[found];
+    }
+    return '';
+  }
+
+  function socialAppsScriptBaseUrl() {
+    const url = String(dataRuntime.sourceUrl || '').trim();
+    return dataRuntime.mode === 'appsScript' && url ? url : '';
+  }
+
+  function socialBuildProxyUrl(endpoint, params = {}) {
+    const base = socialAppsScriptBaseUrl();
+    if (!base) return '';
+    const url = new URL(base, window.location.href);
+    url.searchParams.set('endpoint', endpoint);
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || String(value) === '') return;
+      url.searchParams.set(key, String(value));
+    });
+    return url.toString();
+  }
+
+  async function socialFetchOfficialZoneRows() {
+    const errors = [];
+    const proxyUrl = socialBuildProxyUrl('zone123');
+    const sources = [];
+    if (proxyUrl) sources.push({ label:'Apps Script', url:proxyUrl, kind:'proxy' });
+    SOCIAL_ZONE_JSON_URLS.forEach(url => sources.push({ label: url.includes('gitlab.com') ? 'GitLab DILA' : 'data.gouv.fr', url, kind:'direct' }));
+
+    for (const source of sources) {
+      try {
+        const opts = source.kind === 'proxy'
+          ? { cache:'no-store' }
+          : { cache:'force-cache', mode:'cors' };
+        const res = await fetch(source.url, opts);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json && json.ok === false) throw new Error(json.error || 'Réponse proxy invalide');
+        const rows = Array.isArray(json)
+          ? json
+          : (Array.isArray(json?.zone123) ? json.zone123 : (Array.isArray(json?.data) ? json.data : []));
+        if (!rows.length) throw new Error('JSON de zonage vide ou structure inconnue');
+        return rows;
+      } catch (error) {
+        errors.push(`${source.label} : ${error.message || error}`);
+      }
+    }
+    throw new Error(`Source officielle du zonage inaccessible. ${errors.join(' | ')}`);
+  }
+
+  async function socialFetchCommuneCandidates(urls, hint = {}) {
+    const proxyCandidates = [];
+    const base = socialAppsScriptBaseUrl();
+    if (base) {
+      if (hint.city && hint.department) proxyCandidates.push(socialBuildProxyUrl('communes', { nom:hint.city, codeDepartement:hint.department, fields:'nom,code,centre,departement', boost:'population', limit:5 }));
+      if (hint.postalCode) proxyCandidates.push(socialBuildProxyUrl('communes', { codePostal:hint.postalCode, fields:'nom,code,centre,departement', boost:'population', limit:10 }));
+      if (hint.city) proxyCandidates.push(socialBuildProxyUrl('communes', { nom:hint.city, fields:'nom,code,centre,departement', boost:'population', limit:5 }));
+    }
+    const all = [...proxyCandidates.map(url => ({url, kind:'proxy'})), ...urls.map(url => ({url, kind:'direct'}))];
+    for (const source of all) {
+      try {
+        const res = await fetch(source.url, source.kind === 'proxy' ? { cache:'no-store' } : { cache:'force-cache' });
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json && json.ok === false) continue;
+        const list = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+        const chosen = socialChooseCandidate(list, hint);
+        if (chosen) return chosen;
+      } catch {}
+    }
+    return null;
+  }
+
+  async function socialLoadZoneIndex() {
+    if (socialZoneRuntime.index) return socialZoneRuntime.index;
+    if (socialZoneRuntime.loadPromise) return socialZoneRuntime.loadPromise;
+    socialZoneRuntime.loadPromise = (async () => {
+      const payload = await socialFetchOfficialZoneRows();
+
+      const rows = payload.map(item => {
+        const commune = String(item.nomCommune ?? item.nom_commune ?? item.commune ?? item.nom ?? '').trim();
+        const insee = String(item.codeInsee ?? item.code_insee ?? item.insee ?? item.code ?? '').trim();
+        const dep = socialNormalizeDepartmentCode(item.codeDepartement ?? item.code_departement ?? item.departement ?? (insee.startsWith('97') ? insee.slice(0,3) : insee.slice(0,2)));
+        const zone = socialZoneNormalizeLabel(item.zone ?? item.zonage ?? item.zone123 ?? '');
+        if (!commune || !insee || !dep || !zone) return null;
+        return { commune, communeKey:socialNormalizeKey(commune), insee, department:dep, zone };
+      }).filter(Boolean);
+      if (!rows.length) throw new Error('Aucune commune exploitable dans le fichier officiel Zone123.');
+
+      const index = { rows, byInsee:new Map(), byKey:new Map(), zoneLabels:socialZoneSortLabels(rows.map(r => r.zone)) };
+      rows.forEach(row => {
+        if (row.insee && !index.byInsee.has(row.insee)) index.byInsee.set(row.insee, row);
+        const key = `${row.department}|${row.communeKey}`;
+        if (!index.byKey.has(key)) index.byKey.set(key, row);
+      });
+      socialZoneRuntime.index = index;
+      socialZoneRuntime.loadPromise = null;
+      return index;
+    })().catch(error => { socialZoneRuntime.loadPromise = null; throw error; });
+    return socialZoneRuntime.loadPromise;
+  }
+
+  function socialExtractCity(operation) {
+    const explicit = String(operation?.city || '').trim();
+    if (explicit) return explicit;
+    const addr = String(operation?.address || '').trim();
+    if (!addr) return '';
+    const m = addr.match(/\b\d{5}\s+([^,;]+)$/i);
+    if (m) return m[1].replace(/cedex.*/i, '').trim();
+    return '';
+  }
+
+  function socialChooseCandidate(candidates, hint = {}) {
+    if (!Array.isArray(candidates) || !candidates.length) return null;
+    const cityKey = socialNormalizeKey(hint.city || '');
+    const dep = socialNormalizeDepartmentCode(hint.department || '');
+    const addressNorm = socialNormalizeKey(hint.address || '');
+    const scored = candidates.map((candidate, idx) => {
+      const name = String(candidate?.nom || '').trim();
+      const nameKey = socialNormalizeKey(name);
+      const candDep = socialNormalizeDepartmentCode(candidate?.departement?.code || '');
+      let score = 0;
+      if (cityKey && nameKey === cityKey) score += 12;
+      else if (cityKey && (nameKey.includes(cityKey) || cityKey.includes(nameKey))) score += 6;
+      if (dep && candDep === dep) score += 4;
+      if (addressNorm && nameKey && addressNorm.includes(nameKey)) score += 2;
+      score += Math.max(0, 1 - idx * 0.1);
+      return { candidate, score };
+    }).sort((a,b) => b.score - a.score);
+    return scored[0]?.candidate || candidates[0];
+  }
+
+  async function socialResolveOperation(operation, zoneIndex) {
+    const city = socialExtractCity(operation);
+    const department = socialNormalizeDepartmentCode(operation?.department || '');
+    const postalCode = String(operation?.postalCode || '').match(/\d{5}/)?.[0] || '';
+    const cacheKey = [operation?.code || '', city, department, postalCode].join('|');
+    if (socialZoneRuntime.resolveCache.has(cacheKey)) return socialZoneRuntime.resolveCache.get(cacheKey);
+
+    const paramsBase = 'fields=nom,code,centre,departement&boost=population';
+    const queries = [];
+    if (city && department) queries.push(`${SOCIAL_COMMUNE_API_URL}?nom=${encodeURIComponent(city)}&codeDepartement=${encodeURIComponent(department)}&${paramsBase}&limit=5`);
+    if (postalCode) queries.push(`${SOCIAL_COMMUNE_API_URL}?codePostal=${encodeURIComponent(postalCode)}&${paramsBase}&limit=10`);
+    if (city) queries.push(`${SOCIAL_COMMUNE_API_URL}?nom=${encodeURIComponent(city)}&${paramsBase}&limit=5`);
+
+    const chosen = await socialFetchCommuneCandidates(queries, { city, department, postalCode, address:operation?.address || '' });
+
+    let dep = department;
+    let commune = city;
+    let insee = '';
+    let center = null;
+    if (chosen) {
+      commune = String(chosen.nom || commune || '').trim();
+      insee = String(chosen.code || '').trim();
+      dep = socialNormalizeDepartmentCode(chosen?.departement?.code || dep);
+      const coords = chosen?.centre?.coordinates;
+      if (Array.isArray(coords) && coords.length >= 2) center = [Number(coords[0]), Number(coords[1])];
+    }
+
+    let zoneRow = null;
+    if (insee && zoneIndex.byInsee.has(insee)) zoneRow = zoneIndex.byInsee.get(insee);
+    if (!zoneRow && dep && commune) zoneRow = zoneIndex.byKey.get(`${dep}|${socialNormalizeKey(commune)}`) || null;
+    if (!zoneRow && department && city) zoneRow = zoneIndex.byKey.get(`${department}|${socialNormalizeKey(city)}`) || null;
+
+    const resolved = zoneRow ? {
+      op: operation,
+      matched: true,
+      zone: zoneRow.zone,
+      commune: zoneRow.commune || commune || city,
+      insee: zoneRow.insee || insee,
+      department: zoneRow.department || dep || department,
+      region: REGION_BY_DEPARTMENT[zoneRow.department || dep || department] || '',
+      center
+    } : {
+      op: operation,
+      matched: false,
+      zone: '',
+      commune: commune || city,
+      insee,
+      department: dep || department,
+      region: REGION_BY_DEPARTMENT[dep || department] || '',
+      center,
+      reason: 'Commune ou zonage non retrouvé'
+    };
+    socialZoneRuntime.resolveCache.set(cacheKey, resolved);
+    return resolved;
+  }
+
+  function socialAggregateCounts(items, keyFn) {
+    const out = {};
+    items.forEach(item => {
+      const key = keyFn(item);
+      if (!key) return;
+      out[key] = (out[key] || 0) + 1;
+    });
+    return out;
+  }
+
+  function socialRuntimeSelectedDepartment(data, model) {
+    if (model.departmentFocus && model.departmentFocus !== 'all') return model.departmentFocus;
+    if (model.regionFocus && model.regionFocus !== 'all') return data.availableDepartments.find(dep => REGION_BY_DEPARTMENT[dep.code] === model.regionFocus)?.code || data.availableDepartments[0]?.code || 'all';
+    return data.availableDepartments[0]?.code || 'all';
+  }
+
+  function socialEmbeddedResolution(operation) {
+    const zone = socialZoneNormalizeLabel(operation?.socialZone || '');
+    const department = socialNormalizeDepartmentCode(operation?.department || '');
+    const commune = String(operation?.city || socialExtractCity(operation) || '').trim();
+    const insee = String(operation?.insee || '').trim();
+    const lon = Number(operation?.longitude);
+    const lat = Number(operation?.latitude);
+    const center = Number.isFinite(lon) && Number.isFinite(lat) ? [lon, lat] : null;
+    if (!zone) {
+      return {
+        op: operation,
+        matched: false,
+        zone: '',
+        commune,
+        insee,
+        department,
+        region: REGION_BY_DEPARTMENT[department] || '',
+        center,
+        reason: 'Zonage non renvoyé par la source de données'
+      };
+    }
+    return {
+      op: operation,
+      matched: true,
+      zone,
+      commune,
+      insee,
+      department,
+      region: REGION_BY_DEPARTMENT[department] || '',
+      center
+    };
+  }
+
+  async function socialBuildRuntimeData(model) {
+    const ops = dataRuntime.connected ? dataOpsForModel(model) : [];
+    const embedded = ops.map(socialEmbeddedResolution);
+    const unresolved = embedded.filter(item => !item.matched);
+    let resolved = [...embedded.filter(item => item.matched)];
+    let zoneLabels = socialZoneDefaultLabels();
+
+    // En mode Apps Script V29.7.12, le zonage est déjà intégré à chaque
+    // opération dans la réponse /exec. Aucun second endpoint n'est appelé.
+    if (unresolved.length && dataRuntime.mode !== 'appsScript') {
+      try {
+        const zoneIndex = await socialLoadZoneIndex();
+        zoneLabels = zoneIndex.zoneLabels || zoneLabels;
+        const fallback = await Promise.all(unresolved.map(item => socialResolveOperation(item.op, zoneIndex)));
+        resolved.push(...fallback);
+      } catch (error) {
+        resolved.push(...unresolved);
+      }
+    } else {
+      resolved.push(...unresolved);
+    }
+
+    const matched = resolved.filter(item => item.matched && item.zone);
+    const unmatched = resolved.filter(item => !item.matched);
+    const zoneCounts = socialAggregateCounts(matched, item => item.zone);
+    const availableDepartments = Object.entries(socialAggregateCounts(matched, item => item.department))
+      .map(([code, count]) => ({ code, count, name:dataDepartmentName(code) }))
+      .sort((a,b) => b.count - a.count || a.code.localeCompare(b.code));
+
+    let filtered = [...matched];
+    if (model.zoneFilter && model.zoneFilter !== 'all') filtered = filtered.filter(item => item.zone === model.zoneFilter);
+    if (model.scope === 'region' && model.regionFocus !== 'all') filtered = filtered.filter(item => item.region === model.regionFocus);
+    if (model.scope === 'department') {
+      const dep = socialRuntimeSelectedDepartment({ availableDepartments }, model);
+      filtered = filtered.filter(item => item.department === dep);
+    }
+
+    const departmentCounts = socialAggregateCounts(filtered, item => item.department);
+    const regionCounts = socialAggregateCounts(filtered, item => item.region || REGION_BY_DEPARTMENT[item.department] || '');
+    const communeCounts = socialAggregateCounts(filtered, item => `${item.commune || 'Commune non précisée'}|${item.department}`);
+    const departmentZoneCounts = {};
+    filtered.forEach(item => {
+      departmentZoneCounts[item.department] = departmentZoneCounts[item.department] || {};
+      departmentZoneCounts[item.department][item.zone] = (departmentZoneCounts[item.department][item.zone] || 0) + 1;
+    });
+    const dominantZoneByDepartment = {};
+    Object.entries(departmentZoneCounts).forEach(([dep, counts]) => {
+      dominantZoneByDepartment[dep] = Object.entries(counts).sort((a,b) => b[1] - a[1] || socialZoneLabelRank(a[0]) - socialZoneLabelRank(b[0]))[0]?.[0] || 'Zone 3';
+    });
+
+    return {
+      zoneLabels,
+      zoneCounts,
+      matchedCount: matched.length,
+      unmatchedCount: unmatched.length,
+      totalCount: ops.length,
+      unmatchedSamples: unmatched.slice(0,5).map(item => item.op?.name || item.op?.code || 'Opération'),
+      availableDepartments,
+      filtered,
+      departmentCounts,
+      regionCounts,
+      communeCounts,
+      departmentZoneCounts,
+      dominantZoneByDepartment,
+      matched,
+      unmatched,
+      selectedDepartment: socialRuntimeSelectedDepartment({ availableDepartments }, model),
+      sourceStatus: dataRuntime.zone123Status
+    };
+  }
+
+  function socialRankingRows(items, formatter) {
+    if (!items.length) return '<div class="social-zone-empty">Aucune donn&eacute;e &agrave; afficher.</div>';
+    return items.map((item, idx) => `<div class="social-zone-rank-row"><span>${idx+1}. ${formatter(item).label}</span><strong>${frSmart(formatter(item).value)}</strong></div>`).join('');
+  }
+
+  function socialDetailItems(data) {
+    const detail = socialZoneRuntime.detail || {};
+    let items = [...(data?.filtered || [])];
+    if (detail.insee) items = items.filter(item => String(item.insee || '') === String(detail.insee));
+    else if (detail.commune) items = items.filter(item => socialNormalizeKey(item.commune || '') === socialNormalizeKey(detail.commune));
+    else if (detail.department) items = items.filter(item => item.department === detail.department);
+    else if (state.socialZoning.scope === 'department' && data?.selectedDepartment) items = items.filter(item => item.department === data.selectedDepartment);
+    else return [];
+    return items.sort((a,b) => String(a.commune || '').localeCompare(String(b.commune || ''), 'fr') || String(a.op?.name || '').localeCompare(String(b.op?.name || ''), 'fr'));
+  }
+
+  function socialOperationDetailRows(items) {
+    if (!items.length) return '<div class="social-zone-empty">Clique sur un département ou une opération localisée pour afficher le détail.</div>';
+    const shown = items.slice(0,18);
+    const html = shown.map(item => {
+      const op = item.op || {};
+      const location = [item.commune || op.city || '', op.postalCode || ''].filter(Boolean).join(' · ');
+      return `<div class="social-zone-op-row">
+        <div class="social-zone-op-copy"><b>${esc(op.name || op.code || 'Opération')}</b><span>${esc(location || dataDepartmentName(item.department) || item.department || 'Localisation non précisée')}</span></div>
+        <span class="social-zone-op-badge" style="--zone:${esc(socialZoneColor(item.zone))}">${esc(item.zone || 'Zone —')}</span>
+      </div>`;
+    }).join('');
+    return html + (items.length > shown.length ? `<div class="social-zone-note">+ ${frSmart(items.length - shown.length)} autre${items.length - shown.length > 1 ? 's' : ''} opération${items.length - shown.length > 1 ? 's' : ''}</div>` : '');
+  }
+
+  function socialUpdatePanels(data) {
+    const legend = document.getElementById('socialZoneLegend');
+    if (legend) legend.innerHTML = '<span class="social-zone-legend-help"><b>Fond cartographique coloré = zonage des opérations localisées</b> · molette = zoom · clic-glissé = déplacement</span>';
+
+    const meta = document.getElementById('socialZoneMeta');
+    if (meta) {
+      const model = state.socialZoning;
+      const scopeLabel = model.scope === 'national' ? 'France entière' : model.scope === 'region' ? (model.regionFocus === 'all' ? 'Vue région (toutes)' : model.regionFocus) : (dataDepartmentName(data.selectedDepartment) || 'Vue département');
+      const sourceStatus = data.sourceStatus;
+      const sourceNote = dataRuntime.mode === 'appsScript'
+        ? (sourceStatus?.ok
+          ? `<div class="social-zone-ok">${frSmart(sourceStatus.matched || data.matchedCount)} opération(s) rattachée(s) au zonage officiel.</div>`
+          : `<div class="social-zone-note"><b>Zonage serveur :</b> ${esc(sourceStatus?.error || 'aucun zonage enrichi dans la réponse Apps Script')}</div>`)
+        : '';
+      meta.innerHTML = `<div class="social-zone-stat"><b>${frSmart(data.totalCount)}</b><span>opérations filtrées</span></div>
+        <div class="social-zone-stat"><b>${frSmart(data.matchedCount)}</b><span>localisées et zonées</span></div>
+        <div class="social-zone-stat"><b>${frSmart(data.unmatchedCount)}</b><span>à compléter</span></div>
+        <div class="social-zone-note"><b>Périmètre :</b> ${esc(scopeLabel)}${model.zoneFilter !== 'all' ? ` · ${esc(model.zoneFilter)}` : ''}</div>${sourceNote}`;
+    }
+
+    const rankingTitle = document.getElementById('socialZoneRankingTitle');
+    const ranking = document.getElementById('socialZoneRanking');
+    if (ranking && rankingTitle) {
+      const detail = socialZoneRuntime.detail || {};
+      const detailItems = socialDetailItems(data);
+      if (detail.insee || detail.commune) {
+        const commune = detailItems[0]?.commune || detail.commune || 'Commune';
+        rankingTitle.textContent = `Opérations — ${commune}`;
+      } else if (detail.department || state.socialZoning.scope === 'department') {
+        const dep = detail.department || data.selectedDepartment;
+        rankingTitle.textContent = `Opérations — ${dataDepartmentName(dep) || dep}`;
+      } else {
+        rankingTitle.textContent = 'Détail des opérations localisées';
+      }
+      ranking.innerHTML = socialOperationDetailRows(detailItems);
+    }
+
+    const unmatched = document.getElementById('socialZoneUnmatched');
+    if (unmatched) {
+      if (!data.unmatched.length) unmatched.innerHTML = '<div class="social-zone-ok">Toutes les opérations affichées ont une commune et un zonage.</div>';
+      else unmatched.innerHTML = `<div class="social-zone-note">Complète de préférence <b>Ville</b> et <b>Code postal</b> dans la source.</div>${data.unmatched.slice(0,5).map(item => `<div class="social-zone-unmatched-row"><b>${esc(item.op?.code || '—')}</b><span>${esc(item.op?.name || 'Opération')}</span></div>`).join('')}`;
+    }
+  }
+
+  function socialEnableMapZoom(svg) {
+    if (!svg) return;
+    const viewport = svg.querySelector('#socialZoneViewport');
+    if (!viewport) return;
+    const stateZoom = { scale:1, tx:0, ty:0, dragging:false, startX:0, startY:0 };
+    const apply = () => viewport.setAttribute('transform', `translate(${stateZoom.tx} ${stateZoom.ty}) scale(${stateZoom.scale})`);
+    apply();
+    svg.onwheel = event => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.14 : 1 / 1.14;
+      stateZoom.scale = Math.max(1, Math.min(10, stateZoom.scale * factor));
+      apply();
+    };
+    svg.onmousedown = event => {
+      stateZoom.dragging = true;
+      stateZoom.startX = event.clientX;
+      stateZoom.startY = event.clientY;
+      svg.style.cursor = 'grabbing';
+    };
+    svg.onmousemove = event => {
+      if (!stateZoom.dragging) return;
+      stateZoom.tx += event.clientX - stateZoom.startX;
+      stateZoom.ty += event.clientY - stateZoom.startY;
+      stateZoom.startX = event.clientX;
+      stateZoom.startY = event.clientY;
+      apply();
+    };
+    svg.onmouseup = svg.onmouseleave = () => { stateZoom.dragging = false; svg.style.cursor = 'grab'; };
+    svg.style.cursor = 'grab';
+  }
+
+  function socialDepartmentZoneEntries(data, code) {
+    const counts = data?.departmentZoneCounts?.[code] || {};
+    return Object.entries(counts)
+      .map(([zone, value]) => ({ zone, value:Math.max(0, num(value)) }))
+      .filter(item => item.value > 0)
+      .sort((a,b) => socialZoneLabelRank(a.zone) - socialZoneLabelRank(b.zone));
+  }
+
+  function socialDepartmentFill(defs, data, code, index) {
+    const entries = socialDepartmentZoneEntries(data, code);
+    if (!entries.length) return '#f1f5f3';
+    if (entries.length === 1) return socialZoneColor(entries[0].zone);
+    const total = entries.reduce((s,item) => s + item.value, 0) || 1;
+    const id = `socialZoneMix-${String(code).replace(/[^a-z0-9]/gi,'')}-${index}`;
+    const gradient = mapSvgEl('linearGradient', { id, x1:'0%', y1:'0%', x2:'100%', y2:'100%' });
+    let cursor = 0;
+    entries.forEach(item => {
+      const start = cursor / total * 100;
+      cursor += item.value;
+      const stop = cursor / total * 100;
+      const color = socialZoneColor(item.zone);
+      gradient.appendChild(mapSvgEl('stop', { offset:`${start}%`, 'stop-color':color }));
+      gradient.appendChild(mapSvgEl('stop', { offset:`${stop}%`, 'stop-color':color }));
+    });
+    defs.appendChild(gradient);
+    return `url(#${id})`;
+  }
+
+  function drawSocialZoningMap(data) {
+    resetTextScaleOnSlide();
+    const svg = document.getElementById('socialZoneMapSvg');
+    const status = document.getElementById('socialZoneMapStatus');
+    if (!svg || !mapGeoJSON) return;
+    svg.innerHTML = '';
+    const model = state.socialZoning;
+    const forest = '#06402B';
+    const allMetro = new Set(DEPARTMENTS.filter(dep => !String(dep.code).startsWith('97')).map(dep => dep.code));
+    let features = mapGeoJSON.features.filter(feature => allMetro.has(mapFeatureCode(feature)));
+    if (model.scope === 'region' && model.regionFocus !== 'all') features = features.filter(feature => REGION_BY_DEPARTMENT[mapFeatureCode(feature)] === model.regionFocus);
+    if (model.scope === 'department') {
+      const dep = data.selectedDepartment;
+      features = features.filter(feature => mapFeatureCode(feature) === dep);
+      if (!socialZoneRuntime.detail.department) socialZoneRuntime.detail.department = dep;
+    }
+    if (!features.length) features = mapGeoJSON.features.filter(feature => allMetro.has(mapFeatureCode(feature)));
+
+    const project = createMapProjector(features, { x:70, y:60, width:1460, height:760 });
+    svg.appendChild(mapSvgEl('rect', { x:0, y:0, width:1600, height:900, fill:'#f8faf9' }));
+    const defs = mapSvgEl('defs');
+    svg.appendChild(defs);
+    const viewport = mapSvgEl('g', { id:'socialZoneViewport' });
+    svg.appendChild(viewport);
+
+    features.forEach((feature, idx) => {
+      const code = mapFeatureCode(feature);
+      const value = Math.max(0, num(data.departmentCounts?.[code] || (model.scope === 'department' && code === data.selectedDepartment ? data.filtered.length : 0)));
+      const fill = socialDepartmentFill(defs, data, code, idx);
+      const attrs = {
+        d: mapGeometryPath(feature.geometry, project),
+        fill,
+        'fill-opacity': value > 0 ? .90 : .72,
+        stroke: value > 0 ? '#ffffff' : '#b8c9c2',
+        'stroke-width': model.scope === 'department' ? 3 : 1.8,
+        'stroke-linejoin':'round',
+        'fill-rule':'evenodd'
+      };
+      if (value > 0) {
+        attrs['data-social-detail-department'] = code;
+        attrs.class = 'social-zone-map-clickable';
+      }
+      viewport.appendChild(mapSvgEl('path', attrs));
+    });
+
+    if (model.scope !== 'department') {
+      const maxValue = Math.max(1, ...Object.values(data.departmentCounts || {}).map(v => Math.max(0, num(v))));
+      features.forEach(feature => {
+        const code = mapFeatureCode(feature);
+        const value = Math.max(0, num(data.departmentCounts?.[code]));
+        if (value <= 0) return;
+        const center = mapFeatureCenter(feature, project);
+        const radius = 8 + 10 * Math.sqrt(value / maxValue);
+        const marker = mapSvgEl('circle', { cx:center[0], cy:center[1], r:radius, fill:forest, stroke:'#ffffff', 'stroke-width':2.2, 'data-social-detail-department':code, class:'social-zone-map-clickable' });
+        viewport.appendChild(marker);
+        mapAddText(viewport, frSmart(value), center[0], center[1] + 4, { fill:'#ffffff', size:10.5, weight:900, anchor:'middle' }).setAttribute('pointer-events','none');
+        mapAddText(viewport, code, center[0], center[1] - radius - 5, { fill:forest, size:8.5, weight:900, anchor:'middle' }).setAttribute('pointer-events','none');
+      });
+    } else {
+      const points = data.filtered.filter(item => item.department === data.selectedDepartment);
+      const grouped = {};
+      points.forEach(item => {
+        const key = `${item.insee || item.commune || item.op.code}|${item.zone}`;
+        (grouped[key] ||= []).push(item);
+      });
+      const feature = features[0];
+      const deptCenter = feature ? mapFeatureCenter(feature, project) : [800, 450];
+      Object.values(grouped).forEach((items, idx) => {
+        const first = items[0];
+        let p = deptCenter;
+        if (first.center && first.center.length >= 2) p = project(first.center[0], first.center[1]);
+        else { const angle = (idx / Math.max(1, Object.keys(grouped).length)) * Math.PI * 2; p = [deptCenter[0] + Math.cos(angle) * 135, deptCenter[1] + Math.sin(angle) * 92]; }
+        const count = items.length;
+        const haloRadius = 22 + Math.min(24, Math.sqrt(count) * 5);
+        const clickAttrs = {
+          'data-social-detail-insee': first.insee || '',
+          'data-social-detail-commune': first.commune || '',
+          class:'social-zone-map-clickable'
+        };
+        viewport.appendChild(mapSvgEl('circle', { cx:p[0], cy:p[1], r:haloRadius, fill:socialZoneColor(first.zone), 'fill-opacity':.42, stroke:'#ffffff', 'stroke-opacity':.65, 'stroke-width':1.5, ...clickAttrs }));
+        const markerRadius = 7 + Math.min(7, Math.sqrt(count) * 2.2);
+        viewport.appendChild(mapSvgEl('circle', { cx:p[0], cy:p[1], r:markerRadius, fill:'#ffffff', stroke:forest, 'stroke-width':3, ...clickAttrs }));
+        if (count > 1) mapAddText(viewport, frSmart(count), p[0], p[1] + 4, { fill:forest, size:10.5, weight:900, anchor:'middle' }).setAttribute('pointer-events','none');
+      });
+      mapAddText(svg, `${dataDepartmentName(data.selectedDepartment).toUpperCase()} · ${frSmart(points.length)} opération${points.length > 1 ? 's' : ''}`, 92, 52, { fill:forest, size:18, weight:900 });
+    }
+
+    socialEnableMapZoom(svg);
+    socialUpdatePanels(data);
+    applyTextScaleToSlide();
+    if (status) status.style.display = 'none';
+  }
+
+  function socialSkeletonData(model = state.socialZoning) {
+    const ops = dataRuntime.connected ? dataOpsForModel(model) : [];
+    const depCounts = {};
+    ops.forEach(op => {
+      const dep = socialNormalizeDepartmentCode(op.department || '');
+      if (dep) depCounts[dep] = (depCounts[dep] || 0) + 1;
+    });
+    const availableDepartments = Object.entries(depCounts).map(([code,count]) => ({ code, count, name:dataDepartmentName(code) })).sort((a,b)=>b.count-a.count);
+    const selectedDepartment = model.departmentFocus && model.departmentFocus !== 'all'
+      ? model.departmentFocus
+      : (availableDepartments[0]?.code || REGIONS.find(r => r.name === model.regionFocus)?.departments?.[0] || '75');
+    return {
+      zoneLabels:socialZoneDefaultLabels(),
+      zoneCounts:{},
+      matchedCount:0,
+      unmatchedCount:ops.length,
+      totalCount:ops.length,
+      unmatchedSamples:[],
+      availableDepartments,
+      filtered:[],
+      departmentCounts:depCounts,
+      regionCounts:socialAggregateCounts(ops.map(op => ({ region:REGION_BY_DEPARTMENT[socialNormalizeDepartmentCode(op.department || '')] || '' })), item => item.region),
+      communeCounts:{},
+      departmentZoneCounts:{},
+      dominantZoneByDepartment:{},
+      matched:[],
+      unmatched:[],
+      selectedDepartment
+    };
+  }
+
+  async function renderSocialZoningMap() {
+    const svg = document.getElementById('socialZoneMapSvg');
+    const status = document.getElementById('socialZoneMapStatus');
+    if (!svg || tabType(activeTab) !== 'socialZoning') return;
+    const token = ++socialZoneRuntime.requestToken;
+    try {
+      // La carte de base est désormais indépendante du chargement du zonage.
+      // On dessine d'abord le fond départemental validé, puis on enrichit
+      // seulement ensuite avec les données officielles Zone123.
+      if (status) { status.style.display = 'flex'; status.textContent = 'Chargement du fond cartographique…'; }
+      await ensureMapGeoJSON();
+      if (token !== socialZoneRuntime.requestToken || tabType(activeTab) !== 'socialZoning') return;
+      const skeleton = socialSkeletonData(state.socialZoning);
+      drawSocialZoningMap(skeleton);
+
+      if (!dataRuntime.connected) {
+        resetTextScaleOnSlide();
+        const meta = document.getElementById('socialZoneMeta');
+        if (meta) meta.innerHTML = '<div class="social-zone-empty">Fond cartographique chargé. Connecte une source de données pour répartir les opérations par commune et zonage.</div>';
+        const ranking = document.getElementById('socialZoneRanking');
+        if (ranking) ranking.innerHTML = '<div class="social-zone-empty">Aucune opération connectée.</div>';
+        const unmatched = document.getElementById('socialZoneUnmatched');
+        if (unmatched) unmatched.innerHTML = '<div class="social-zone-empty">Le rattachement commune / zone démarrera dès la connexion des données.</div>';
+        applyTextScaleToSlide();
+        return;
+      }
+
+      resetTextScaleOnSlide();
+      const meta = document.getElementById('socialZoneMeta');
+      if (meta) meta.innerHTML = '<div class="social-zone-empty">Carte chargée. Rattachement des opérations au zonage officiel en cours…</div>';
+      const data = await socialBuildRuntimeData(state.socialZoning);
+      if (token !== socialZoneRuntime.requestToken || tabType(activeTab) !== 'socialZoning') return;
+      socialZoneRuntime.byTab[activeTab] = data;
+      state.socialZoning.dataConnectedCount = data.totalCount;
+      state.socialZoning.dataMatchedCount = data.matchedCount;
+      state.socialZoning.dataUnmatchedCount = data.unmatchedCount;
+      drawSocialZoningMap(data);
+      saveTabData(activeTab);
+      saveState();
+    } catch (error) {
+      console.error(error);
+      // Si le référentiel distant échoue, on garde volontairement la carte
+      // visible au lieu de remettre un voile bloquant dessus.
+      try {
+        if (mapGeoJSON) drawSocialZoningMap(socialSkeletonData(state.socialZoning));
+      } catch {}
+      if (status) status.style.display = 'none';
+      resetTextScaleOnSlide();
+      const meta = document.getElementById('socialZoneMeta');
+      if (meta) meta.innerHTML = `<div class="social-zone-empty">Carte disponible, mais le référentiel officiel Zone123 n'a pas pu être chargé : ${esc(String(error.message || error))}</div>`;
+      const unmatched = document.getElementById('socialZoneUnmatched');
+      if (unmatched) unmatched.innerHTML = '<div class="social-zone-note">Le fond de carte reste utilisable. Réessaie la connexion des données pour relancer le rattachement des communes.</div>';
+      applyTextScaleToSlide();
+    }
+  }
+
 
   function renderDepartmentMap() {
     const status = document.getElementById('mapSlideStatus');
@@ -3811,6 +4684,29 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       if (previous !== state.map.level) toast(`Vue cartographique : ${state.map.level === 'region' ? 'régions' : 'départements'}.`);
       return;
     }
+    if (t.dataset.socialScope !== undefined) {
+      state.socialZoning.scope = ['national','region','department'].includes(t.value) ? t.value : 'national';
+      if (state.socialZoning.scope === 'national') { state.socialZoning.regionFocus = 'all'; state.socialZoning.departmentFocus = 'all'; }
+      if (state.socialZoning.scope === 'region') state.socialZoning.departmentFocus = 'all';
+      socialZoneRuntime.detail = { department: state.socialZoning.scope === 'department' ? (state.socialZoning.departmentFocus || '') : '', insee:'', commune:'' };
+      saveState(); renderControls(); renderSlide(); return;
+    }
+    if (t.dataset.socialRegion !== undefined) {
+      state.socialZoning.regionFocus = t.value || 'all';
+      if (state.socialZoning.regionFocus === 'all') state.socialZoning.departmentFocus = 'all';
+      socialZoneRuntime.detail = { department:'', insee:'', commune:'' };
+      saveState(); renderControls(); renderSlide(); return;
+    }
+    if (t.dataset.socialDepartment !== undefined) {
+      state.socialZoning.departmentFocus = t.value || 'all';
+      if (state.socialZoning.departmentFocus !== 'all') state.socialZoning.scope = 'department';
+      socialZoneRuntime.detail = { department:state.socialZoning.departmentFocus === 'all' ? '' : state.socialZoning.departmentFocus, insee:'', commune:'' };
+      saveState(); renderControls(); renderSlide(); return;
+    }
+    if (t.dataset.socialZone !== undefined) {
+      state.socialZoning.zoneFilter = t.value || 'all';
+      saveState(); renderControls(); renderSlide(); return;
+    }
     if (t.dataset.coverLogoInput !== undefined) {
       const file = t.files && t.files[0];
       if (!file) return;
@@ -4001,13 +4897,49 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     saveState(); renderControls(); renderSlide(); toast('Onglet réinitialisé.');
   });
 
-  zoomRange.addEventListener('input', () => setZoom(num(zoomRange.value)));
+  let previewAutoFit = true;
+  let previewFitTimer = null;
+  zoomRange.addEventListener('input', () => { previewAutoFit = false; setZoom(num(zoomRange.value)); });
+  fitPreviewBtn?.addEventListener('click', () => { previewAutoFit = true; fitPreviewSlide(); });
+  globalTextScaleRange?.addEventListener('input', () => {
+    state.presentation.globalTextScale = Math.max(.7, Math.min(1.6, num(globalTextScaleRange.value) / 100));
+    saveState(); renderSlide();
+  });
+  slideTextScaleRange?.addEventListener('input', () => {
+    state.presentation.textScaleByTab[activeTab] = Math.max(.7, Math.min(1.6, num(slideTextScaleRange.value) / 100));
+    saveState(); renderSlide();
+  });
   function setZoom(value) {
-    const z = value / 100;
+    const minZoom = Number(zoomRange?.min || 15);
+    const maxZoom = Number(zoomRange?.max || 100);
+    const safeValue = Math.max(minZoom, Math.min(maxZoom, Number(value) || 52));
+    const z = safeValue / 100;
     slideStage.style.width = `${1600 * z}px`;
     slideStage.style.height = `${900 * z}px`;
     slide.style.transform = `scale(${z})`;
-    zoomValue.textContent = `${Math.round(value)} %`;
+    if (zoomRange) zoomRange.value = String(safeValue);
+    if (zoomValue) zoomValue.textContent = `${Math.round(safeValue)} %`;
+  }
+
+  function fitPreviewSlide() {
+    if (!slideViewport || document.body.classList.contains('presentation-mode')) return;
+    const styles = getComputedStyle(slideViewport);
+    const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
+    const padY = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
+    const availableWidth = Math.max(1, slideViewport.clientWidth - padX - 2);
+    const availableHeight = Math.max(1, slideViewport.clientHeight - padY - 2);
+    const fit = Math.min(1, availableWidth / 1600, availableHeight / 900);
+    const minZoom = Number(zoomRange?.min || 15) / 100;
+    const percent = Math.max(minZoom, fit) * 100;
+    setZoom(percent);
+    slideViewport.scrollLeft = 0;
+    slideViewport.scrollTop = 0;
+  }
+
+  function schedulePreviewFit() {
+    if (!previewAutoFit || document.body.classList.contains('presentation-mode')) return;
+    clearTimeout(previewFitTimer);
+    previewFitTimer = setTimeout(() => requestAnimationFrame(fitPreviewSlide), 60);
   }
 
   const exportNames = {
@@ -4018,6 +4950,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     dpe: 'dpe-avant-apres',
     carbon: 'indicateurs-carbone',
     map: 'cartographie-departements',
+    nexityMap: 'nexity-directions-regionales',
+    nexityPodium: 'nexity-podium-dg-bbca',
+    socialZoning: 'zonage-logement-social-1-2-3',
     stakeholderSplit: 'repartition-bailleurs-promoteurs',
     moaList: 'maitres-ouvrage',
     performanceList: 'performances',
@@ -4062,6 +4997,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   function ct(ctx, text, x, y, size = 14, weight = 400, color = EXPORT_TEXT, align = 'left', baseline = 'alphabetic') {
     ctx.save();
+    size = Math.max(6, size * currentTextScale());
     ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
     ctx.fillStyle = color;
     ctx.textAlign = align;
@@ -4071,11 +5007,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function cwrap(ctx, text, x, y, maxWidth, size = 13, weight = 400, color = EXPORT_TEXT, lineHeight = 1.25, maxLines = 4, align = 'left') {
+    const drawSize = Math.max(6, size * currentTextScale());
     const words = String(text ?? '').split(/\s+/).filter(Boolean);
     const lines = [];
     let line = '';
     ctx.save();
-    ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
+    ctx.font = `${weight} ${drawSize}px Arial, Helvetica, sans-serif`;
     words.forEach(word => {
       const candidate = line ? `${line} ${word}` : word;
       if (ctx.measureText(candidate).width <= maxWidth || !line) line = candidate;
@@ -4089,8 +5026,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       out[out.length - 1] = `${last}…`;
     }
     ctx.restore();
-    out.forEach((ln, i) => ct(ctx, ln, x, y + i * size * lineHeight, size, weight, color, align));
-    return out.length * size * lineHeight;
+    out.forEach((ln, i) => ct(ctx, ln, x, y + i * drawSize * lineHeight, size, weight, color, align));
+    return out.length * drawSize * lineHeight;
   }
 
   function cHeader(ctx, title, subtitle, tip = '') {
@@ -4588,7 +5525,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       model.texts.forEach(item => {
         const x = Math.max(0, Math.min(100, num(item.x))) * 16;
         const y = Math.max(0, Math.min(100, num(item.y))) * 9;
-        const size = Math.max(12, Math.min(180, num(item.size)));
+        const size = Math.max(12, Math.min(180, num(item.size))) * currentTextScale();
         const align = item.align || 'center';
         const lines = String(item.text || '').split(/\n/);
         ctx.save();
@@ -4925,7 +5862,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     // une copie comme "equipments-copy-..." suit exactement le même moteur
     // que la slide Équipements originale et ne bascule plus vers un rendu
     // foreignObject/html2canvas susceptible de contaminer le canvas.
+    if (type === 'nexityMap') return window.OBSNexityMap.png();
+    if (type === 'nexityPodium') return window.OBSNexityPodium.png();
     if (type === 'map') return mapSlidePngBlob();
+    if (type === 'socialZoning') return html2CanvasSlidePngBlob();
     if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList','performanceList','mentionList'].includes(type)) {
       return legacyCanvasSlidePngBlob();
     }
@@ -5103,6 +6043,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   async function buildSelfContainedSlideSvgMarkup() {
+    if (tabType(activeTab) === 'nexityMap') return window.OBSNexityMap.svg(state.nexityMap);
+    if (tabType(activeTab) === 'nexityPodium') return window.OBSNexityPodium.svg(state.nexityPodium);
     await waitForSlideAssets();
     const clone = slide.cloneNode(true);
     clone.style.transform = 'none';
@@ -5318,6 +6260,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   async function workbookSlideJpegDescriptor() {
+    if (tabType(activeTab) === 'nexityMap') return pngBlobToJpegDescriptor(await window.OBSNexityMap.png());
+    if (tabType(activeTab) === 'nexityPodium') return pngBlobToJpegDescriptor(await window.OBSNexityPodium.png());
     if (tabType(activeTab) === 'map') {
       const png = await mapSlidePngBlob();
       return pngBlobToJpegDescriptor(png);
@@ -5456,10 +6400,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       if (!document.fullscreenElement) {
         document.body.classList.remove('presentation-mode');
         slideStage.style.removeProperty('width'); slideStage.style.removeProperty('height'); slide.style.removeProperty('transform');
-        setZoom(num(zoomRange.value));
+        if (previewAutoFit) requestAnimationFrame(fitPreviewSlide); else setZoom(num(zoomRange.value));
       } else requestAnimationFrame(fitPresentationSlide);
     });
-    window.addEventListener('resize', () => { if (document.body.classList.contains('presentation-mode')) fitPresentationSlide(); });
+    window.addEventListener('resize', () => { if (document.body.classList.contains('presentation-mode')) fitPresentationSlide(); else schedulePreviewFit(); });
   }
 
   async function openWorkbookPrintDialog() {
@@ -5639,9 +6583,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const DATA_FILTERS_STORAGE_KEY = 'prestaterre-v29-connected-filters';
   const DATA_MANUAL_SNAPSHOT_KEY = 'prestaterre-v29-manual-snapshot';
   const DATA_FIELD_ALIASES = {
+    regionalDirection:['direction régionale','direction regionale','direction regionale nexity','regionalDirection','directionRegionale','dr nexity'],
     code:['code interne','code opération','code operation','code','id opération','id operation'],
     name:['nom opération','nom operation',"nom de l'opération (interne)","nom de l'opération",'nom du programme (client)','opération','operation'],
-    department:['département','departement','dept','code département','code departement'], postalCode:['code postal','cp','postal code'], address:['adresse opération','adresse operation','adresse'],
+    department:['département zonage','département','departement','dept','code département','code departement'], postalCode:['code postal','cp','postal code'], city:['commune zonage','commune','ville','nom commune',"commune de l'opération","commune de l'operation","ville de l'opération","ville de l'operation"], insee:['code insee commune','code insee','insee'], socialZone:['zonage logement social 1/2/3','zonage logement social','zone123','zone 123','zonage 123'], longitude:['longitude commune','longitude'], latitude:['latitude commune','latitude'], address:['adresse opération','adresse operation','adresse'],
     referential:['référentiel: nom du référentiel','referentiel: nom du referentiel','référentiel','referentiel','referential'],
     moa:["maître d'ouvrage: nom de la société","maitre d'ouvrage: nom de la societe","maître d'ouvrage: société principale: nom de la société","maitre d'ouvrage: societe principale: nom de la societe","maître d'ouvrage",'maitre ouvrage','moa'],
     moaType:['type moa',"maître d'ouvrage: hiérarchie",'maitre d ouvrage: hierarchie'],
@@ -5673,7 +6618,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     certificationDate:['certification: date de décision cd','certification: date de decision cd']
   };
   const DATA_IDF_CODES=['75','77','78','91','92','93','94','95'];
-  const dataRuntime={connected:false,mode:'manual',operations:[],filtered:[],manualSnapshot:null,selection:[],selectionTitle:'',selectionSub:'',filters:{}};
+  const dataRuntime={connected:false,mode:'manual',sourceUrl:'',sourceTab:'OPERATIONS',zone123Status:null,operations:[],filtered:[],manualSnapshot:null,selection:[],selectionTitle:'',selectionSub:'',filters:{}};
 
   function dataNorm(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' ').trim();}
   function dataNumber(v){const n=Number(String(v??'').replace(/\s/g,'').replace(',','.').replace(/[^0-9.+-]/g,''));return Number.isFinite(n)?Math.max(0,n):0;}
@@ -5709,17 +6654,17 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       let nature=String(dataRawValue(r,fields.nature)||'').trim();
       if(fields.nature && dataNorm(fields.nature)==='renovation') nature=dataBoolish(dataRawValue(r,fields.nature))?'Rénovation':''; if(!nature){const rr=dataNorm(dataRawValue(r,fields.referential));nature=/renov/.test(rr)?'Rénovation':(/neuf/.test(rr)?'Neuf':'');}
       const code=String(dataRawValue(r,fields.code)||`OPE-${i+1}`).trim();
-      return {code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataFirstNonEmpty([dataRawValue(r,fields.department),dataRawValue(r,fields.postalCode),dataRawValue(r,fields.address)])),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
+      return {code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataFirstNonEmpty([dataRawValue(r,fields.department),dataRawValue(r,fields.postalCode),dataRawValue(r,fields.address)])),postalCode:String(dataRawValue(r,fields.postalCode)||'').trim(),city:String(dataRawValue(r,fields.city)||'').trim(),insee:String(dataRawValue(r,fields.insee)||'').trim(),socialZone:socialZoneNormalizeLabel(dataRawValue(r,fields.socialZone)||''),longitude:Number(dataRawValue(r,fields.longitude))||null,latitude:Number(dataRawValue(r,fields.latitude))||null,address:String(dataRawValue(r,fields.address)||'').trim(),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
     }).filter(o=>o.code||o.name);
     // Une opération peut apparaître sur plusieurs lignes/bâtiments : on la compte une seule fois.
     const grouped=new Map();
-    mapped.forEach(o=>{const k=dataNorm(o.code)||dataNorm(o.name);if(!grouped.has(k)){grouped.set(k,o);return;}const g=grouped.get(k);g.rawRows.push(...o.rawRows);['name','department','referential','moa','moaType','nature','heatingBefore','heatingAfter','heatingModeAfter','ecsBefore','ecsAfter','ecs','cooling','ventilation','structure','roofInsulation','wallInsulation','floorInsulation','windowMaterial','mentions','performance','profile','rawStatus'].forEach(key=>{if(!String(g[key]??'').trim()&&String(o[key]??'').trim())g[key]=o[key];});if(!g.year&&o.year)g.year=o.year;if(!g.dwellings&&o.dwellings)g.dwellings=o.dwellings;if(!g.buildings&&o.buildings)g.buildings=o.buildings;if(g.status==='notStarted'&&o.status!=='notStarted')g.status=o.status;g.sold=g.sold||o.sold;});
+    mapped.forEach(o=>{const k=dataNorm(o.code)||dataNorm(o.name);if(!grouped.has(k)){grouped.set(k,o);return;}const g=grouped.get(k);g.rawRows.push(...o.rawRows);['name','department','postalCode','city','insee','socialZone','address','referential','moa','moaType','nature','heatingBefore','heatingAfter','heatingModeAfter','ecsBefore','ecsAfter','ecs','cooling','ventilation','structure','roofInsulation','wallInsulation','floorInsulation','windowMaterial','mentions','performance','profile','rawStatus'].forEach(key=>{if(!String(g[key]??'').trim()&&String(o[key]??'').trim())g[key]=o[key];});if(!g.year&&o.year)g.year=o.year;if(!g.dwellings&&o.dwellings)g.dwellings=o.dwellings;if(!g.buildings&&o.buildings)g.buildings=o.buildings;if(g.status==='notStarted'&&o.status!=='notStarted')g.status=o.status;g.sold=g.sold||o.sold;});
     return [...grouped.values()];
   }
   function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
   function dataGoogleCsvUrl(input,tab){const url=String(input||'').trim();if(!url)return'';if(/\.csv($|\?)/i.test(url)||url.includes('output=csv'))return url;const m=url.match(/\/spreadsheets\/d\/([^/]+)/);if(!m)return url;return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab||'OPERATIONS')}`;}
   function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const mentions=['BEE+','BBCA','Option TFPB'];const statusLabels={notStarted:'Non démarrée',complete:'Dossier complet',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,rawStatus:statusLabels[status]||status,mentions:mentions[i%mentions.length],performance:i%2?'IC Construction 2028':'Cep RE2020 -5%',sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
-  const DATA_CONNECTED_TYPES=['tunnel','map','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
+  const DATA_CONNECTED_TYPES=['tunnel','map','socialZoning','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
   function dataFilteredOperations(){return [...dataRuntime.operations];}
@@ -5806,6 +6751,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     model.dataConnectedCount=ops.length;
     if(type==='tunnel'){const a=dataAggregateTunnel(ops);(model.statuses||[]).forEach(s=>{if(a.counts[s.key]!==undefined)s.value=a.counts[s.key];});model.cancelled=a.cancelled;model.sold=a.sold;}
     else if(type==='map'){const coverage=dataMapCoverage(ops);model.values=dataAggregateMap(ops);model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;model.dataConnectedCount=coverage.total;}
+    else if(type==='socialZoning'){model.dataConnectedCount=ops.length; if(!model.zoneFilter) model.zoneFilter='all'; if(!model.scope) model.scope='national';}
     else if(type==='moaList')model.items=dataAggregateMoa(ops);
     else if(type==='stakeholderSplit')model.items=dataAggregateNamed(ops,o=>o.moaType||'Non précisé').map(x=>({name:x.name,value:x.value}));
     else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
@@ -5831,16 +6777,16 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function dataFeedback(msg,error=false){const el=document.getElementById('dataFeedback');if(el){el.textContent=msg;el.classList.toggle('is-error',error);}}
-  async function dataConnect(){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';dataFeedback('Chargement de la source…');try{let ops=[];if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataFeedback(`Erreur : ${err.message||err}`,true);}}
-  function dataDisconnect(){if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
+  async function dataConnect(){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';dataFeedback('Chargement de la source…');try{let ops=[];dataRuntime.zone123Status=null;if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');dataRuntime.zone123Status=json?.zone123Status||null;const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.sourceUrl=url;dataRuntime.sourceTab=tab;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataFeedback(`Erreur : ${err.message||err}`,true);}}
+  function dataDisconnect(){if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';dataRuntime.zone123Status=null;dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
   function dataDepartmentName(code){return DEPARTMENTS.find(d=>d.code===code)?.name||code;}
   function dataOpenExplorer(title,ops,sub=''){dataRuntime.selection=[...ops];dataRuntime.selectionTitle=title;dataRuntime.selectionSub=sub;document.getElementById('dataExplorerTitle').textContent=title;document.getElementById('dataExplorerSub').textContent=sub||`${ops.length} opération${ops.length>1?'s':''}`;document.getElementById('dataExplorerSearch').value='';dataRenderExplorer();dataExplorer.classList.add('is-open');dataExplorer.setAttribute('aria-hidden','false');}
   function dataRenderExplorer(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const el=document.getElementById('dataExplorerList');if(!el)return;el.innerHTML=rows.length?rows.map(o=>`<article class="data-operation-card"><div class="data-op-main"><b>${esc(o.code)}</b><strong>${esc(o.name)}</strong><span>${esc(o.moa)} · ${esc(dataDepartmentName(o.department))} · ${esc(o.referential)}</span></div><div class="data-op-kpis"><span><b>${frSmart(o.dwellings)}</b> logements</span><span><b>${frSmart(o.buildings)}</b> bâtiments</span><span><b>${esc(o.year||'—')}</b> année</span></div><details><summary>Voir la fiche</summary><div class="data-op-detail"><span>Nature<b>${esc(o.nature||'—')}</b></span><span>Statut<b>${esc(o.status)}</b></span><span>Chauffage<b>${esc(o.heatingBefore||'—')} → ${esc(o.heatingAfter||'—')}</b></span><span>ECS<b>${esc(o.ecsBefore||'—')} → ${esc(o.ecsAfter||'—')}</b></span></div></details></article>`).join(''):'<div class="data-empty">Aucune opération correspondante.</div>';}
   function dataSelectionCsv(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const header=['Code opération','Nom opération','Département','Référentiel','MOA','Statut','Total logements','Total bâtiments','Année','Nature','Chauffage avant','Chauffage après','ECS avant','ECS après'];const cell=v=>`"${String(v??'').replace(/"/g,'""')}"`;return [header.map(cell).join(';'),...rows.map(o=>[o.code,o.name,o.department,o.referential,o.moa,o.status,o.dwellings,o.buildings,o.year,o.nature,o.heatingBefore,o.heatingAfter,o.ecsBefore,o.ecsAfter].map(cell).join(';'))].join('\n');}
   function dataDownloadCsv(){const blob=new Blob(['\ufeff'+dataSelectionCsv()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='operations_selection.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   async function dataCopySelection(){try{await navigator.clipboard.writeText(dataSelectionCsv());toast('Liste des opérations copiée.');}catch{toast('Copie impossible dans ce navigateur.');}}
-  const DATA_HELP_GS = "/**\n * PRESTATERRE OBSERVATOIRE — V29.1 DATA CONNECTED\n *\n * Google Sheet : onglet OPERATIONS\n * Ligne 1 : libre\n * Ligne 2 : en-têtes\n * Ligne 3 : libre / formules\n * Ligne 4 et suivantes : données\n *\n * Le préfixe OBSERVATOIRE_ évite les conflits avec d'autres CONFIG du projet.\n */\nconst OBSERVATOIRE_CONFIG = {\n  SHEET_NAME: 'OPERATIONS',\n  HEADER_ROW: 2,\n  FIRST_DATA_ROW: 4\n};\n\nfunction doGet(e) {\n  try {\n    const operations = getObservatoireOperations_();\n    return ContentService\n      .createTextOutput(JSON.stringify({\n        ok: true,\n        generatedAt: new Date().toISOString(),\n        count: operations.length,\n        operations: operations\n      }))\n      .setMimeType(ContentService.MimeType.JSON);\n  } catch (error) {\n    return ContentService\n      .createTextOutput(JSON.stringify({\n        ok: false,\n        error: String(error && error.message ? error.message : error)\n      }))\n      .setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\nfunction getObservatoireOperations_() {\n  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  const sheet = spreadsheet.getSheetByName(OBSERVATOIRE_CONFIG.SHEET_NAME);\n  if (!sheet) throw new Error('Onglet \"' + OBSERVATOIRE_CONFIG.SHEET_NAME + '\" introuvable.');\n\n  const lastRow = sheet.getLastRow();\n  const lastColumn = sheet.getLastColumn();\n  if (lastColumn < 1 || lastRow < OBSERVATOIRE_CONFIG.HEADER_ROW) return [];\n\n  const headers = sheet\n    .getRange(OBSERVATOIRE_CONFIG.HEADER_ROW, 1, 1, lastColumn)\n    .getDisplayValues()[0]\n    .map(header => String(header || '').trim());\n\n  if (lastRow < OBSERVATOIRE_CONFIG.FIRST_DATA_ROW) return [];\n\n  const rows = sheet\n    .getRange(\n      OBSERVATOIRE_CONFIG.FIRST_DATA_ROW,\n      1,\n      lastRow - OBSERVATOIRE_CONFIG.FIRST_DATA_ROW + 1,\n      lastColumn\n    )\n    .getDisplayValues();\n\n  return rows\n    .filter(row => row.some(cell => String(cell || '').trim() !== ''))\n    .map(row => {\n      const operation = {};\n      headers.forEach((header, index) => {\n        if (!header) return;\n        operation[header] = row[index] == null ? '' : row[index];\n      });\n      return operation;\n    });\n}\n\nfunction testerObservatoireConnexion() {\n  const operations = getObservatoireOperations_();\n  Logger.log('Nombre de lignes de données détectées : ' + operations.length);\n  if (operations.length) Logger.log(JSON.stringify(operations[0], null, 2));\n}\n\nfunction verifierObservatoire() {\n  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  const sheet = spreadsheet.getSheetByName(OBSERVATOIRE_CONFIG.SHEET_NAME);\n  Logger.log('Fichier : ' + spreadsheet.getName());\n  if (!sheet) {\n    Logger.log('ERREUR : onglet OPERATIONS introuvable.');\n    return;\n  }\n  Logger.log('Onglet trouvé : ' + sheet.getName());\n  Logger.log('Ligne des en-têtes : ' + OBSERVATOIRE_CONFIG.HEADER_ROW);\n  Logger.log('Première ligne de données : ' + OBSERVATOIRE_CONFIG.FIRST_DATA_ROW);\n  Logger.log('Dernière ligne utilisée : ' + sheet.getLastRow());\n  Logger.log('Dernière colonne utilisée : ' + sheet.getLastColumn());\n  Logger.log('Nombre de lignes de données détectées : ' + getObservatoireOperations_().length);\n}\n";
-  const DATA_HELP_COLUMNS = "Code interne\tNom opération\tContrat: Statut\tÉvaluation: Statut\tAffaire: Étape\tNom du programme (client)\tMaître d'ouvrage: Nom de la société\tMaître d'ouvrage: Société principale: Nom de la société\tMaître d'ouvrage: Hiérarchie\tÉtape\tDate de création\tAffaire: Nom de l'affaire\tAffaire: Date de création\tAffaire: Accepté le\tMontant HT affaire\tContrat: Numéro du contrat\tContrat: Date de création\tContrat: Date d'activation\tMontant HT commande\tÉvaluation: Code interne\tÉvaluation: Date de création\tCertification: Date de décision AP\tCertification: Date de décision CD\tOuvrage\tIndividuel diffus (maison individuelle)\tIndividuel groupé - Nombre de logements\tIndividuel groupé - Nombre de bâtiments\tLogement collectif - Nombre de logements\tLogement collectif - Nombre de bâtiments\tHab. communautaire - Nombre de logements\tLogements non certifiés\tTotal logements\tTotal bâtiments\tRéférentiel: Nom du référentiel\tVersion du référentiel applicable: Version\tMentions\tPerformance\tProfil choisi\tBâtiment construit avant 1948\tBâtiment construit après 1948\tRénovation\tZone ANRU\tSans mention\tPerformance environnementale\tMention Bâtiment Performance\tMention BEE+\tMention Option TFPB\tMention Label E+C-\tDérogation E+C-\tMention Label BBCA\tDérogation BBCA\tMention option Contribution Neutralité\tMention Label Effinergie\tNiveau Énergie Carbone Effinergie 2017\tMention Label Bâtiment Biosourcé\tDérogation Biosourcé\tMention Habitat Qualité\tMention Évaluation des charges\tMention Bonus de constructibilité\tMention Qualité de l'air\tMention Acoustique renforcée\tMention Économie circulaire\tMention Taxinomie européenne\tMention Horizon Zéro Carbone\tMention Biodiversité\tProfil spécifique\tÉtiquette DPE & GES\tNiveau Énergie\tNiveau Passif\tNiveau Cep\tNiveau Cep,nr\tNiveau Bbio\tNiveau IC Construction\tNiveau IC Énergie\tPerformance renforcée\tBiosourcé 2013\tDépartement\tAvancement\tProjet\tOpération\tBâtiment\tNombre de logements\tSurface bâtiment (SHAB / Sref / SU / SURT / SRT)\tTypologies de logements\tAnnée de construction\tDH\tDH Max\tTic\tTic ref\tLogement traversant\tLogement non traversant\tNombre de brasseurs d’air\tType de brasseurs d’air\tStructure\tPlanchers hauts\tPlanchers hauts isolant\tPlanchers hauts épaisseur isolant\tPlanchers hauts R isolant\tParois verticales structure\tParois verticales type d’isolant\tParois verticales épaisseur isolant\tParois verticales R isolant\tPlanchers bas structure\tPlanchers bas isolant\tPlanchers bas épaisseur isolant\tPlanchers bas R isolant\tMenuiseries matériau\tMenuiseries vitrage\tMenuiseries occultations\tVecteur chauffage avant travaux\tVecteur chauffage après travaux\tMode de chauffage après travaux\tVecteur ECS avant travaux\tVecteur ECS après travaux\tECS\tRefroidissement\tVentilation\tBbio\tBbio Max\tGain Bbio\tCep\tCep Max\tGain Cep\tCepnr\tCepnr Max\tGain Cepnr\tCep refroidissement\tCep éclairage\tCep auxiliaires ventilation\tCep auxiliaires distribution\tCep déplacement occupants\tCep électricité\tCep gaz\tCep réseau de chaleur\tCep bois / biomasse\tUbat avant travaux\tUbat après travaux\tCep avant travaux\tCep après travaux final\tIC composants bâtiment\tIC chantier\tIC composants lot 1\tIC composants lot 2\tIC composants lot 3\tIC composants lot 4\tIC composants lot 5\tIC composants lot 6\tIC composants lot 7\tIC composants lot 8\tIC composants lot 9\tIC composants lot 10\tIC composants lot 11\tIC composants lot 12\tIC composants lot 13\tIC énergie bâtiment\tIC énergie chauffage\tIC énergie refroidissement\tIC énergie ECS\tIC énergie auxiliaires ventilation\tIC énergie auxiliaires distribution\tIC énergie déplacements\tDPE Énergie avant travaux\tDPE GES avant travaux\tDPE Énergie après travaux final\tDPE GES après travaux final\tENR oui/non\tENR type";
+  const DATA_HELP_GS = "/**\n * PRESTATERRE OBSERVATOIRE \u2014 V29.7.13\n * DATA CONNECTED + ZONAGE LOGEMENT SOCIAL 1 / 1 BIS / 2 / 3\n *\n * Principe important :\n * - le navigateur n'appelle PLUS un endpoint Zone123 s\u00e9par\u00e9 ;\n * - le doGet() habituel enrichit directement les op\u00e9rations avec leur zonage ;\n * - la slide lit donc le zonage dans la m\u00eame r\u00e9ponse /exec que les op\u00e9rations.\n *\n * Google Sheet : onglet OPERATIONS\n * Ligne 1 : libre\n * Ligne 2 : en-t\u00eates\n * Ligne 3 : libre / formules\n * Ligne 4 et suivantes : donn\u00e9es\n */\nconst OBSERVATOIRE_CONFIG = {\n  SHEET_NAME: 'OPERATIONS',\n  HEADER_ROW: 2,\n  FIRST_DATA_ROW: 4,\n  ZONE123_URLS: [\n    'https://gitlab.com/pidila/sp-simulateurs-data/-/raw/master/donnees-de-reference/Zone123.json',\n    'https://www.data.gouv.fr/api/1/datasets/r/eedf8bf6-052f-4354-b80c-fe9c1065693a'\n  ],\n  COMMUNES_API_BASE: 'https://geo.api.gouv.fr/communes'\n};\n\nfunction doGet(e) {\n  try {\n    const operations = getObservatoireOperations_();\n    let zone123Status = { ok: true, matched: 0, unmatched: 0, source: 'DILA / Service-Public' };\n\n    try {\n      const zoneIndex = getZone123Index_();\n      const enriched = enrichOperationsWithZone123_(operations, zoneIndex);\n      zone123Status.matched = enriched.matched;\n      zone123Status.unmatched = enriched.unmatched;\n    } catch (zoneError) {\n      // La base op\u00e9rations reste disponible m\u00eame si la ressource officielle\n      // est temporairement indisponible c\u00f4t\u00e9 serveur.\n      zone123Status = {\n        ok: false,\n        matched: 0,\n        unmatched: operations.length,\n        source: 'DILA / Service-Public',\n        error: String(zoneError && zoneError.message ? zoneError.message : zoneError)\n      };\n    }\n\n    return jsonOutput_({\n      ok: true,\n      generatedAt: new Date().toISOString(),\n      count: operations.length,\n      operations: operations,\n      zone123Status: zone123Status\n    });\n  } catch (error) {\n    return jsonOutput_({\n      ok: false,\n      error: String(error && error.message ? error.message : error)\n    });\n  }\n}\n\nfunction jsonOutput_(payload) {\n  return ContentService\n    .createTextOutput(JSON.stringify(payload))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction fetchJson_(url) {\n  const response = UrlFetchApp.fetch(url, {\n    muteHttpExceptions: true,\n    followRedirects: true,\n    headers: { Accept: 'application/json,text/plain,*/*' }\n  });\n  const status = response.getResponseCode();\n  if (status < 200 || status >= 300) throw new Error('HTTP ' + status + ' sur ' + url);\n  return JSON.parse(response.getContentText('UTF-8'));\n}\n\nfunction getZone123Rows_() {\n  const errors = [];\n  for (let i = 0; i < OBSERVATOIRE_CONFIG.ZONE123_URLS.length; i += 1) {\n    const url = OBSERVATOIRE_CONFIG.ZONE123_URLS[i];\n    try {\n      const json = fetchJson_(url);\n      const rows = Array.isArray(json)\n        ? json\n        : (Array.isArray(json.zone123) ? json.zone123 : (Array.isArray(json.data) ? json.data : []));\n      if (!rows.length) throw new Error('Aucune ligne Zone123 trouv\u00e9e');\n      return rows;\n    } catch (error) {\n      errors.push(String(error && error.message ? error.message : error));\n    }\n  }\n  throw new Error('R\u00e9f\u00e9rentiel Zone123 indisponible c\u00f4t\u00e9 serveur : ' + errors.join(' | '));\n}\n\nfunction getZone123Index_() {\n  const rows = getZone123Rows_();\n  const byInsee = {};\n  const byNameDepartment = {};\n  const byName = {};\n\n  rows.forEach(function(item) {\n    const insee = String(item.codeInsee || item.code_insee || item.insee || item.code || '').trim();\n    const commune = String(item.nomCommune || item.nom_commune || item.commune || item.nom || '').trim();\n    const zone = normalizeZone123_(item.zone || item.zonage || item.zone123 || '');\n    if (!insee || !commune || !zone) return;\n    const dep = departmentFromInsee_(insee);\n    const row = { insee: insee, commune: commune, department: dep, zone: zone };\n    byInsee[insee] = row;\n    byNameDepartment[dep + '|' + normalizeText_(commune)] = row;\n    const nameKey = normalizeText_(commune);\n    if (!byName[nameKey]) byName[nameKey] = [];\n    byName[nameKey].push(row);\n  });\n\n  return { byInsee: byInsee, byNameDepartment: byNameDepartment, byName: byName };\n}\n\nfunction normalizeZone123_(value) {\n  const raw = String(value || '').trim();\n  const s = normalizeText_(raw).replace(/\\s+/g, '');\n  if (!s) return '';\n  if (s.indexOf('1bis') >= 0 || s.indexOf('ibis') >= 0) return 'Zone 1 bis';\n  if (s === '3' || s === 'iii' || s === 'zone3' || s === 'zoneiii') return 'Zone 3';\n  if (s === '2' || s === 'ii' || s === 'zone2' || s === 'zoneii') return 'Zone 2';\n  if (s === '1' || s === 'i' || s === 'zone1' || s === 'zonei') return 'Zone 1';\n  return raw;\n}\n\nfunction normalizeText_(value) {\n  return String(value || '')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase()\n    .replace(/[\u2019'`\u00b4\\-]/g, ' ')\n    .replace(/\\bsaint\\b/g, 'st')\n    .replace(/\\bsainte\\b/g, 'ste')\n    .replace(/[^a-z0-9]+/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction departmentFromInsee_(insee) {\n  const code = String(insee || '').toUpperCase();\n  if (/^97[1-6]/.test(code)) return code.slice(0, 3);\n  if (/^2A|^2B/.test(code)) return code.slice(0, 2);\n  if (/^20/.test(code)) {\n    const n = Number(code);\n    return n >= 20200 ? '2B' : '2A';\n  }\n  return code.slice(0, 2);\n}\n\nfunction departmentFromPostalCode_(postalCode) {\n  const cp = String(postalCode || '').match(/\\b(97[1-6]\\d{2}|\\d{5})\\b/);\n  if (!cp) return '';\n  const value = cp[1];\n  if (/^97[1-6]/.test(value)) return value.slice(0, 3);\n  if (value.indexOf('20') === 0) {\n    const n = Number(value);\n    return (n >= 20200 || n >= 20600) ? '2B' : '2A';\n  }\n  return value.slice(0, 2);\n}\n\nfunction rowValueByAliases_(row, aliases) {\n  const keys = Object.keys(row || {});\n  const normalized = {};\n  keys.forEach(function(key) { normalized[normalizeText_(key)] = key; });\n\n  for (let i = 0; i < aliases.length; i += 1) {\n    const alias = normalizeText_(aliases[i]);\n    if (normalized[alias] !== undefined) {\n      const value = row[normalized[alias]];\n      if (String(value == null ? '' : value).trim() !== '') return value;\n    }\n  }\n\n  for (let i = 0; i < aliases.length; i += 1) {\n    const alias = normalizeText_(aliases[i]);\n    for (let j = 0; j < keys.length; j += 1) {\n      const keyNorm = normalizeText_(keys[j]);\n      if (keyNorm.indexOf(alias) >= 0) {\n        const value = row[keys[j]];\n        if (String(value == null ? '' : value).trim() !== '') return value;\n      }\n    }\n  }\n  return '';\n}\n\nfunction operationLocationHints_(operation) {\n  let postalCode = String(rowValueByAliases_(operation, ['code postal','cp','postal code']) || '').trim();\n  let city = String(rowValueByAliases_(operation, ['commune','ville','nom commune',\"commune de l'op\u00e9ration\",\"commune de l'operation\",\"ville de l'op\u00e9ration\",\"ville de l'operation\"]) || '').trim();\n  const address = String(rowValueByAliases_(operation, ['adresse op\u00e9ration','adresse operation','adresse']) || '').trim();\n  let department = String(rowValueByAliases_(operation, ['d\u00e9partement','departement','dept','code d\u00e9partement','code departement']) || '').trim();\n\n  if (!postalCode) {\n    const m = address.match(/\\b(97[1-6]\\d{2}|\\d{5})\\b/);\n    if (m) postalCode = m[1];\n  }\n  if (!city && address) {\n    const m = address.match(/\\b\\d{5}\\s+([^,;]+)$/i);\n    if (m) city = String(m[1] || '').replace(/cedex.*/i, '').trim();\n  }\n  department = normalizeDepartmentCode_(department) || departmentFromPostalCode_(postalCode);\n\n  return { postalCode: postalCode, city: city, address: address, department: department };\n}\n\nfunction normalizeDepartmentCode_(value) {\n  const raw = String(value || '').toUpperCase().trim();\n  if (!raw) return '';\n  const m = raw.match(/(2A|2B|97[1-6]|\\d{1,2})/);\n  if (!m) return '';\n  const code = m[1];\n  if (code === '2A' || code === '2B' || /^97[1-6]$/.test(code)) return code;\n  return code.padStart(2, '0');\n}\n\nfunction resolveCommuneFromGeoApi_(hints) {\n  const cache = CacheService.getScriptCache();\n  const cacheKey = 'commune|' + normalizeText_(hints.city) + '|' + hints.postalCode + '|' + hints.department;\n  const cached = cache.get(cacheKey);\n  if (cached) {\n    try { return JSON.parse(cached); } catch (e) {}\n  }\n\n  const queries = [];\n  const fields = 'nom,code,centre,departement';\n  if (hints.city && hints.department) {\n    queries.push(OBSERVATOIRE_CONFIG.COMMUNES_API_BASE + '?nom=' + encodeURIComponent(hints.city) + '&codeDepartement=' + encodeURIComponent(hints.department) + '&fields=' + encodeURIComponent(fields) + '&boost=population&limit=5');\n  }\n  if (hints.postalCode) {\n    queries.push(OBSERVATOIRE_CONFIG.COMMUNES_API_BASE + '?codePostal=' + encodeURIComponent(hints.postalCode) + '&fields=' + encodeURIComponent(fields) + '&boost=population&limit=10');\n  }\n  if (hints.city) {\n    queries.push(OBSERVATOIRE_CONFIG.COMMUNES_API_BASE + '?nom=' + encodeURIComponent(hints.city) + '&fields=' + encodeURIComponent(fields) + '&boost=population&limit=5');\n  }\n\n  for (let i = 0; i < queries.length; i += 1) {\n    try {\n      const data = fetchJson_(queries[i]);\n      if (!Array.isArray(data) || !data.length) continue;\n      const cityKey = normalizeText_(hints.city);\n      const department = hints.department;\n      let best = null;\n      let bestScore = -1;\n      data.forEach(function(candidate, index) {\n        const nameKey = normalizeText_(candidate.nom || '');\n        const candidateDepartment = normalizeDepartmentCode_(candidate.departement && candidate.departement.code);\n        let score = 0;\n        if (cityKey && nameKey === cityKey) score += 12;\n        else if (cityKey && (nameKey.indexOf(cityKey) >= 0 || cityKey.indexOf(nameKey) >= 0)) score += 6;\n        if (department && candidateDepartment === department) score += 4;\n        score += Math.max(0, 1 - index * 0.1);\n        if (score > bestScore) { best = candidate; bestScore = score; }\n      });\n      if (best) {\n        const result = {\n          nom: String(best.nom || '').trim(),\n          code: String(best.code || '').trim(),\n          department: normalizeDepartmentCode_(best.departement && best.departement.code),\n          centre: best.centre || null\n        };\n        try { cache.put(cacheKey, JSON.stringify(result), 21600); } catch (e) {}\n        return result;\n      }\n    } catch (e) {}\n  }\n  return null;\n}\n\nfunction enrichOperationsWithZone123_(operations, zoneIndex) {\n  let matched = 0;\n  let unmatched = 0;\n\n  operations.forEach(function(operation) {\n    const hints = operationLocationHints_(operation);\n    let zoneRow = null;\n    let resolved = null;\n\n    if (hints.city && hints.department) {\n      zoneRow = zoneIndex.byNameDepartment[hints.department + '|' + normalizeText_(hints.city)] || null;\n    }\n    if (!zoneRow && hints.city) {\n      const candidates = zoneIndex.byName[normalizeText_(hints.city)] || [];\n      if (candidates.length === 1) zoneRow = candidates[0];\n      else if (hints.department) zoneRow = candidates.find(function(item) { return item.department === hints.department; }) || null;\n    }\n\n    if (!zoneRow) {\n      resolved = resolveCommuneFromGeoApi_(hints);\n      if (resolved && resolved.code) zoneRow = zoneIndex.byInsee[resolved.code] || null;\n    }\n\n    // M\u00eame quand le zonage est trouv\u00e9 directement par Ville + d\u00e9partement,\n    // on r\u00e9cup\u00e8re le centre officiel de la commune pour localiser pr\u00e9cis\u00e9ment\n    // l'op\u00e9ration sur la carte de d\u00e9tail.\n    if (zoneRow && (!resolved || !resolved.code)) {\n      resolved = resolveCommuneFromGeoApi_({\n        postalCode: hints.postalCode,\n        city: zoneRow.commune || hints.city,\n        address: hints.address,\n        department: zoneRow.department || hints.department\n      });\n    }\n\n    if (zoneRow) {\n      matched += 1;\n      operation['Zonage logement social 1/2/3'] = zoneRow.zone;\n      operation['Commune zonage'] = zoneRow.commune || (resolved && resolved.nom) || hints.city || '';\n      operation['Code INSEE commune'] = zoneRow.insee || (resolved && resolved.code) || '';\n      operation['D\u00e9partement zonage'] = zoneRow.department || (resolved && resolved.department) || hints.department || '';\n      if (resolved && resolved.centre && Array.isArray(resolved.centre.coordinates)) {\n        operation['Longitude commune'] = resolved.centre.coordinates[0];\n        operation['Latitude commune'] = resolved.centre.coordinates[1];\n      }\n    } else {\n      unmatched += 1;\n      operation['Zonage logement social 1/2/3'] = '';\n      operation['Commune zonage'] = (resolved && resolved.nom) || hints.city || '';\n      operation['Code INSEE commune'] = (resolved && resolved.code) || '';\n      operation['D\u00e9partement zonage'] = (resolved && resolved.department) || hints.department || '';\n    }\n  });\n\n  return { matched: matched, unmatched: unmatched };\n}\n\nfunction getObservatoireOperations_() {\n  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  const sheet = spreadsheet.getSheetByName(OBSERVATOIRE_CONFIG.SHEET_NAME);\n  if (!sheet) throw new Error('Onglet \"' + OBSERVATOIRE_CONFIG.SHEET_NAME + '\" introuvable.');\n\n  const lastRow = sheet.getLastRow();\n  const lastColumn = sheet.getLastColumn();\n  if (lastColumn < 1 || lastRow < OBSERVATOIRE_CONFIG.HEADER_ROW) return [];\n\n  const headers = sheet\n    .getRange(OBSERVATOIRE_CONFIG.HEADER_ROW, 1, 1, lastColumn)\n    .getDisplayValues()[0]\n    .map(function(header) { return String(header || '').trim(); });\n\n  if (lastRow < OBSERVATOIRE_CONFIG.FIRST_DATA_ROW) return [];\n\n  const rows = sheet\n    .getRange(\n      OBSERVATOIRE_CONFIG.FIRST_DATA_ROW,\n      1,\n      lastRow - OBSERVATOIRE_CONFIG.FIRST_DATA_ROW + 1,\n      lastColumn\n    )\n    .getDisplayValues();\n\n  return rows\n    .filter(function(row) { return row.some(function(cell) { return String(cell || '').trim() !== ''; }); })\n    .map(function(row) {\n      const operation = {};\n      headers.forEach(function(header, index) {\n        if (!header) return;\n        operation[header] = row[index] == null ? '' : row[index];\n      });\n      return operation;\n    });\n}\n\nfunction testerObservatoireConnexion() {\n  const operations = getObservatoireOperations_();\n  Logger.log('Nombre de lignes de donn\u00e9es d\u00e9tect\u00e9es : ' + operations.length);\n  if (operations.length) Logger.log(JSON.stringify(operations[0], null, 2));\n}\n\nfunction testerZonage123() {\n  const operations = getObservatoireOperations_();\n  const index = getZone123Index_();\n  const result = enrichOperationsWithZone123_(operations.slice(0, Math.min(operations.length, 20)), index);\n  Logger.log('Test zonage : ' + JSON.stringify(result));\n  if (operations.length) Logger.log(JSON.stringify(operations[0], null, 2));\n}\n\nfunction verifierObservatoire() {\n  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();\n  const sheet = spreadsheet.getSheetByName(OBSERVATOIRE_CONFIG.SHEET_NAME);\n  Logger.log('Fichier : ' + spreadsheet.getName());\n  if (!sheet) {\n    Logger.log('ERREUR : onglet OPERATIONS introuvable.');\n    return;\n  }\n  Logger.log('Onglet trouv\u00e9 : ' + sheet.getName());\n  Logger.log('Ligne des en-t\u00eates : ' + OBSERVATOIRE_CONFIG.HEADER_ROW);\n  Logger.log('Premi\u00e8re ligne de donn\u00e9es : ' + OBSERVATOIRE_CONFIG.FIRST_DATA_ROW);\n  Logger.log('Derni\u00e8re ligne utilis\u00e9e : ' + sheet.getLastRow());\n  Logger.log('Derni\u00e8re colonne utilis\u00e9e : ' + sheet.getLastColumn());\n  Logger.log('Nombre de lignes de donn\u00e9es d\u00e9tect\u00e9es : ' + getObservatoireOperations_().length);\n}\n";
+  const DATA_HELP_COLUMNS = "Code interne\tNom op\u00e9ration\tContrat: Statut\t\u00c9valuation: Statut\tAffaire: \u00c9tape\tNom du programme (client)\tMa\u00eetre d'ouvrage: Nom de la soci\u00e9t\u00e9\tMa\u00eetre d'ouvrage: Soci\u00e9t\u00e9 principale: Nom de la soci\u00e9t\u00e9\tMa\u00eetre d'ouvrage: Hi\u00e9rarchie\t\u00c9tape\tDate de cr\u00e9ation\tAffaire: Nom de l'affaire\tAffaire: Date de cr\u00e9ation\tAffaire: Accept\u00e9 le\tMontant HT affaire\tContrat: Num\u00e9ro du contrat\tContrat: Date de cr\u00e9ation\tContrat: Date d'activation\tMontant HT commande\t\u00c9valuation: Code interne\t\u00c9valuation: Date de cr\u00e9ation\tCertification: Date de d\u00e9cision AP\tCertification: Date de d\u00e9cision CD\tOuvrage\tIndividuel diffus (maison individuelle)\tIndividuel group\u00e9 - Nombre de logements\tIndividuel group\u00e9 - Nombre de b\u00e2timents\tLogement collectif - Nombre de logements\tLogement collectif - Nombre de b\u00e2timents\tHab. communautaire - Nombre de logements\tLogements non certifi\u00e9s\tTotal logements\tTotal b\u00e2timents\tR\u00e9f\u00e9rentiel: Nom du r\u00e9f\u00e9rentiel\tVersion du r\u00e9f\u00e9rentiel applicable: Version\tMentions\tPerformance\tProfil choisi\tB\u00e2timent construit avant 1948\tB\u00e2timent construit apr\u00e8s 1948\tR\u00e9novation\tZone ANRU\tSans mention\tPerformance environnementale\tMention B\u00e2timent Performance\tMention BEE+\tMention Option TFPB\tMention Label E+C-\tD\u00e9rogation E+C-\tMention Label BBCA\tD\u00e9rogation BBCA\tMention option Contribution Neutralit\u00e9\tMention Label Effinergie\tNiveau \u00c9nergie Carbone Effinergie 2017\tMention Label B\u00e2timent Biosourc\u00e9\tD\u00e9rogation Biosourc\u00e9\tMention Habitat Qualit\u00e9\tMention \u00c9valuation des charges\tMention Bonus de constructibilit\u00e9\tMention Qualit\u00e9 de l'air\tMention Acoustique renforc\u00e9e\tMention \u00c9conomie circulaire\tMention Taxinomie europ\u00e9enne\tMention Horizon Z\u00e9ro Carbone\tMention Biodiversit\u00e9\tProfil sp\u00e9cifique\t\u00c9tiquette DPE & GES\tNiveau \u00c9nergie\tNiveau Passif\tNiveau Cep\tNiveau Cep,nr\tNiveau Bbio\tNiveau IC Construction\tNiveau IC \u00c9nergie\tPerformance renforc\u00e9e\tBiosourc\u00e9 2013\tD\u00e9partement\tCode postal\tVille\tAvancement\tProjet\tOp\u00e9ration\tB\u00e2timent\tNombre de logements\tSurface b\u00e2timent (SHAB / Sref / SU / SURT / SRT)\tTypologies de logements\tAnn\u00e9e de construction\tDH\tDH Max\tTic\tTic ref\tLogement traversant\tLogement non traversant\tNombre de brasseurs d\u2019air\tType de brasseurs d\u2019air\tStructure\tPlanchers hauts\tPlanchers hauts isolant\tPlanchers hauts \u00e9paisseur isolant\tPlanchers hauts R isolant\tParois verticales structure\tParois verticales type d\u2019isolant\tParois verticales \u00e9paisseur isolant\tParois verticales R isolant\tPlanchers bas structure\tPlanchers bas isolant\tPlanchers bas \u00e9paisseur isolant\tPlanchers bas R isolant\tMenuiseries mat\u00e9riau\tMenuiseries vitrage\tMenuiseries occultations\tVecteur chauffage avant travaux\tVecteur chauffage apr\u00e8s travaux\tMode de chauffage apr\u00e8s travaux\tVecteur ECS avant travaux\tVecteur ECS apr\u00e8s travaux\tECS\tRefroidissement\tVentilation\tBbio\tBbio Max\tGain Bbio\tCep\tCep Max\tGain Cep\tCepnr\tCepnr Max\tGain Cepnr\tCep refroidissement\tCep \u00e9clairage\tCep auxiliaires ventilation\tCep auxiliaires distribution\tCep d\u00e9placement occupants\tCep \u00e9lectricit\u00e9\tCep gaz\tCep r\u00e9seau de chaleur\tCep bois / biomasse\tUbat avant travaux\tUbat apr\u00e8s travaux\tCep avant travaux\tCep apr\u00e8s travaux final\tIC composants b\u00e2timent\tIC chantier\tIC composants lot 1\tIC composants lot 2\tIC composants lot 3\tIC composants lot 4\tIC composants lot 5\tIC composants lot 6\tIC composants lot 7\tIC composants lot 8\tIC composants lot 9\tIC composants lot 10\tIC composants lot 11\tIC composants lot 12\tIC composants lot 13\tIC \u00e9nergie b\u00e2timent\tIC \u00e9nergie chauffage\tIC \u00e9nergie refroidissement\tIC \u00e9nergie ECS\tIC \u00e9nergie auxiliaires ventilation\tIC \u00e9nergie auxiliaires distribution\tIC \u00e9nergie d\u00e9placements\tDPE \u00c9nergie avant travaux\tDPE GES avant travaux\tDPE \u00c9nergie apr\u00e8s travaux final\tDPE GES apr\u00e8s travaux final\tENR oui/non\tENR type\tDIRECTION R\u00c9GIONALE";
   function dataOpenHelp(mode){const modal=document.getElementById('dataHelpModal'),title=document.getElementById('dataHelpTitle'),body=document.getElementById('dataHelpBody'),copy=document.getElementById('dataHelpCopy');if(!modal)return;modal.hidden=false;copy.hidden=false;if(mode==='gs'){title.textContent='Code Google Apps Script (.gs)';body.innerHTML=`<p class="data-help-intro">Copie ce code dans <b>Extensions → Apps Script → Code.gs</b>. Il lit les en-têtes en ligne 2 et les données à partir de la ligne 4.</p><pre class="data-help-code"></pre>`;body.querySelector('pre').textContent=DATA_HELP_GS;copy.textContent='Copier le code .gs';copy.dataset.copyKind='gs';}else if(mode==='columns'){title.textContent='Colonnes de l’onglet OPERATIONS';body.innerHTML=`<p class="data-help-intro">À coller directement dans la <b>ligne 2</b> de l’onglet <b>OPERATIONS</b>. Les données commencent ligne 4.</p><pre class="data-help-code data-help-columns"></pre>`;body.querySelector('pre').textContent=DATA_HELP_COLUMNS;copy.textContent='Copier les colonnes';copy.dataset.copyKind='columns';}else{title.textContent='Aide — connecter une source de données';copy.hidden=true;body.innerHTML=`<div class="data-help-steps"><h3>Connexion pas à pas</h3><ol><li><b>Prépare ton Google Sheet.</b><br>Crée ou utilise un onglet nommé <code>OPERATIONS</code>. Mets les intitulés de colonnes en ligne 2. La ligne 3 peut rester libre. Les opérations commencent ligne 4.</li><li><b>Ouvre Apps Script.</b><br>Dans Google Sheets : <b>Extensions → Apps Script</b>.</li><li><b>Ajoute le code.</b><br>Dans <code>Code.gs</code>, colle le code proposé par le bouton « Code .gs ». Enregistre.</li><li><b>Vérifie la lecture.</b><br>En haut d’Apps Script, choisis <code>verifierObservatoire</code>, clique sur <b>Exécuter</b>, puis vérifie dans le journal que l’onglet OPERATIONS est trouvé et que le nombre de lignes est cohérent.</li><li><b>Déploie l’API.</b><br>Clique sur <b>Déployer → Nouveau déploiement</b>, choisis <b>Application Web</b>, « Exécuter en tant que : Moi », puis donne l’accès le plus large autorisé. Clique sur <b>Déployer</b>.</li><li><b>Copie l’URL /exec.</b><br>Google fournit une URL se terminant par <code>/exec</code>. C’est l’adresse de ta source.</li><li><b>Connecte le générateur.</b><br>Dans ce générateur : <b>Données → Mode : Google Apps Script (JSON)</b>. Colle l’URL /exec puis clique sur <b>Connecter / actualiser</b>.</li><li><b>Contrôle que tout est à jour.</b><br>Le message doit indiquer le nombre d’opérations chargées. Modifie ensuite une valeur test dans le Sheet, puis clique à nouveau sur <b>Connecter / actualiser</b>. Si la slide change, la connexion est validée.</li><li><b>Ensuite, rien à redéployer pour les données.</b><br>Tu peux ajouter/corriger des opérations dans le Sheet. Le redéploiement Apps Script n’est nécessaire que si tu modifies le code <code>.gs</code> lui-même.</li></ol></div>`;}}
   async function dataHelpCopy(){const kind=document.getElementById('dataHelpCopy')?.dataset.copyKind;const text=kind==='columns'?DATA_HELP_COLUMNS:DATA_HELP_GS;try{await navigator.clipboard.writeText(text);toast(kind==='columns'?'Colonnes copiées.':'Code .gs copié.');}catch{toast('Copie impossible dans ce navigateur.');}}
   function dataInitUI(){dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}const source=(()=>{try{return JSON.parse(localStorage.getItem(DATA_SOURCE_STORAGE_KEY)||'null');}catch{return null;}})();if(source){document.getElementById('dataMode').value=source.mode||'appsScript';document.getElementById('dataUrl').value=source.url||'';document.getElementById('dataTab').value=source.tab||'OPERATIONS';}dataUpdateBadge();dataUpdateFilterUI();}
@@ -5869,7 +6815,66 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
   document.addEventListener('click',e=>{if(dataFilterUiState.openKey&&!e.target.closest('[data-slide-filter-bar]')){dataFilterUiState.openKey=null;dataFilterUiState.search='';if(dataRuntime.connected&&DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataRenderSlideFilterToolbar();}});
 
+  slide.addEventListener('click', e => {
+    if (tabType(activeTab) !== 'socialZoning') return;
+    const runtimeData = socialZoneRuntimeData();
+    if (!runtimeData) return;
+    const communeTarget = e.target.closest('[data-social-detail-insee],[data-social-detail-commune]');
+    if (communeTarget) {
+      socialZoneRuntime.detail = {
+        department: runtimeData.selectedDepartment || '',
+        insee: communeTarget.getAttribute('data-social-detail-insee') || '',
+        commune: communeTarget.getAttribute('data-social-detail-commune') || ''
+      };
+      socialUpdatePanels(runtimeData);
+      e.stopImmediatePropagation();
+      return;
+    }
+    const depTarget = e.target.closest('[data-social-detail-department]');
+    if (depTarget) {
+      socialZoneRuntime.detail = { department: depTarget.getAttribute('data-social-detail-department') || '', insee:'', commune:'' };
+      socialUpdatePanels(runtimeData);
+      e.stopImmediatePropagation();
+    }
+  });
+
   slide.addEventListener('click',e=>{if(!dataRuntime.connected)return;const activeModel=state[tabType(activeTab)];const clickOps=DATA_CONNECTED_TYPES.includes(tabType(activeTab))&&activeModel?dataOpsForModel(activeModel):dataRuntime.filtered;const status=e.target.closest('[data-data-status-key]');if(status){const key=status.dataset.dataStatusKey;const ops=clickOps.filter(o=>o.status===key);const labels={notStarted:'Non démarrée',incomplete:'Dossier incomplet',planned:'Analyse planifiée',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};dataOpenExplorer(labels[key]||key,ops,`${ops.length} opération${ops.length>1?'s':''} · tunnel de certification`);return;}const tag=e.target.closest('[data-data-tag-kind][data-data-tag-label]');if(tag){const kind=tag.dataset.dataTagKind,label=tag.dataset.dataTagLabel;const ops=clickOps.filter(o=>dataOperationHasTag(o,kind,label));dataOpenExplorer(label,ops,`${ops.length} opération${ops.length>1?'s':''} · ${kind==='mention'?'mention':'performance'}`);return;}const moa=e.target.closest('[data-data-moa]');if(moa){const name=moa.dataset.dataMoa;const ops=clickOps.filter(o=>o.moa===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''} · ${frSmart(ops.reduce((s,o)=>s+o.dwellings,0))} logements`);return;}const region=e.target.closest('[data-data-region]');if(region){const name=region.dataset.dataRegion;const ops=clickOps.filter(o=>REGION_BY_DEPARTMENT[o.department]===name);dataOpenExplorer(name,ops,`${ops.length} opération${ops.length>1?'s':''}`);return;}const dep=e.target.closest('[data-data-department]');if(dep){const code=dep.dataset.dataDepartment;const ops=code==='IDF'?clickOps.filter(o=>DATA_IDF_CODES.includes(o.department)):clickOps.filter(o=>o.department===code);dataOpenExplorer(code==='IDF'?'Île-de-France':dataDepartmentName(code),ops,`${ops.length} opération${ops.length>1?'s':''}`);}});
+
+  window.OBSNexityMap.configure({
+    getModel: () => state.nexityMap,
+    operations: () => dataRuntime.operations,
+    isConnected: () => dataRuntime.connected,
+    activeId: () => activeTab,
+    isActive: () => tabType(activeTab) === 'nexityMap',
+    scale: () => currentTextScale(),
+    logo: GLOBAL_SLIDE_LOGO_DATA_URL,
+    toast,
+    refresh(withControls = true) {
+      const panel = document.querySelector('.control-panel');
+      const scroll = {x:window.scrollX, y:window.scrollY, panel:panel?.scrollTop || 0, top:slideViewport?.scrollTop || 0, left:slideViewport?.scrollLeft || 0};
+      try { saveState(); } catch(error) { console.warn(error); toast('Memoire du navigateur pleine : utiliser Sauvegarder pour conserver les donnees en JSON.'); }
+      if (withControls) renderControls();
+      renderSlide();
+      requestAnimationFrame(() => { if(panel) panel.scrollTop=scroll.panel; if(slideViewport){slideViewport.scrollTop=scroll.top;slideViewport.scrollLeft=scroll.left;} window.scrollTo(scroll.x,scroll.y); });
+    }
+  });
+
+  window.OBSNexityPodium.configure({
+    getModel: () => state.nexityPodium,
+    getSourceModel: () => state.nexityMap,
+    operations: () => dataRuntime.operations,
+    isActive: () => tabType(activeTab) === 'nexityPodium',
+    scale: () => currentTextScale(),
+    logo: GLOBAL_SLIDE_LOGO_DATA_URL,
+    refresh(withControls = true) {
+      const panel = document.querySelector('.control-panel');
+      const scroll = {x:window.scrollX, y:window.scrollY, panel:panel?.scrollTop || 0, top:slideViewport?.scrollTop || 0, left:slideViewport?.scrollLeft || 0};
+      try { saveState(); } catch(error) { console.warn(error); }
+      if (withControls) renderControls();
+      renderSlide();
+      requestAnimationFrame(() => { if(panel) panel.scrollTop=scroll.panel; if(slideViewport){slideViewport.scrollTop=scroll.top;slideViewport.scrollLeft=scroll.left;} window.scrollTo(scroll.x,scroll.y); });
+    }
+  });
 
   dataInitUI();
   dataInitSlideFilterToolbar();
@@ -5879,7 +6884,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   renderTabsNav();
   renderControls();
   renderSlide();
-  setZoom(num(zoomRange.value));
+  requestAnimationFrame(fitPreviewSlide);
   // Reconnexion automatique à la dernière source enregistrée à chaque ouverture.
   if (localStorage.getItem(DATA_SOURCE_STORAGE_KEY)) setTimeout(() => dataConnect(), 0);
 })();

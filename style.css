@@ -214,13 +214,22 @@ button { cursor: pointer; }
 }
 .inline-note.warn { background: #fff7e8; color: #8a5a00; }
 
-.preview-area { min-width: 0; padding: 18px; overflow: hidden; }
+.preview-area {
+  min-width: 0;
+  height: calc(100vh - 146px);
+  min-height: 0;
+  padding: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 .preview-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
   margin-bottom: 12px;
+  flex: 0 0 auto;
 }
 .preview-toolbar strong { display: block; font-size: 13px; }
 .preview-toolbar span { color: var(--muted); font-size: 12px; }
@@ -230,14 +239,16 @@ button { cursor: pointer; }
 
 .slide-viewport {
   width: 100%;
-  min-height: calc(100vh - 226px);
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
   overflow: auto;
   border: 1px solid #d4e0dd;
   border-radius: 18px;
   background: #dfe8e5;
   padding: 22px;
 }
-.slide-stage { transform-origin: top left; }
+.slide-stage { transform-origin: top left; margin: 0 auto; }
 
 .slide {
   position: relative;
@@ -1428,4 +1439,238 @@ body.presentation-mode .tab-close{display:none!important}
   .global-filter-strip .slide-filter-item{min-width:105px}
   .global-filter-strip .slide-filter-chip{font-size:9px;padding:0 8px}
   .global-filter-strip .slide-filter-count{min-width:74px;padding:0 7px}
+}
+
+/* ============================================================
+   V29.7.8 — Lisibilite des textes dans les encarts des slides
+   Hausse ciblee des petits corps sans modifier les dimensions
+   structurelles des slides ni les exports.
+   ============================================================ */
+.slide .mini-header{font-size:15px}
+.slide .footer-note{font-size:15px}
+.bar-name{font-size:16px}
+.bar-count{font-size:17px}
+.bar-percent{font-size:14px}
+.repere-row{font-size:13px;line-height:1.3}
+.repere-dot{font-size:13px}
+.legend-item{font-size:13px;line-height:1.25}
+.gauge-tick{font-size:12px}
+.gauge-marker .marker-label{font-size:13px}
+.labels-slide .summary-item{font-size:15px}
+
+/* Equipements */
+.equipment-slide .equip-title,.envelope-slide .equip-title{font-size:13px}
+.equipment-slide .legend-item,.envelope-slide .legend-item{font-size:11.5px;line-height:1.2}
+.equipment-slide .dominant .mini-header,.envelope-slide .dominant .mini-header{font-size:11.5px}
+.equipment-slide .dominant .name,.envelope-slide .dominant .name{font-size:13.5px}
+.equipment-slide .dominant .pct,.envelope-slide .dominant .pct{font-size:24px}
+.equipment-slide .perf-cell .head{font-size:10.5px}
+.equipment-slide .perf-value span{font-size:9px}
+.equipment-slide .perf-value b{font-size:13.5px}
+.equipment-slide .perf-key{font-size:9px;line-height:1.16}
+.equipment-slide .mini-gauge .marker-label{font-size:9px}
+.equipment-slide .mini-gauge .gauge-labels{font-size:8.5px}
+.equipment-slide .perf-cell.gauge-layout .perf-header-item span{font-size:8.2px}
+.equipment-slide .perf-cell.gauge-layout .perf-header-item b{font-size:12.5px}
+.equipment-slide .perf-extra{font-size:9px}
+.equipment-slide .perf-cell.gauge-layout .perf-key{font-size:8.3px}
+
+/* Construction / isolation */
+.envelope-slide .r-label{font-size:12.5px}
+.envelope-slide .quality{font-size:10.5px}
+.envelope-slide .r-value{font-size:22px}
+.envelope-slide .r-value small{font-size:9.5px}
+.envelope-slide .r-gauge .gauge-tick{font-size:8.5px}
+.envelope-slide .r-minmax{font-size:8.5px}
+.envelope-slide .r-guide{font-size:8.5px}
+.envelope-slide .windows-card .dominant .name{font-size:12px}
+.envelope-slide .windows-card .dominant .pct{font-size:20px}
+
+/* Carbone */
+.carbon-slide .carbon-value .label{font-size:15px}
+.carbon-slide .carbon-value .unit{font-size:16px}
+.carbon-slide .threshold-label{font-size:13.5px}
+.carbon-slide .carbon-explainer{font-size:14.5px;line-height:1.42}
+.carbon-slide .legend-inline{font-size:14px}
+
+/* Cartographie */
+.map-region-summary-row{font-size:13.5px}
+.map-region-summary-row strong{font-size:15px}
+.map-dept-code{font-size:12.5px}
+.map-dept-name{font-size:12.5px;line-height:1.2}
+
+/* Tunnel */
+.phase-arrow small{font-size:15.5px}
+.phase-arrow b{font-size:24px}
+.tunnel-phase-desc{font-size:15.5px;line-height:1.3}
+.status-label{font-size:13.5px;line-height:1.2}
+.sold-note{font-size:11px}
+.period-box span{font-size:12.5px}
+.cancelled-box{font-size:16px}
+
+/* DPE */
+.dpe-slide .dpe-score-label{font-size:13.5px}
+.dpe-slide .dpe-banner-copy span{font-size:14.5px}
+.dpe-slide .dpe-banner-copy strong{font-size:18.5px}
+.dpe-slide .dpe-reading-text{font-size:16px}
+
+/* Repartition des acteurs */
+.stakeholder-donut-hole span{font-size:17px}
+.stakeholder-legend-row b{font-size:21px}
+.stakeholder-legend-row span{font-size:16px}
+.stakeholder-kpi span{font-size:15px}
+.stakeholder-kpi small{font-size:15px}
+
+/* Maitres d'ouvrage */
+.moa-table-head{font-size:13.5px}
+.moa-table-row{font-size:15.5px}
+.moa-table-row>b{font-size:15.5px}
+.moa-table-row>strong{font-size:16.5px}
+.moa-share{font-size:13px}
+.moa-more{font-size:13.5px}
+.moa-kpi span{font-size:15px}
+.moa-kpi b small{font-size:14.5px}
+.moa-kpi>small{font-size:15px}
+
+/* Matrices chauffage / ECS */
+.transition-block-heading span{font-size:17px}
+.transition-before-row span{font-size:16px}
+.transition-before-total>span{font-size:14px}
+.transition-after-columns>div{font-size:15px}
+.transition-matrix-dashboard-v2 .transition-cell-percent{font-size:14px}
+.transition-bottom-total span{font-size:10.5px}
+.transition-color-scale>b{font-size:13px}
+.transition-color-steps span{font-size:11px}
+.transition-color-steps small{font-size:10px}
+.transition-footer-note b{font-size:13px}
+.transition-footer-note p{font-size:12.5px;line-height:1.3}
+
+
+.social-zoning-slide{height:100%;}
+.social-zone-kpis{position:absolute;left:28px;right:28px;top:148px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;z-index:2;}
+.social-zone-card{display:flex;flex-direction:column;gap:4px;align-items:flex-start;justify-content:center;padding:16px 18px;border-radius:18px;border:1px solid #d7e4dd;background:#fff;box-shadow:0 10px 26px rgba(6,64,43,.08);min-height:96px;}
+button.social-zone-card{cursor:pointer;text-align:left;}
+.social-zone-card.is-active{border-color:#0f7b47;box-shadow:0 10px 26px rgba(15,123,71,.18);transform:translateY(-1px);}
+.social-zone-card strong{font-size:34px;line-height:1;color:#06402B;}
+.social-zone-card small{font-size:12px;color:#5f756d;text-transform:uppercase;letter-spacing:.04em;}
+.social-zone-chip{width:38px;height:8px;border-radius:999px;display:inline-block;}
+.social-zone-card-title{font-size:15px;font-weight:800;color:#26463a;}
+.social-zone-main{position:absolute;left:28px;right:28px;top:260px;bottom:24px;display:grid;grid-template-columns:minmax(0,1.58fr) minmax(300px,.72fr);gap:18px;}
+.social-zone-map-wrap,.social-zone-side-card{background:#fff;border:1px solid #d7e4dd;border-radius:24px;box-shadow:0 14px 32px rgba(6,64,43,.08);}
+.social-zone-map-wrap{position:relative;overflow:hidden;padding:12px;}
+.social-zone-map-svg{width:100%;height:100%;display:block;}
+.social-zone-map-status{position:absolute;inset:22px;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(255,255,255,.82);border:1px dashed #bed1c7;border-radius:18px;color:#325347;font-weight:700;padding:20px;}
+.social-zone-map-legend{position:absolute;left:18px;right:18px;bottom:16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.92);border:1px solid #d7e4dd;color:#29473b;font-size:12px;font-weight:700;}
+.social-zone-map-legend span{display:inline-flex;align-items:center;gap:7px;}
+.social-zone-map-legend i{display:inline-block;width:12px;height:12px;border-radius:999px;}
+.social-zone-legend-help{margin-left:auto;color:#62776f;font-weight:600;}
+.social-zone-side{display:flex;flex-direction:column;gap:14px;min-width:0;}
+.social-zone-side-card{padding:16px 18px;}
+.social-zone-side-card h4{margin:0 0 12px;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:#1f4335;}
+.social-zone-meta{display:grid;gap:10px;}
+.social-zone-stat{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:10px 12px;border-radius:14px;background:#f5f8f6;}
+.social-zone-stat b{font-size:24px;color:#06402B;}
+.social-zone-stat span,.social-zone-note{font-size:13px;color:#4c665d;}
+.social-zone-ranking,.social-zone-unmatched{display:flex;flex-direction:column;gap:8px;}
+.social-zone-rank-row,.social-zone-unmatched-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:12px;background:#f7faf8;color:#29473b;font-size:13px;}
+.social-zone-rank-row strong{font-size:18px;color:#06402B;}
+.social-zone-unmatched-row b{min-width:72px;color:#06402B;}
+.social-zone-empty,.social-zone-ok{padding:12px;border-radius:12px;background:#f7faf8;color:#4f6a60;font-size:13px;}
+.social-zone-ok{background:#eef8f1;color:#1d5a34;font-weight:700;}
+.data-map-clickable{cursor:pointer;}
+
+.preview-controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+.preview-controls .zoom-control{min-width:190px;}
+.preview-controls .zoom-control label{white-space:nowrap;}
+
+/* V29.7.13 — aperçu 16:9 toujours entièrement visible */
+.preview-fit-btn{border:1px solid #c8d8d2;background:#fff;color:#06402B;border-radius:9px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;}
+.preview-fit-btn:hover{background:#eff6f2;}
+@media (max-width:850px){.preview-area{height:auto;min-height:620px}.slide-viewport{height:560px;min-height:560px;}}
+
+/* V29.7.13 — layout vertical sans hauteur magique : tient compte des filtres */
+body.auth-granted .app-shell{
+  height:100vh;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+body.auth-granted .app-header,
+body.auth-granted .tabs,
+body.auth-granted .global-filter-strip{flex:0 0 auto;}
+body.auth-granted .workspace{
+  flex:1 1 auto;
+  min-height:0;
+  height:auto;
+}
+body.auth-granted .control-panel{
+  min-height:0;
+  max-height:none;
+  height:100%;
+}
+body.auth-granted .preview-area{
+  height:100%;
+  min-height:0;
+}
+@media (max-width:850px){
+  body.auth-granted .app-shell{height:auto;min-height:100vh;overflow:visible;display:block;}
+  body.auth-granted .workspace{height:auto;min-height:0;}
+  body.auth-granted .control-panel{height:auto;}
+  body.auth-granted .preview-area{height:auto;min-height:620px;}
+}
+
+/* V29.7.13 — Zonage social : la couleur est portée par le fond cartographique */
+.social-zoning-slide .social-zone-kpis{display:none!important;}
+.social-zoning-slide .social-zone-main.social-zone-main-full{
+  top:148px;
+  bottom:24px;
+  grid-template-columns:minmax(0,1.76fr) minmax(315px,.64fr);
+  gap:16px;
+}
+.social-zoning-slide .social-zone-map-wrap{padding:10px;}
+.social-zoning-slide .social-zone-map-legend{
+  left:16px;
+  right:16px;
+  bottom:14px;
+  justify-content:flex-start;
+  background:rgba(255,255,255,.94);
+}
+.social-zoning-slide .social-zone-legend-help{margin-left:0;color:#345448;font-size:12px;}
+.social-zone-map-clickable{cursor:pointer;transition:opacity .15s ease,filter .15s ease;}
+.social-zone-map-clickable:hover{filter:brightness(.96);}
+.social-zone-side{gap:12px;}
+.social-zone-detail-card{flex:1 1 auto;min-height:0;overflow:hidden;}
+.social-zone-detail-card .social-zone-ranking{max-height:330px;overflow:auto;padding-right:3px;}
+.social-zone-summary-card{flex:0 0 auto;}
+.social-zone-unmatched-card{flex:0 0 auto;max-height:170px;overflow:hidden;}
+.social-zone-op-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:center;
+  padding:9px 10px;
+  border-radius:12px;
+  background:#f7faf8;
+  border:1px solid #e2ebe6;
+}
+.social-zone-op-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.social-zone-op-copy b{font-size:13px;color:#173b2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.social-zone-op-copy span{font-size:11px;color:#60776e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.social-zone-op-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:74px;
+  padding:5px 8px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--zone) 68%,#ffffff);
+  background:color-mix(in srgb,var(--zone) 22%,#ffffff);
+  color:#173b2e;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+@supports not (background:color-mix(in srgb,#000 20%,#fff)){
+  .social-zone-op-badge{background:#eef5f1;border-color:#c8d8d2;}
 }
