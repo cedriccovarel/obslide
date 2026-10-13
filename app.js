@@ -6717,24 +6717,44 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     return true;
   }
   function dataAdoptObservatoireData(d){
-    const ops=Array.isArray(d.operations)?d.operations:[];
-    if(ops.length){
-      dataSnapshotManual();
-      dataRuntime.connected=true;dataRuntime.mode='observatoire';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';
-      dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};
-      // Les opérations reçues sont déjà celles du périmètre : il est recalé sur leurs codes (pseudonymes compris).
-      dataLaunchScope={...(dataLaunchScope||{}),summary:d.summary||dataLaunchScope?.summary||'',operationCodes:ops.map(o=>String(o.code||'')).filter(Boolean)};
-      dataLaunchScope._codeSet=new Set(dataLaunchScope.operationCodes.map(v=>dataNorm(v)));
-      dataPopulateFilters();dataSyncViews();
-    }
+    const problems=[];
+    // 1. Exigences : lignes affichées par l'onglet Exigences de l'Observatoire.
     if(d.requirements?.rows?.length&&window.OBSRequirementsSlides){
-      try{dataObservatoireRequirements=window.OBSRequirementsSlides.buildSource([d.requirements.headers,...d.requirements.rows],d.anonymized?'Observatoire Prestaterre (anonymisé)':'Observatoire Prestaterre');dataObservatoireRequirements.importedAt=new Date().toISOString();}
-      catch(err){console.warn('Obslide : exigences de l’Observatoire illisibles',err);dataObservatoireRequirements=null;}
+      try{
+        dataObservatoireRequirements=window.OBSRequirementsSlides.buildSource([d.requirements.headers,...d.requirements.rows],d.anonymized?'Observatoire Prestaterre (anonymisé)':'Observatoire Prestaterre');
+        dataObservatoireRequirements.importedAt=new Date().toISOString();
+        // Lignes déjà filtrées par l'onglet Exigences de l'Observatoire : ni périmètre ni filtre de slide en plus.
+        dataObservatoireRequirements.fromObservatoire=true;dataObservatoireRequirements.observatoireSummary=d.requirements.summary||'';
+        const reqDefaults=()=>JSON.parse(JSON.stringify(window.OBSRequirementsSlides.defaults.filters||{}));
+        if(state.requirements)state.requirements.filters=reqDefaults();
+        Object.entries(state.presentation?.instanceData||{}).forEach(([id,m])=>{if((state.presentation.instances?.[id]||id)==='requirements'&&m)m.filters=reqDefaults();});
+      }catch(err){console.error('Obslide : exigences de l’Observatoire',err);dataObservatoireRequirements=null;problems.push(`exigences illisibles (${err.message||err})`);}
     }
+    // 2. Opérations : lignes source converties par Obslide, comme pour sa propre source.
+    let ops=[];
+    try{ops=Array.isArray(d.operationRows)?dataRowsToOperations(d.operationRows):(Array.isArray(d.operations)?d.operations:[]);}
+    catch(err){console.error('Obslide : opérations de l’Observatoire',err);problems.push(`opérations illisibles (${err.message||err})`);}
+    if(ops.length){
+      try{
+        dataSnapshotManual();
+        dataRuntime.connected=true;dataRuntime.mode='observatoire';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';
+        dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};
+        // Les opérations reçues sont déjà celles du périmètre : il est recalé sur leurs codes (pseudonymes compris).
+        dataLaunchScope={...(dataLaunchScope||{}),summary:d.summary||dataLaunchScope?.summary||'',operationCodes:ops.map(o=>String(o.code||'')).filter(Boolean)};
+        dataLaunchScope._codeSet=new Set(dataLaunchScope.operationCodes.map(v=>dataNorm(v)));
+        // Les filtres propres aux slides (gardés d'une session précédente, avec une autre source) masqueraient
+        // une partie des opérations reçues : ce sont les filtres de l'Observatoire qui font foi.
+        const resetFilters=m=>{if(m&&typeof m==='object')m.dataFilter={};};
+        DATA_CONNECTED_TYPES.forEach(type=>resetFilters(state[type]));
+        Object.entries(state.presentation?.instanceData||{}).forEach(([,m])=>resetFilters(m));
+        dataPopulateFilters();dataSyncViews();
+      }catch(err){console.error('Obslide : application des opérations de l’Observatoire',err);problems.push(`slides non mises à jour (${err.message||err})`);}
+    }else if(Number(d.operationCount)>0)problems.push('aucune opération reçue');
     const n=ops.length,ev=dataObservatoireRequirements?.evals?.length||0;
-    dataFeedback(`Données de l’Observatoire : ${n} opération${n>1?'s':''}${ev?` · ${ev} dossier${ev>1?'s':''} d’exigences`:''}${d.anonymized?' · anonymisées':''}.`);
-    toast(`Données de l’Observatoire reçues : ${n} opération${n>1?'s':''}${ev?`, ${ev} dossiers d’exigences`:''}.`);
-    try{dataUpdateBadge();dataRenderSlideFilterToolbar();renderControls();renderSlide();}catch{}
+    const msg=`Données de l’Observatoire : ${n} opération${n>1?'s':''}${ev?` · ${ev} dossier${ev>1?'s':''} d’exigences`:''}${d.anonymized?' · anonymisées':''}.`;
+    dataFeedback(problems.length?`${msg} Problème : ${problems.join(' ; ')}.`:msg,!!problems.length);
+    toast(problems.length?`Données de l’Observatoire reçues avec un problème : ${problems.join(' ; ')}.`:`Données de l’Observatoire reçues : ${n} opération${n>1?'s':''}${ev?`, ${ev} dossiers d’exigences`:''}.`);
+    try{dataUpdateBadge();dataRenderSlideFilterToolbar();renderControls();renderSlide();}catch(err){console.error(err);}
   }
   // Accès pour les slides Exigences (requirements-slides.js).
   window.OBSLIDE_LAUNCH_SCOPE={

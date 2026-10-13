@@ -35,3 +35,14 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Si l'Observatoire ne répond pas (fenêtre fermée), Obslide l'indique ; ouvert directement, il garde son
   fonctionnement habituel (source mémorisée ou import).
 - Vérifié : 3 opérations et 4 dossiers d'exigences reçus, slide Exigences affichée sans import, aucune erreur.
+
+# V29.9.3 — Pont corrigé
+
+- Slides Exigences : la base reçue est exactement celle affichée par l'onglet Exigences de l'Observatoire
+  (ses propres filtres) ; elle n'est plus refiltrée par la liste des opérations. Vérifié : 45 dossiers et
+  144 exigences retenues des deux côtés. L'encadré et le pied de slide rappellent ces filtres.
+- Autres slides : l'Observatoire transmet les lignes source des opérations affichées ; Obslide les convertit
+  avec `dataRowsToOperations`, comme pour sa propre source. Vérifié : 3 opérations sur les 15 slides connectées.
+- À la réception, les filtres de slide hérités d'une session précédente sont remis à zéro.
+- Réception par étapes isolées (exigences, puis opérations, puis slides) : un problème est affiché au lieu
+  d'interrompre silencieusement toute la réception.
