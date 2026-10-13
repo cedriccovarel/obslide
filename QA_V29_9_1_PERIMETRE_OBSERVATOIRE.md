@@ -46,3 +46,14 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - À la réception, les filtres de slide hérités d'une session précédente sont remis à zéro.
 - Réception par étapes isolées (exigences, puis opérations, puis slides) : un problème est affiché au lieu
   d'interrompre silencieusement toute la réception.
+
+# V29.9.4 — Cibles des exigences
+
+- La base reçue de l'Observatoire contient une colonne « Cible » (1 à 4) calculée par l'Observatoire avec ses
+  règles (catalogue, intitulé de référence, numéro, thème) : la répartition par cible est identique à l'onglet
+  Exigences.
+- Import manuel : cible lue dans une colonne « Cible », sinon le code 1.x.x, sinon le premier chiffre de
+  l'intitulé (« 1 - … », « 2. … ») ou de l'intitulé de référence (« Exigence associée: Exigence de référence:
+  Intitulé »).
+- Vérifié : « Gestion de chantier » (Cible 1) → 1 ; « 2 - Biodiversité » → 2 ; « 3. Énergie » → 3 ;
+  référence « 1.3.2 Chantier… » → 1.

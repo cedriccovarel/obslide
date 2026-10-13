@@ -56,7 +56,10 @@
     mentions: ['Évaluation: Opération: Mentions', 'Mentions', 'Mention'],
     region: ['Évaluation: Opération: Région', 'Région'],
     year: ['Évaluation: Opération: Année', 'Année opération', 'Année'],
-    created: ['Évaluation: Date de création', 'Date de création', 'Évaluation: Opération: Date de création']
+    created: ['Évaluation: Date de création', 'Date de création', 'Évaluation: Opération: Date de création'],
+    // Cible 1 à 4 : transmise par l'Observatoire (calculée avec ses règles) ou colonne « Cible » d'un export.
+    target: ['Cible', 'Cible (calculée)', 'Numéro de cible'],
+    reference: ['Exigence associée: Exigence de référence: Intitulé', 'Exigence de référence', 'Intitulé de référence']
   };
   function findColumns(headers) {
     const n = headers.map(norm), out = {};
@@ -130,9 +133,13 @@
         if (!ev[8]) ev[8] = get(row, 'operation');
       }
       const code = codeOf(get(row, 'code')) || codeOf(reqText);
+      // Cible : colonne Cible, sinon code 1.x.x, sinon premier chiffre de l'intitulé (« 1 - … », « 2. … »).
+      const lead = v => (String(v || '').match(/^\s*([1-4])(?=\s*(?:\.|-|–|—|:|\s|$))/) || [])[1] || '';
+      const target = lead(get(row, 'target')) || (code ? code[0] : '') || lead(reqText) || lead(get(row, 'reference')) || codeOf(get(row, 'reference')).slice(0, 1);
       const rkey = norm(reqText);
       let r = reqIndex.get(rkey);
-      if (r === undefined) { r = reqs.length; reqIndex.set(rkey, r); reqs.push([reqText, code, labelOf(reqText) || reqText, code ? code[0] : '']); }
+      if (r === undefined) { r = reqs.length; reqIndex.set(rkey, r); reqs.push([reqText, code, labelOf(reqText) || reqText, target]); }
+      else if (!reqs[r][3] && target) reqs[r][3] = target;
       const pair = e + ':' + r;
       if (seen.has(pair)) continue;          // une exigence n'est comptée qu'une fois par dossier
       seen.add(pair);
@@ -462,7 +469,7 @@
   }
 
   /* ------------------------------------------------------------------ panneau de gauche */
-  const COLUMN_LABELS = {evaluation: 'Évaluation', operation: 'Opération', requirement: 'Exigence', code: 'Code d’exigence', validated: 'Exigence validée', status: 'Statut', referential: 'Référentiel', version: 'Version', moa: 'Maître d’ouvrage', mentions: 'Mentions', region: 'Région', year: 'Année', created: 'Date de création'};
+  const COLUMN_LABELS = {evaluation: 'Évaluation', operation: 'Opération', requirement: 'Exigence', code: 'Code d’exigence', validated: 'Exigence validée', status: 'Statut', referential: 'Référentiel', version: 'Version', moa: 'Maître d’ouvrage', mentions: 'Mentions', region: 'Région', year: 'Année', created: 'Date de création', target: 'Cible'};
   function controls(m) {
     const src = source(), o = options(src), f = Object.assign({}, defaults.filters, m.filters || {});
     const meta = VIEWS.find(v => v[0] === m.view) || VIEWS[0];
