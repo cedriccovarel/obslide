@@ -1723,3 +1723,7 @@ body.auth-granted .preview-area{
 .slide-filter-launch-scope button{flex:0 0 auto;width:22px;height:22px;border:0;border-radius:999px;background:#fff;color:#06402b;font-size:16px;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(6,64,43,.12)}
 .slide-filter-launch-scope button:hover{background:#06402b;color:#fff}
 @media(max-width:1250px){.slide-filter-launch-scope{max-width:250px}}
+/* V29.9.2 : base Exigences reçue de l'Observatoire */
+.req-from-observatoire{display:flex;flex-direction:column;gap:3px;margin:8px 0 10px;padding:10px 12px;border:1px solid #9fd0b4;border-left:4px solid #16864f;border-radius:10px;background:#eef7f1;color:#173b30;font-size:12px;line-height:1.4}
+.req-from-observatoire b{color:#06402b;font-size:12.5px}
+.carbon-import-dropzone.is-secondary{padding-top:10px;padding-bottom:10px;opacity:.85}

@@ -6697,6 +6697,45 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if(dataRuntime?.connected)dataSyncViews();else dataRenderSlideFilterToolbar();
     try{dataRenderSlideFilterToolbar();renderSlide();}catch{}
   }
+  // V29.9.2 : données de l'Observatoire. Ouvert depuis son bouton « Générateur de rapports », Obslide demande
+  // à la fenêtre de l'Observatoire (même origine uniquement) les opérations filtrées et les lignes RAPPORT
+  // correspondantes. Elles restent en mémoire : rien n'est enregistré dans le navigateur ni ailleurs.
+  let dataObservatoireRequirements=null;
+  function dataObservatoireHandoffToken(){try{return new URLSearchParams(location.search).get('newosbScope')||'';}catch{return '';}}
+  function dataRequestObservatoireData(){
+    const token=dataObservatoireHandoffToken();
+    let opener=null;try{opener=window.opener;}catch{}
+    if(!token||!opener)return false;
+    let done=false,tries=0;
+    window.addEventListener('message',e=>{
+      if(done||e.origin!==location.origin||e.source!==opener)return;
+      const d=e.data;if(d?.type!=='newosb-generator-data'||d.token!==token)return;
+      done=true;dataAdoptObservatoireData(d);
+    });
+    const ask=()=>{if(done)return;tries++;try{opener.postMessage({type:'obslide-ready',token},location.origin);}catch{}if(tries<6)setTimeout(ask,700);else if(!done)dataFeedback('L’Observatoire n’a pas transmis ses données (fenêtre fermée ?). Rouvre Obslide depuis le bouton « Générateur de rapports ».',true);};
+    ask();
+    return true;
+  }
+  function dataAdoptObservatoireData(d){
+    const ops=Array.isArray(d.operations)?d.operations:[];
+    if(ops.length){
+      dataSnapshotManual();
+      dataRuntime.connected=true;dataRuntime.mode='observatoire';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';
+      dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};
+      // Les opérations reçues sont déjà celles du périmètre : il est recalé sur leurs codes (pseudonymes compris).
+      dataLaunchScope={...(dataLaunchScope||{}),summary:d.summary||dataLaunchScope?.summary||'',operationCodes:ops.map(o=>String(o.code||'')).filter(Boolean)};
+      dataLaunchScope._codeSet=new Set(dataLaunchScope.operationCodes.map(v=>dataNorm(v)));
+      dataPopulateFilters();dataSyncViews();
+    }
+    if(d.requirements?.rows?.length&&window.OBSRequirementsSlides){
+      try{dataObservatoireRequirements=window.OBSRequirementsSlides.buildSource([d.requirements.headers,...d.requirements.rows],d.anonymized?'Observatoire Prestaterre (anonymisé)':'Observatoire Prestaterre');dataObservatoireRequirements.importedAt=new Date().toISOString();}
+      catch(err){console.warn('Obslide : exigences de l’Observatoire illisibles',err);dataObservatoireRequirements=null;}
+    }
+    const n=ops.length,ev=dataObservatoireRequirements?.evals?.length||0;
+    dataFeedback(`Données de l’Observatoire : ${n} opération${n>1?'s':''}${ev?` · ${ev} dossier${ev>1?'s':''} d’exigences`:''}${d.anonymized?' · anonymisées':''}.`);
+    toast(`Données de l’Observatoire reçues : ${n} opération${n>1?'s':''}${ev?`, ${ev} dossiers d’exigences`:''}.`);
+    try{dataUpdateBadge();dataRenderSlideFilterToolbar();renderControls();renderSlide();}catch{}
+  }
   // Accès pour les slides Exigences (requirements-slides.js).
   window.OBSLIDE_LAUNCH_SCOPE={
     active:()=>!!(dataLaunchScope&&dataLaunchScope._codeSet&&dataLaunchScope._codeSet.size),
@@ -7000,7 +7039,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
   });
 
-  window.OBSRequirementsSlides.configure({getModel:()=>state.requirements,isActive:()=>tabType(activeTab)==='requirements',logo:GLOBAL_SLIDE_LOGO_DATA_URL,getSource:()=>state.requirementsSource||null,setSource(src){state.requirementsSource=src||null;},refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
+  window.OBSRequirementsSlides.configure({getModel:()=>state.requirements,isActive:()=>tabType(activeTab)==='requirements',logo:GLOBAL_SLIDE_LOGO_DATA_URL,getSource:()=>dataObservatoireRequirements||state.requirementsSource||null,setSource(src){dataObservatoireRequirements=null;state.requirementsSource=src||null;},refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
   window.OBSCarbonDistribution.configure({getModel:()=>state.carbonDistribution,isActive:()=>tabType(activeTab)==='carbonDistribution',logo:GLOBAL_SLIDE_LOGO_DATA_URL,refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
   dataInitUI();
   dataInitSlideFilterToolbar();
@@ -7012,5 +7051,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   renderSlide();
   requestAnimationFrame(fitPreviewSlide);
   // Reconnexion automatique à la dernière source enregistrée à chaque ouverture.
-  if (localStorage.getItem(DATA_SOURCE_STORAGE_KEY)) setTimeout(() => dataConnect({auto:true}), 0);
+  // Ouvert depuis l'Observatoire : ses données sont demandées ; sinon, reconnexion à la source mémorisée.
+  if (!dataRequestObservatoireData() && localStorage.getItem(DATA_SOURCE_STORAGE_KEY)) setTimeout(() => dataConnect({auto:true}), 0);
 })();

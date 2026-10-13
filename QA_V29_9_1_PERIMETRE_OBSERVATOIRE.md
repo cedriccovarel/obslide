@@ -22,3 +22,16 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Source de 10 opérations, périmètre de 3 codes → la barre indique 3 opérations ; après × → 10.
 - Périmètre retiré : l'URL ne contient plus `newosbScope` et le stockage est effacé.
 - Slides Exigences : 3 dossiers sans périmètre, 2 avec un périmètre de 2 opérations.
+
+# V29.9.2 — Données reçues de l'Observatoire
+
+- Ouvert depuis le bouton « Générateur de rapports » de l'Observatoire, Obslide demande à cette fenêtre
+  (`window.opener`, même origine uniquement) les opérations filtrées et les lignes RAPPORT correspondantes.
+  Plus besoin de connecter une source ni d'importer l'export RAPPORT.
+- Les données restent en mémoire (non enregistrées dans le navigateur). En mode anonymisé de l'Observatoire,
+  elles arrivent anonymisées, avec des codes d'opération cohérents entre opérations et exigences.
+- Panneau Exigences : encadré « Données reçues de l'Observatoire Prestaterre » ; un import manuel reste possible
+  et remplace ces données.
+- Si l'Observatoire ne répond pas (fenêtre fermée), Obslide l'indique ; ouvert directement, il garde son
+  fonctionnement habituel (source mémorisée ou import).
+- Vérifié : 3 opérations et 4 dossiers d'exigences reçus, slide Exigences affichée sans import, aucune erreur.

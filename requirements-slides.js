@@ -470,9 +470,11 @@
     const status = src ? `<div class="carbon-import-summary"><b>${plural(src.evals.length, 'dossier', 'dossiers')}</b> · ${plural(src.occ.length / 3, 'exigence retenue', 'exigences retenues')} · ${plural(src.reqs.length, 'exigence distincte', 'exigences distinctes')}</div>
       <div class="carbon-import-chips">${Object.keys(COLUMN_LABELS).map(k => `<span class="carbon-import-chip ${src.columns.includes(k) ? 'is-found' : 'is-missing'}">${esc(COLUMN_LABELS[k])}</span>`).join('')}</div>
       <p class="help">Années : ${esc(src.basis)}.${src.ignored ? ` ${plural(src.ignored, 'ligne ignorée', 'lignes ignorées')} (sans évaluation ou sans exigence).` : ''}</p>` : '<p class="help">Aucune base importée.</p>';
+    const fromObs = !!src && /^Observatoire Prestaterre/.test(src.name || '');
     return `<div class="control-section carbon-import-section"><h3>Base Exigences — export RAPPORT</h3>
-      <p class="help">Même source que l’onglet Exigences de l’Observatoire : une ligne par exigence retenue dans une évaluation. <b>La base est commune à toutes les slides Exigences.</b></p>
-      <div class="carbon-import-dropzone" data-req-dropzone tabindex="0" role="button" aria-label="Déposer l’export RAPPORT ou choisir un fichier">
+      ${fromObs ? `<div class="req-from-observatoire"><b>Données reçues de l’Observatoire Prestaterre</b><span>${plural(src.evals.length, 'dossier', 'dossiers')} des opérations filtrées dans l’Observatoire${/anonymisé/.test(src.name) ? ' · anonymisées' : ''}. Aucun import nécessaire ; elles ne sont pas enregistrées dans ce navigateur.</span></div>` : ''}
+      <p class="help">${fromObs ? 'Pour utiliser un autre export RAPPORT à la place, dépose-le ci-dessous.' : 'Même source que l’onglet Exigences de l’Observatoire : une ligne par exigence retenue dans une évaluation. <b>La base est commune à toutes les slides Exigences.</b> Ouvert depuis le bouton « Générateur de rapports » de l’Observatoire, Obslide reçoit ces données directement.'}</p>
+      <div class="carbon-import-dropzone ${fromObs ? 'is-secondary' : ''}" data-req-dropzone tabindex="0" role="button" aria-label="Déposer l’export RAPPORT ou choisir un fichier">
         <span class="carbon-drop-icon" aria-hidden="true">⇧</span><strong>Déposer l’export RAPPORT ici</strong>
         <small>Excel .xlsx · CSV .csv · Tabulations .tsv · ou coller depuis Excel</small><span class="carbon-drop-button">Choisir un fichier</span>
       </div>
