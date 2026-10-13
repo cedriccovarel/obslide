@@ -1,0 +1,1 @@
+V29.7.20 : vue Contributions des 13 lots dans Distribution carbone. Collage Excel colonnes IC lot 1 a 13, moyennes et panels independants par lot, logements dedupliques par code operation, export SVG/PNG via le module existant. Test node OK.

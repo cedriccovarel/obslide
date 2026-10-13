@@ -7,7 +7,7 @@
   <title>Générateur de slides - Observatoire</title>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="style.css?v=29.7.16" />
+  <link rel="stylesheet" href="style.css?v=29.9.0" />
   <link rel="stylesheet" href="nexity-map.css?v=29.7.18" />
 </head>
 <body class="auth-locked">
@@ -39,7 +39,7 @@
     <div>
       <p class="eyebrow">OBSERVATOIRE DU BÂTIMENT DURABLE</p>
       <h1>Générateur de slides</h1>
-      <p class="app-subtitle">Slides modulables · saisie libre · export PNG 4K 16:9</p>
+      <p class="app-subtitle">Slides modulables · export PNG/SVG · Google Slides éditable</p>
     </div>
     <div class="header-actions">
       <button id="loadSaveBtn" class="btn btn-secondary" type="button">Charger</button>
@@ -52,6 +52,8 @@
       </div>
       <button id="presentationBtn" class="btn btn-secondary" type="button" title="Afficher les slides en plein écran avec les onglets">Présentation</button>
       <button id="exportBtn" class="btn btn-primary" type="button" title="Export PNG 4K">PNG 4K</button>
+      <button id="exportGoogleSlidesBtn" class="btn btn-secondary" type="button" title="Export haute fidélité : textes éditables, graphiques et logos vectoriels, images source conservées">Google Slides</button>
+      <select id="exportGoogleSlidesMode" class="btn btn-secondary google-slides-mode" aria-label="Portée de l’export Google Slides"><option value="all">Toutes les slides</option><option value="active">Slide active</option></select>
       <button id="exportSvgBtn" class="btn btn-secondary" type="button" title="Export SVG">SVG</button>
       <button id="exportWorkbookBtn" class="btn btn-secondary" type="button" title="Ouvrir le dialogue d’impression pour imprimer ou enregistrer tout le classeur en PDF">Export classeur</button>
       <input id="loadSaveInput" type="file" accept="application/json,.json" hidden />
@@ -152,6 +154,12 @@
   <script src="nexity-xlsx.js?v=29.7.16"></script>
   <script src="nexity-map.js?v=29.7.18"></script>
   <script src="nexity-podium.js?v=29.7.18"></script>
-  <script src="app.js?v=29.7.16"></script>
+  <script src="carbon-table-import.js?v=29.7.27"></script>
+  <script src="carbon-distribution.js?v=29.7.27"></script>
+  <script src="requirements-slides.js?v=29.9.0"></script>
+  <script src="assets/pptxgen.bundle.js?v=29.7.29"></script>
+  <script src="obslide-pptx.js?v=1.1.0"></script>
+  <script src="google-slides-export.js?v=29.8.0"></script>
+  <script src="app.js?v=29.9.0"></script>
 </body>
 </html>

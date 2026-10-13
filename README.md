@@ -196,3 +196,24 @@ Les matrices Chauffage et ECS ont également été recadrées en partie haute et
 - Jusqu’à 100 lignes éditables manuellement dans le panneau, l’import peut contenir davantage de lignes ; la slide affiche automatiquement le classement principal.
 - Les titres et sous-titres de toutes les slides qui possèdent un en-tête sont modifiables dans « Nom & textes ».
 - Le nom des onglets reste modifiable indépendamment du titre de la slide.
+
+## V29.7.27 — Import carbone par tableau
+Dans la slide **Distribution carbone**, la zone de contrôle accepte les fichiers `.xlsx`, `.csv`, `.tsv`, le glisser-déposer et le copier-coller direct d'un tableau Excel.
+Un bouton **Modèle des colonnes** génère la liste des en-têtes reconnus (Code interne, Total logements, indicateurs carbone et lots 1 à 13).
+Les en-têtes peuvent apparaître dans n'importe quel ordre ; pour XLSX, l'onglet contenant la table pertinente est identifié automatiquement.
+L'interface confirme les colonnes détectées, les valeurs disponibles par indicateur et les lots présents. Les lignes vides, les données manquantes et les projets multi-bâtiments sont traités sans remplacer les valeurs manquantes par zéro. Voir `QA_V29_7_27_IMPORT_CARBONE.md`.
+
+## V29.7.28 — Export Google Slides (PPTX avec textes éditables)
+
+Dans la barre générale, utiliser **Google Slides** ; choisir **Toutes les slides** ou **Slide active**. Un fichier `Obslide_Google_Slides_YYYY-MM-DD.pptx` est téléchargé.
+
+Pour l'ouvrir dans Google Slides :
+1. Ouvrir **Google Drive**, puis **Nouveau → Importer un fichier** ; choisir le fichier `.pptx` téléchargé.
+2. Ouvrir le fichier dans **Google Slides** ; au besoin utiliser **Fichier → Enregistrer au format Google Slides**.
+3. Les titres, chiffres et légendes sont des zones de texte éditables. Les graphiques sont exportés en SVG vectoriel séparé de leurs textes, les logos Prestaterre / Action Logement sont des SVG retracés.
+
+**Attention :** la conversion par Google Slides peut rasteriser certains SVG (ce que l'application ne contrôle pas). Les SVG de logos retracés sont également conservés dans `assets/`. Les photographies et fonds photographiques restent des images. Aucune autorisation Google/OAuth n'est demandée pour exporter le fichier PPTX. Voir `QA_V29_7_28_GOOGLE_SLIDES.md`.
+
+## Mise à jour V29.7.29 — Qualité vectorielle et images
+
+La commande **Google Slides** génère désormais un PPTX haute fidélité : zones de texte modifiables, formes simples PowerPoint éditables, graphiques complexes en SVG de pleine précision et logos connus retracés plus finement. Un logo personnalisé n'est plus remplacé par une mosaïque vectorielle : le SVG d'origine est conservé, sinon l'image source reste intacte. Les dégradés SVG et une partie des dégradés CSS sont préservés. Les images raster sont conservées à leur résolution originale (aucune fausse promesse de détails inexistants). Voir `QA_V29_7_29_QUALITE_VECTORIELLE.md` pour les tests et limites.

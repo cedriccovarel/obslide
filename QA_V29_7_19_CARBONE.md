@@ -1,0 +1,1 @@
+Nouvelle slide Distribution carbone : collage TSV Excel, indicateurs indépendants, jauges responsives 1 à 4, panels par bâtiment/projet/logements, déciles interpolés, export SVG/PNG. IC carbone = composants + chantier uniquement si les deux valeurs existent. EGES = Eges total. Données manquantes exclues.

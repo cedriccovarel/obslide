@@ -479,6 +479,8 @@ const MAP_GEOJSON_URLS = [
     {type:'map', label:'Cartographie départements'},
     {type:'nexityMap', label:'Nexity - Directions régionales'},
     {type:'nexityPodium', label:'Nexity - Podium DG BBCA'},
+    {type:'carbonDistribution', label:'Distribution carbone · jauges'},
+    {type:'requirements', label:'Exigences'},
     {type:'socialZoning', label:'Zonage logement social 1 / 2 / 3'},
     {type:'stakeholderSplit', label:'Répartition bailleurs / promoteurs'},
     {type:'moaList', label:'Maîtres d’ouvrage'},
@@ -497,6 +499,8 @@ const MAP_GEOJSON_URLS = [
 
   defaults.nexityMap = clone(window.OBSNexityMap.defaults);
   defaults.nexityPodium = clone(window.OBSNexityPodium.defaults);
+  defaults.carbonDistribution = clone(window.OBSCarbonDistribution.defaults);
+  defaults.requirements = clone(window.OBSRequirementsSlides.defaults);
   defaults.presentation.order.splice(defaults.presentation.order.indexOf('map') + 1, 0, 'nexityMap', 'nexityPodium');
 
   let state = loadState();
@@ -573,6 +577,10 @@ const MAP_GEOJSON_URLS = [
       state.presentation.nexityPodiumAdded = true;
     }
     if (typeOf(order[insertAt]) === 'nexityPodium') insertAt += 1;
+    // V29.9 : migration des anciennes présentations exécutée une seule fois. Auparavant elle tournait à
+    // chaque ouverture et réinsérait les slides supprimées ou absentes d'une sauvegarde chargée.
+    if (state.presentation.listSlidesAdded) return;
+    state.presentation.listSlidesAdded = true;
     if (!order.some(id => typeOf(id) === 'socialZoning')) { order.splice(insertAt, 0, 'socialZoning'); insertAt += 1; }
     if (!order.some(id => typeOf(id) === 'stakeholderSplit')) { order.splice(insertAt, 0, 'stakeholderSplit'); insertAt += 1; }
     if (!order.some(id => typeOf(id) === 'moaList')) { order.splice(insertAt, 0, 'moaList'); insertAt += 1; }
@@ -609,6 +617,8 @@ const MAP_GEOJSON_URLS = [
   const exportFallbackBtn = document.getElementById('exportFallbackBtn');
   const printPdfBtn = document.getElementById('printPdfBtn');
   const exportSvgBtn = document.getElementById('exportSvgBtn');
+  const exportGoogleSlidesBtn = document.getElementById('exportGoogleSlidesBtn');
+  const exportGoogleSlidesMode = document.getElementById('exportGoogleSlidesMode');
   const openCaptureBtn = document.getElementById('openCaptureBtn');
   const presentationBtn = document.getElementById('presentationBtn');
   const exportWorkbookBtn = document.getElementById('exportWorkbookBtn');
@@ -694,6 +704,8 @@ const MAP_GEOJSON_URLS = [
   function applyTextScaleToSlide() {
     if (tabType(activeTab) === 'nexityMap') { slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap); return; }
     if (tabType(activeTab) === 'nexityPodium') { slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium); return; }
+    if (tabType(activeTab) === 'carbonDistribution') { slide.innerHTML = window.OBSCarbonDistribution.svg(state.carbonDistribution); return; }
+    if (tabType(activeTab) === 'requirements') { slide.innerHTML = window.OBSRequirementsSlides.svg(state.requirements); return; }
     if (!slide) return;
     const scale = currentTextScale();
     slide.dataset.textScale = String(scale);
@@ -859,7 +871,8 @@ const MAP_GEOJSON_URLS = [
   function saveState() {
     saveTabData(activeTab);
     ensureInstanceData();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    catch (err) { console.warn('Stockage navigateur plein', err); toast('Stockage du navigateur plein : utilise « Sauvegarder » pour conserver le projet (fichier JSON).'); }
     const status = document.getElementById('saveStatus');
     if (status) {
       status.textContent = 'Enregistré';
@@ -945,7 +958,15 @@ const MAP_GEOJSON_URLS = [
         throw new Error('Format de sauvegarde invalide');
       }
 
+      // Restaurer exactement les slides et les données sauvegardées ; les valeurs par défaut ne doivent pas réinjecter des slides.
       state = deepMerge(clone(defaults), importedState);
+      if (importedState.presentation && Array.isArray(importedState.presentation.order)) {
+        state.presentation.order = clone(importedState.presentation.order);
+        state.presentation.instances = clone(importedState.presentation.instances || {});
+        state.presentation.instanceData = clone(importedState.presentation.instanceData || {});
+        state.presentation.blanks = clone(importedState.presentation.blanks || {});
+        state.presentation.tabNames = clone(importedState.presentation.tabNames || {});
+      }
       if (!state.presentation || typeof state.presentation !== 'object') state.presentation = clone(defaults.presentation);
       if (!Array.isArray(state.presentation.order) || !state.presentation.order.length) state.presentation.order = clone(defaults.presentation.order);
       if (!state.presentation.blanks || typeof state.presentation.blanks !== 'object') state.presentation.blanks = {};
@@ -955,7 +976,9 @@ const MAP_GEOJSON_URLS = [
   if (!Number.isFinite(Number(state.presentation.globalTextScale))) state.presentation.globalTextScale = 1;
   state.presentation.globalTextScale = Math.max(.7, Math.min(1.6, Number(state.presentation.globalTextScale) || 1));
   if (!state.presentation.textScaleByTab || typeof state.presentation.textScaleByTab !== 'object') state.presentation.textScaleByTab = {};
-      ensureNewDefaultSlides();
+      // Ne pas appeler ensureNewDefaultSlides ici : cela réinsérait des slides absentes de la sauvegarde.
+      // La sauvegarde chargée fixe la liste des slides : la migration ne doit pas non plus agir au prochain démarrage.
+      state.presentation.nexityMapAdded = true; state.presentation.nexityPodiumAdded = true; state.presentation.listSlidesAdded = true;
       ensureInstanceData();
       const requestedTab = parsed && typeof parsed.activeTab === 'string' ? parsed.activeTab : activeTab;
       activeTab = state.presentation.order.includes(requestedTab) ? requestedTab : state.presentation.order[0];
@@ -965,7 +988,7 @@ const MAP_GEOJSON_URLS = [
       renderTabsNav();
       renderControls();
       renderSlide();
-      document.getElementById('slideViewport').scrollTo({ top: 0, left: 0 });
+      // Conserver la position de défilement lors du chargement.
       toast('Sauvegarde chargée.');
     } catch (error) {
       console.error(error);
@@ -2019,6 +2042,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataRenderSlideFilterBar(){
     if(tabType(activeTab)==='nexityMap') return window.OBSNexityMap.toolbar(state.nexityMap);
     if(tabType(activeTab)==='nexityPodium') return window.OBSNexityPodium.toolbar(state.nexityPodium);
+    if(tabType(activeTab)==='carbonDistribution') return window.OBSCarbonDistribution.toolbar(state.carbonDistribution);
+    if(tabType(activeTab)==='requirements') return window.OBSRequirementsSlides.toolbar(state.requirements);
     if(isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';
     const model=state[tabType(activeTab)];if(!model)return'';
     const sourceConfigured=!!localStorage.getItem(DATA_SOURCE_STORAGE_KEY);
@@ -2385,6 +2410,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
     if (tabType(activeTab) === 'nexityMap') controls.innerHTML = window.OBSNexityMap.controls(state.nexityMap);
     if (tabType(activeTab) === 'nexityPodium') controls.innerHTML = window.OBSNexityPodium.controls(state.nexityPodium);
+    if (tabType(activeTab) === 'carbonDistribution') controls.innerHTML = window.OBSCarbonDistribution.controls(state.carbonDistribution);
+    if (tabType(activeTab) === 'requirements') controls.innerHTML = window.OBSRequirementsSlides.controls(state.requirements);
     const commonControls = renderCommonTabControls();
     if (commonControls) controls.insertAdjacentHTML('afterbegin', commonControls);
   }
@@ -2407,6 +2434,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'map') slide.innerHTML = renderMapSlide();
     if (tabType(activeTab) === 'nexityMap') slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap);
     if (tabType(activeTab) === 'nexityPodium') slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium);
+    if (tabType(activeTab) === 'carbonDistribution') slide.innerHTML = window.OBSCarbonDistribution.svg(state.carbonDistribution);
+    if (tabType(activeTab) === 'requirements') slide.innerHTML = window.OBSRequirementsSlides.svg(state.requirements);
     if (tabType(activeTab) === 'socialZoning') slide.innerHTML = renderSocialZoningSlide();
     if (tabType(activeTab) === 'stakeholderSplit') slide.innerHTML = renderStakeholderSplitSlide();
     if (tabType(activeTab) === 'moaList') slide.innerHTML = renderMoaListSlide();
@@ -2417,7 +2446,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
     dataRenderSlideFilterToolbar();
-    if (!['nexityMap','nexityPodium'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
+    if (!['nexityMap','nexityPodium','carbonDistribution','requirements'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
     const slideClasses = {
       cover: 'cover-slide',
       labels: 'labels-slide',
@@ -2428,6 +2457,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       map: 'map-slide',
       nexityMap: 'nexity-map-slide',
       nexityPodium: 'nexity-map-slide nexity-podium-slide',
+      carbonDistribution: 'nexity-map-slide',
+      requirements: 'nexity-map-slide',
       socialZoning: 'social-zoning-slide',
       stakeholderSplit: 'stakeholder-split-slide',
       moaList: 'moa-list-slide',
@@ -2441,7 +2472,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const currentType = tabType(activeTab);
     slide.className = `slide ${isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
     updateTextScaleToolbar();
-    if (!['map','socialZoning','nexityMap','nexityPodium'].includes(currentType)) applyTextScaleToSlide();
+    if (!['map','socialZoning','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(currentType)) applyTextScaleToSlide();
     if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
     if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
     if (typeof schedulePreviewFit === 'function') schedulePreviewFit();
@@ -3239,7 +3270,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       <div class="tunnel-phase-desc">${phases.map(p=>`<div>${esc(p.desc)}</div>`).join('')}</div>
       <div class="tunnel-dotted"></div>
       <div class="tunnel-bubbles">${state.tunnel.statuses.map((item,i)=>`<div class="tunnel-status ${colors[i]||'green1'} ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}" title="Afficher les opérations correspondantes"`:''}><div class="status-bubble ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}"`:''}>${frSmart(item.value)}${item.key==='compliant'?'<sup>*</sup>':''}</div><div class="status-label ${dataRuntime.connected?'data-clickable data-status-label-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}"`:''}>${esc(item.label)}</div><div class="status-pct ${dataRuntime.connected?'data-clickable':''}" ${dataRuntime.connected?`data-data-status-key="${esc(item.key)}"`:''}>${fr(tunnelPercent(item.value),1)} %</div>${item.key==='compliant'?`<div class="sold-note">* dont ${frSmart(state.tunnel.sold)} soldés</div>`:''}</div>`).join('')}</div>
-      <div class="tunnel-footer"><div class="period-box"><b>${esc(state.tunnel.period)}</b><span>PÉRIODE D’ÉTUDE</span></div><div class="cancelled-box">Sur la période <b>${frSmart(state.tunnel.cancelled)}</b> dossiers ont été annulés ou abandonnés</div></div>`;
+      <div class="tunnel-footer"><div class="period-box"><b>${esc(state.tunnel.period)}</b><span>PÉRIODE D’ÉTUDE</span></div><div class="cancelled-box"><span>Sur la période <b>${frSmart(state.tunnel.cancelled)}</b> dossiers ont été annulés ou abandonnés</span></div></div>`;
   }
 
   function renderMapSlide() {
@@ -4952,6 +4983,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     map: 'cartographie-departements',
     nexityMap: 'nexity-directions-regionales',
     nexityPodium: 'nexity-podium-dg-bbca',
+    carbonDistribution: 'distribution-carbone',
+    requirements: 'exigences',
     socialZoning: 'zonage-logement-social-1-2-3',
     stakeholderSplit: 'repartition-bailleurs-promoteurs',
     moaList: 'maitres-ouvrage',
@@ -5864,6 +5897,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     // foreignObject/html2canvas susceptible de contaminer le canvas.
     if (type === 'nexityMap') return window.OBSNexityMap.png();
     if (type === 'nexityPodium') return window.OBSNexityPodium.png();
+    if (type === 'carbonDistribution') return window.OBSCarbonDistribution.png();
+    if (type === 'requirements') return window.OBSRequirementsSlides.png();
     if (type === 'map') return mapSlidePngBlob();
     if (type === 'socialZoning') return html2CanvasSlidePngBlob();
     if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList','performanceList','mentionList'].includes(type)) {
@@ -6045,6 +6080,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   async function buildSelfContainedSlideSvgMarkup() {
     if (tabType(activeTab) === 'nexityMap') return window.OBSNexityMap.svg(state.nexityMap);
     if (tabType(activeTab) === 'nexityPodium') return window.OBSNexityPodium.svg(state.nexityPodium);
+    if (tabType(activeTab) === 'carbonDistribution') return window.OBSCarbonDistribution.svg(state.carbonDistribution);
+    if (tabType(activeTab) === 'requirements') return window.OBSRequirementsSlides.svg(state.requirements);
     await waitForSlideAssets();
     const clone = slide.cloneNode(true);
     clone.style.transform = 'none';
@@ -6262,6 +6299,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   async function workbookSlideJpegDescriptor() {
     if (tabType(activeTab) === 'nexityMap') return pngBlobToJpegDescriptor(await window.OBSNexityMap.png());
     if (tabType(activeTab) === 'nexityPodium') return pngBlobToJpegDescriptor(await window.OBSNexityPodium.png());
+    if (tabType(activeTab) === 'carbonDistribution') return pngBlobToJpegDescriptor(await window.OBSCarbonDistribution.png());
+    if (tabType(activeTab) === 'requirements') return pngBlobToJpegDescriptor(await window.OBSRequirementsSlides.png());
     if (tabType(activeTab) === 'map') {
       const png = await mapSlidePngBlob();
       return pngBlobToJpegDescriptor(png);
@@ -6531,6 +6570,48 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     });
   }
 
+  if (exportGoogleSlidesBtn) {
+    exportGoogleSlidesBtn.addEventListener('click', async () => {
+      const previousTab=activeTab;
+      const previousScroll={x:window.scrollX,y:window.scrollY,previewTop:slideViewport?.scrollTop||0,previewLeft:slideViewport?.scrollLeft||0,control:document.querySelector('.control-panel')?.scrollTop||0};
+      const previousLabel=exportGoogleSlidesBtn.textContent;
+      const selected=exportGoogleSlidesMode?.value==='active'?[activeTab]:[...(state.presentation.order||[])];
+      try{
+        if(!window.OBSGoogleSlidesExporter)throw new Error('Module Google Slides absent. Recharge la page.');
+        saveTabData(activeTab);
+        exportGoogleSlidesBtn.disabled=true;
+        exportGoogleSlidesBtn.textContent='Préparation…';
+        const fileName='Obslide_Google_Slides_'+new Date().toISOString().slice(0,10)+'.pptx';
+        await window.OBSGoogleSlidesExporter.exportPptx(selected,{
+          filename:fileName,
+          title:'Observatoire du bâtiment durable — Prestaterre',
+          root:slide,
+          logoData:GLOBAL_SLIDE_LOGO_DATA_URL,
+          renderPage:async tabId=>{
+            activeTab=tabId;
+            loadTabData(activeTab);
+            renderSlide();
+            if(tabType(activeTab)==='map' && !mapGeoJSON)try{await ensureMapGeoJSON()}catch(e){console.warn(e)}
+            await waitForSlideAssets();
+            await waitForPaintFrames(2);
+          },
+          onProgress:(done,total)=>{exportGoogleSlidesBtn.textContent=`Google Slides ${done}/${total}`;}
+        });
+        toast(`Export Google Slides prêt : ${selected.length} slide(s), textes modifiables et éléments SVG vectoriels. Importe le PPTX depuis Google Slides.`);
+      }catch(err){
+        console.error('Export Google Slides:',err);
+        toast(`Échec export Google Slides : ${err.message||'Erreur inconnue'}`);
+      }finally{
+        activeTab=previousTab;
+        loadTabData(activeTab);
+        renderSlide();renderControls();renderTabsNav();
+        requestAnimationFrame(()=>{window.scrollTo(previousScroll.x,previousScroll.y);if(slideViewport){slideViewport.scrollTop=previousScroll.previewTop;slideViewport.scrollLeft=previousScroll.previewLeft;}const p=document.querySelector('.control-panel');if(p)p.scrollTop=previousScroll.control;});
+        exportGoogleSlidesBtn.disabled=false;
+        exportGoogleSlidesBtn.textContent=previousLabel;
+      }
+    });
+  }
+
   if (exportSvgBtn) {
     exportSvgBtn.addEventListener('click', async () => {
       try {
@@ -6777,7 +6858,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function dataFeedback(msg,error=false){const el=document.getElementById('dataFeedback');if(el){el.textContent=msg;el.classList.toggle('is-error',error);}}
-  async function dataConnect(){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';dataFeedback('Chargement de la source…');try{let ops=[];dataRuntime.zone123Status=null;if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');dataRuntime.zone123Status=json?.zone123Status||null;const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.sourceUrl=url;dataRuntime.sourceTab=tab;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataFeedback(`Erreur : ${err.message||err}`,true);}}
+  async function dataConnect(options={}){const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';const silentAuto=!!options.auto;dataFeedback('Chargement de la source…');try{let ops=[];dataRuntime.zone123Status=null;if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok){const e=new Error(`HTTP ${res.status}`);e.httpStatus=res.status;e.sourceMode=mode;throw e;}const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');dataRuntime.zone123Status=json?.zone123Status||null;const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok){const e=new Error(`HTTP ${res.status}`);e.httpStatus=res.status;e.sourceMode=mode;throw e;}ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.sourceUrl=url;dataRuntime.sourceTab=tab;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);dataRuntime.connected=false;dataRuntime.operations=[];dataRuntime.filtered=[];dataUpdateBadge();dataUpdateFilterUI();if(Number(err&&err.httpStatus)===404){const kind=mode==='appsScript'?'déploiement Apps Script':'Google Sheet public';dataFeedback(`Source introuvable (HTTP 404) : le ${kind} mémorisé n’est plus accessible. Recolle l’URL active${mode==='appsScript'?' se terminant par /exec':''}, puis clique sur « Connecter / actualiser ». La cartographie et les imports locaux restent disponibles.`,true);if(!silentAuto)toast('Source de données introuvable : vérifie l’URL enregistrée.');return;}dataFeedback(`Erreur : ${err.message||err}`,true);}}
   function dataDisconnect(){if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';dataRuntime.zone123Status=null;dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
   function dataDepartmentName(code){return DEPARTMENTS.find(d=>d.code===code)?.name||code;}
   function dataOpenExplorer(title,ops,sub=''){dataRuntime.selection=[...ops];dataRuntime.selectionTitle=title;dataRuntime.selectionSub=sub;document.getElementById('dataExplorerTitle').textContent=title;document.getElementById('dataExplorerSub').textContent=sub||`${ops.length} opération${ops.length>1?'s':''}`;document.getElementById('dataExplorerSearch').value='';dataRenderExplorer();dataExplorer.classList.add('is-open');dataExplorer.setAttribute('aria-hidden','false');}
@@ -6876,6 +6957,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
   });
 
+  window.OBSRequirementsSlides.configure({getModel:()=>state.requirements,isActive:()=>tabType(activeTab)==='requirements',logo:GLOBAL_SLIDE_LOGO_DATA_URL,getSource:()=>state.requirementsSource||null,setSource(src){state.requirementsSource=src||null;},refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
+  window.OBSCarbonDistribution.configure({getModel:()=>state.carbonDistribution,isActive:()=>tabType(activeTab)==='carbonDistribution',logo:GLOBAL_SLIDE_LOGO_DATA_URL,refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
   dataInitUI();
   dataInitSlideFilterToolbar();
 
@@ -6886,5 +6969,5 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   renderSlide();
   requestAnimationFrame(fitPreviewSlide);
   // Reconnexion automatique à la dernière source enregistrée à chaque ouverture.
-  if (localStorage.getItem(DATA_SOURCE_STORAGE_KEY)) setTimeout(() => dataConnect(), 0);
+  if (localStorage.getItem(DATA_SOURCE_STORAGE_KEY)) setTimeout(() => dataConnect({auto:true}), 0);
 })();
