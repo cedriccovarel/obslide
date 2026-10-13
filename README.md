@@ -1,3 +1,7 @@
+# V29.9.1 — Périmètre transmis par l’Observatoire
+
+Les filtres appliqués dans l’Observatoire Prestaterre sont repris à l’ouverture depuis son bouton « Générateur de rapports » (voir **QA_V29_9_1_PERIMETRE_OBSERVATOIRE.md**).
+
 # V29.7.14 - Nouvelle cartographie Nexity
 
 Voir **LIRE_MOI_NEXITY_V29_7_14.md** pour la mise en route et **QA_V29_7_14_NEXITY.md** pour les tests.

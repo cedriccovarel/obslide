@@ -1716,3 +1716,10 @@ body.auth-granted .preview-area{
 .req-slide-checks label{display:flex;gap:6px;align-items:flex-start;line-height:1.25;font-weight:500}
 .req-slide-toggle{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;font-weight:600}
 .field .req-slide-checks input{width:auto;min-height:0;padding:0;margin:2px 0 0;box-shadow:none}
+.slide-filter-launch-scope{display:flex;align-items:center;gap:9px;max-width:360px;min-width:180px;padding:6px 8px;border-radius:10px;background:#e7f3ed;border:1px solid #c7ded2;color:#315a4b}
+.slide-filter-launch-scope>div{display:flex;flex-direction:column;min-width:0;gap:1px}
+.slide-filter-launch-scope b{font-size:9px;line-height:1.1;letter-spacing:.06em;text-transform:uppercase;color:#06402b;white-space:nowrap}
+.slide-filter-launch-scope span{font-size:9px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slide-filter-launch-scope button{flex:0 0 auto;width:22px;height:22px;border:0;border-radius:999px;background:#fff;color:#06402b;font-size:16px;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(6,64,43,.12)}
+.slide-filter-launch-scope button:hover{background:#06402b;color:#fff}
+@media(max-width:1250px){.slide-filter-launch-scope{max-width:250px}}

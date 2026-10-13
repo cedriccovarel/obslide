@@ -119,7 +119,7 @@
       const year = yearFrom(get(row, 'year')) || yearFrom(get(row, 'created')) || yearFrom(get(row, 'version'));
       if (e === undefined) {
         e = evals.length; evalIndex.set(key, e);
-        evals.push([key, ref, year, natureOf(ref), get(row, 'moa'), get(row, 'status'), splitMulti(get(row, 'mentions')).join('|'), get(row, 'region')]);
+        evals.push([key, ref, year, natureOf(ref), get(row, 'moa'), get(row, 'status'), splitMulti(get(row, 'mentions')).join('|'), get(row, 'region'), get(row, 'operation')]);
       } else {
         const ev = evals[e];   // métadonnées : première valeur non vide
         if (!ev[1] && ref) { ev[1] = ref; ev[3] = natureOf(ref); }
@@ -127,6 +127,7 @@
         if (!ev[4]) ev[4] = get(row, 'moa');
         if (!ev[5]) ev[5] = get(row, 'status');
         if (!ev[6]) ev[6] = splitMulti(get(row, 'mentions')).join('|');
+        if (!ev[8]) ev[8] = get(row, 'operation');
       }
       const code = codeOf(get(row, 'code')) || codeOf(reqText);
       const rkey = norm(reqText);
@@ -183,7 +184,10 @@
     const f = Object.assign({}, defaults.filters, m.filters || {});
     const refs = new Set(f.referentials || []), statuses = new Set(f.statuses || []);
     const yFrom = Number(f.yearFrom) || 0, yTo = Number(f.yearTo) || 0;
+    // Périmètre transmis par l'Observatoire : dossiers des opérations filtrées (code d'opération de RAPPORT).
+    const scope = window.OBSLIDE_LAUNCH_SCOPE, scoped = !!scope?.active?.() && src.evals.some(e => e[8]);
     const keep = src.evals.map(e => {
+      if (scoped && !scope.has(e[8])) return false;
       if (f.nature !== 'all' && e[3] !== f.nature) return false;
       if (refs.size && !refs.has(e[1])) return false;
       if (yFrom && (!e[2] || e[2] < yFrom)) return false;
@@ -210,10 +214,11 @@
     const natureCount = {N: 0, R: 0, A: 0}; evalIdx.forEach(i => natureCount[src.evals[i][3]]++);
     const targetOcc = {'1': 0, '2': 0, '3': 0, '4': 0, '': 0}; occ.forEach(([, r]) => { targetOcc[src.reqs[r][3] || '']++; });
     const years = [...new Set(evalIdx.map(i => src.evals[i][2]).filter(Boolean))].sort((a, b) => a - b);
-    return {src, filters: f, dossiers: evalIdx.length, evalIdx, occ, ranked, natureCount, targetOcc, years, distinct: reqCount.size};
+    return {src, filters: f, dossiers: evalIdx.length, evalIdx, occ, ranked, natureCount, targetOcc, years, distinct: reqCount.size, scoped, scopeIgnored: !!scope?.active?.() && !scoped};
   }
   function scopeText(m, c) {
     const f = c.filters, parts = [plural(c.dossiers, 'dossier', 'dossiers')];
+    if (c.scoped) parts.push(`périmètre Observatoire : ${window.OBSLIDE_LAUNCH_SCOPE.summary()}`);
     if (f.nature !== 'all') parts.push(NATURE_LABEL[f.nature]);
     if (f.referentials?.length) parts.push(f.referentials.join(', '));
     if (f.yearFrom || f.yearTo) parts.push(`${f.yearFrom || '…'}–${f.yearTo || '…'}`);
@@ -498,7 +503,9 @@
     </div>`;
   }
   function toolbar(m) {
-    return `<div class="nx-filterbar"><label class="nx-filter">Vue <select data-req-field="view">${VIEWS.map(v => `<option value="${v[0]}" ${m.view === v[0] ? 'selected' : ''}>${esc(v[1])}</option>`).join('')}</select></label>
+    const scope = window.OBSLIDE_LAUNCH_SCOPE, src = source();
+    const chip = scope?.active?.() ? `<div class="slide-filter-launch-scope"><div><b>Périmètre Observatoire</b><span>${esc(src && !src.evals.some(e => e[8]) ? 'non appliqué : réimporte l’export RAPPORT (colonne « Évaluation: Opération: Code interne »)' : `${scope.summary()} · ${scope.count()} opérations`)}</span></div><button type="button" data-clear-newosb-scope="1" title="Retirer le périmètre transmis par l’Observatoire" aria-label="Retirer le périmètre transmis par l’Observatoire">×</button></div>` : '';
+    return `<div class="nx-filterbar">${chip}<label class="nx-filter">Vue <select data-req-field="view">${VIEWS.map(v => `<option value="${v[0]}" ${m.view === v[0] ? 'selected' : ''}>${esc(v[1])}</option>`).join('')}</select></label>
       <label class="nx-filter">Exigences <select data-req-field="topN">${[5, 8, 10, 12, 15].map(n => `<option value="${n}" ${Number(m.topN) === n ? 'selected' : ''}>Top ${n}</option>`).join('')}</select></label></div>`;
   }
 

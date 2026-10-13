@@ -2007,7 +2007,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataSelectionIncludes(selection,value){return selection===null||selection===undefined||selection.some(v=>dataNorm(v)===dataNorm(value));}
   function dataFilterOps(ops,f={}){
     const ff=f||{};
-    return ops.filter(o=>{
+    return dataApplyLaunchScope(ops).filter(o=>{
       if(Array.isArray(ff.years) && !ff.years.some(v=>String(v)===String(o.year||'')))return false;
       if(Array.isArray(ff.referentials) && !ff.referentials.some(v=>dataNorm(v)===dataNorm(o.referential)))return false;
       if(Array.isArray(ff.moas) && !ff.moas.some(v=>dataNorm(v)===dataNorm(o.moa)))return false;
@@ -2039,6 +2039,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       <div class="slide-filter-options">${rows||'<div class="slide-filter-empty">Aucun résultat</div>'}</div>
     </div>`;
   }
+  function dataLaunchScopeHtml(){
+    return dataLaunchScope?`<div class="slide-filter-launch-scope"><div><b>Périmètre Observatoire</b><span title="${esc(dataLaunchScope.summary||'')}">${esc(dataLaunchScope.summary||`${dataLaunchScope.operationCodes?.length||0} opérations transmises`)} · ${frSmart(dataLaunchScope.operationCodes?.length||0)} opérations</span></div><button type="button" data-clear-newosb-scope="1" title="Retirer le périmètre transmis par l’Observatoire" aria-label="Retirer le périmètre transmis par l’Observatoire">×</button></div>`:'';
+  }
   function dataRenderSlideFilterBar(){
     if(tabType(activeTab)==='nexityMap') return window.OBSNexityMap.toolbar(state.nexityMap);
     if(tabType(activeTab)==='nexityPodium') return window.OBSNexityPodium.toolbar(state.nexityPodium);
@@ -2047,8 +2050,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if(isBlankTab(activeTab)||!DATA_CONNECTED_TYPES.includes(tabType(activeTab)))return'';
     const model=state[tabType(activeTab)];if(!model)return'';
     const sourceConfigured=!!localStorage.getItem(DATA_SOURCE_STORAGE_KEY);
+    const launchScopeHtml=dataLaunchScopeHtml();
     if(!dataRuntime.connected){
       return `<div class="slide-filter-bar slide-filter-bar-waiting" data-slide-filter-bar="1">
+        ${launchScopeHtml}
         <div class="slide-filter-count"><strong>—</strong><span>opérations</span></div>
         <div class="slide-filter-waiting"><b>FILTRES GOOGLE SHEET</b><span>${sourceConfigured?'Connexion aux données en cours…':'Connecte une source Google Sheet pour activer les filtres.'}</span></div>
       </div>`;
@@ -2064,6 +2069,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       </div>`;
     }).join('');
     return `<div class="slide-filter-bar" data-slide-filter-bar="1">
+      ${launchScopeHtml}
       <div class="slide-filter-count"><strong>${frSmart(count)}</strong><span>opération${count>1?'s':''}</span></div>
       <div class="slide-filter-chips">${chips}</div>
       <button type="button" class="slide-filter-reset" data-slide-filter-reset-bar="1" title="Réinitialiser tous les filtres de cette slide">↺ Réinitialiser</button>
@@ -2082,6 +2088,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     slideFilterToolbar.dataset.bound='1';
 
     slideFilterToolbar.addEventListener('click',e=>{
+      const clearScope=e.target.closest('[data-clear-newosb-scope]');
+      if(clearScope){e.preventDefault();e.stopPropagation();dataClearLaunchScope();return;}
       const toggle=e.target.closest('[data-slide-filter-toggle]');
       if(toggle){
         e.preventDefault();e.stopPropagation();
@@ -6662,6 +6670,41 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
      ============================================================ */
   const DATA_SOURCE_STORAGE_KEY = 'prestaterre-v29-connected-source';
   const DATA_FILTERS_STORAGE_KEY = 'prestaterre-v29-connected-filters';
+  // V29.9.1 : périmètre transmis par l'Observatoire Prestaterre (bouton « Générateur de rapports »).
+  // L'Observatoire enregistre la liste des codes d'opérations filtrées sous un jeton (même domaine
+  // github.io, donc même stockage) et ouvre Obslide avec ?newosbScope=<jeton>. Valable 24 h.
+  const DATA_GENERATOR_SCOPE_STORAGE_KEY = 'newosb-generator-launch-scope-v1';
+  function dataReadLaunchScope(){
+    try{
+      const token=new URLSearchParams(location.search).get('newosbScope');
+      if(!token)return null;
+      const stored=JSON.parse(localStorage.getItem(DATA_GENERATOR_SCOPE_STORAGE_KEY)||'null');
+      if(!stored||stored.token!==token||!Array.isArray(stored.operationCodes))return null;
+      if(stored.createdAt && Date.now()-Number(stored.createdAt)>24*60*60*1000)return null;
+      stored._codeSet=new Set(stored.operationCodes.map(v=>dataNorm(v)).filter(Boolean));
+      return stored;
+    }catch{return null;}
+  }
+  let dataLaunchScope=dataReadLaunchScope();
+  function dataApplyLaunchScope(ops){
+    if(!dataLaunchScope||!dataLaunchScope._codeSet||!dataLaunchScope._codeSet.size)return ops||[];
+    return (ops||[]).filter(o=>dataLaunchScope._codeSet.has(dataNorm(o?.code)));
+  }
+  function dataClearLaunchScope(){
+    dataLaunchScope=null;
+    try{localStorage.removeItem(DATA_GENERATOR_SCOPE_STORAGE_KEY);}catch{}
+    try{const u=new URL(location.href);u.searchParams.delete('newosbScope');history.replaceState(null,'',u.pathname+u.search+u.hash);}catch{}
+    if(dataRuntime?.connected)dataSyncViews();else dataRenderSlideFilterToolbar();
+    try{dataRenderSlideFilterToolbar();renderSlide();}catch{}
+  }
+  // Accès pour les slides Exigences (requirements-slides.js).
+  window.OBSLIDE_LAUNCH_SCOPE={
+    active:()=>!!(dataLaunchScope&&dataLaunchScope._codeSet&&dataLaunchScope._codeSet.size),
+    has:code=>!!dataLaunchScope?._codeSet?.has(dataNorm(code)),
+    summary:()=>dataLaunchScope?(dataLaunchScope.summary||`${dataLaunchScope.operationCodes.length} opérations transmises`):'',
+    count:()=>dataLaunchScope?.operationCodes?.length||0,
+    clear:()=>dataClearLaunchScope()
+  };
   const DATA_MANUAL_SNAPSHOT_KEY = 'prestaterre-v29-manual-snapshot';
   const DATA_FIELD_ALIASES = {
     regionalDirection:['direction régionale','direction regionale','direction regionale nexity','regionalDirection','directionRegionale','dr nexity'],
@@ -6846,7 +6889,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     else if(type==='carbon'){const e=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icEnergy),em=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icEnergyMax),c=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icConstruction),cm=dataMeanFromRows(ops,DATA_FIELD_ALIASES.icConstructionMax);if(e!==null)model.energyAvg=e;if(em!==null)model.energyMaxAvg=em;if(c!==null)model.constructionAvg=c;if(cm!==null)model.constructionMaxAvg=cm;}
     else if(type==='dpe'){const eb=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepBefore),ea=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepAfter),esb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyBefore),esa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyAfter),gsb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesBefore),gsa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesAfter);if(eb!==null)model.before.energy=eb;if(ea!==null)model.after.energy=ea;if(esb!==null)model.before.energyScore=esb;if(esa!==null)model.after.energyScore=esa;if(gsb!==null)model.before.gesScore=gsb;if(gsa!==null)model.after.gesScore=gsa;}
   }
-  function dataSyncViews(){if(!dataRuntime.connected)return;dataRuntime.filtered=[...dataRuntime.operations];DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataApplyToModel(type,state[type],dataRuntime.operations);});Object.entries(state.presentation.instanceData||{}).forEach(([id,model])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataApplyToModel(type,model,dataRuntime.operations);});loadTabData(activeTab);if(DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataApplyToModel(tabType(activeTab),state[tabType(activeTab)],dataRuntime.operations);dataUpdateBadge();dataUpdateFilterUI();saveState();renderControls();renderSlide();}
+  function dataSyncViews(){if(!dataRuntime.connected)return;dataRuntime.filtered=dataApplyLaunchScope(dataRuntime.operations);DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataApplyToModel(type,state[type],dataRuntime.operations);});Object.entries(state.presentation.instanceData||{}).forEach(([id,model])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataApplyToModel(type,model,dataRuntime.operations);});loadTabData(activeTab);if(DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataApplyToModel(tabType(activeTab),state[tabType(activeTab)],dataRuntime.operations);dataUpdateBadge();dataUpdateFilterUI();saveState();renderControls();renderSlide();}
   function dataUpdateBadge(){const dot=document.getElementById('dataSourceDot'),label=document.getElementById('dataSourceLabel');if(dot)dot.classList.toggle('is-live',dataRuntime.connected);if(label)label.textContent=dataRuntime.connected?`${dataRuntime.operations.length} opérations`:'Données';}
   function dataPopulateFilters(){
     const el=document.getElementById('dataFilteredCount');
