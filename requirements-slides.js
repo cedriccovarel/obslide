@@ -140,8 +140,8 @@
       const target = lead(get(row, 'target')) || (code ? code[0] : '') || lead(reqText) || lead(get(row, 'reference')) || codeOf(get(row, 'reference')).slice(0, 1);
       const rkey = norm(reqText);
       let r = reqIndex.get(rkey);
-      if (r === undefined) { r = reqs.length; reqIndex.set(rkey, r); reqs.push([reqText, code, labelOf(reqText) || reqText, target]); }
-      else if (!reqs[r][3] && target) reqs[r][3] = target;
+      if (r === undefined) { r = reqs.length; reqIndex.set(rkey, r); reqs.push([reqText, code, labelOf(reqText) || reqText, target, labelOf(get(row, 'reference'))]); }
+      else { if (!reqs[r][3] && target) reqs[r][3] = target; if (!reqs[r][4]) reqs[r][4] = labelOf(get(row, 'reference')); }
       const pair = e + ':' + r;
       if (seen.has(pair)) continue;          // une exigence n'est comptée qu'une fois par dossier
       seen.add(pair);
@@ -218,7 +218,7 @@
       reqCount.set(r, (reqCount.get(r) || 0) + 1);
       const n = src.evals[e][3]; const by = reqNature.get(r) || {N: 0, R: 0, A: 0}; by[n]++; reqNature.set(r, by);
     });
-    const req = r => ({id: r, name: src.reqs[r][0], code: src.reqs[r][1], label: src.reqs[r][2], target: src.reqs[r][3], count: reqCount.get(r) || 0, nature: reqNature.get(r) || {N: 0, R: 0, A: 0}});
+    const req = r => ({id: r, name: src.reqs[r][0], code: src.reqs[r][1], label: src.reqs[r][2], target: src.reqs[r][3], reference: src.reqs[r][4] || '', count: reqCount.get(r) || 0, nature: reqNature.get(r) || {N: 0, R: 0, A: 0}});
     const ranked = [...reqCount.keys()].map(req).sort((a, b) => b.count - a.count || String(a.code || a.label).localeCompare(String(b.code || b.label), 'fr', {numeric: true}));
     const natureCount = {N: 0, R: 0, A: 0}; evalIdx.forEach(i => natureCount[src.evals[i][3]]++);
     const targetOcc = {'1': 0, '2': 0, '3': 0, '4': 0, '': 0}; occ.forEach(([, r]) => { targetOcc[src.reqs[r][3] || '']++; });
@@ -252,12 +252,13 @@
   function parseObligations(raw) {
     const j = JSON.parse(raw);
     if (j?.format !== 'obslide-obligations' || !Array.isArray(j.sets)) throw new Error('Fichier attendu : table des exigences obligatoires (format obslide-obligations).');
-    j.sets = j.sets.filter(x => x && x.name && Array.isArray(x.codes)).map(x => ({kind: x.kind === 'profile' ? 'profile' : 'mention', name: String(x.name), referential: String(x.referential || ''), codes: x.codes.map(codeOf).filter(Boolean)}));
+    j.sets = j.sets.filter(x => x && x.name && Array.isArray(x.codes)).map(x => ({kind: x.kind === 'profile' ? 'profile' : 'mention', name: String(x.name), referential: String(x.referential || ''), codes: x.codes.map(codeOf).filter(Boolean), titles: x.titles && typeof x.titles === 'object' ? x.titles : {}}));
     return j;
   }
   // Famille de référentiel : Logement / Tertiaire × Neuf / Rénovation / Exploitation (les codes 1.x.x n'ont de sens que dans une famille).
   const refKey = name => { const n = norm(name); return (/tertiaire/.test(n) ? 'T' : 'L') + (/exploitation/.test(n) ? 'E' : /renovation/.test(n) ? 'R' : 'N'); };
-  const nameKey = v => norm(String(v || '').replace(/\([^)]*\)/g, ' ')).replace(/\bversion du\b.*$/, '').replace(/\b(label|mention|profil|bee)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  // « BEE+ », « BEE + » et « Mention BEE+ (V2) » ont la même clé ; le « + » compte (BEE+ ≠ BEE).
+  const nameKey = v => norm(String(v || '').replace(/\([^)]*\)/g, ' ').replace(/\s*\+/g, ' plus ')).replace(/\bversion du\b.*$/, '').replace(/\b(label|mention|profil)\b/g, ' ').replace(/\s+/g, ' ').trim();
   const BADGE_COLORS = ['#0b5a3d', '#c2410c', '#1d4ed8', '#7c3aed', '#be185d', '#0e7490', '#a16207', '#4d7c0f', '#475569', '#b91c1c'];
   // Pastilles des mentions et profils du périmètre : M1, M2… (mentions, de la plus fréquente) puis P1, P2… (profils).
   function obligationBadges(c) {
@@ -268,20 +269,48 @@
     c.evalIdx.forEach(i => { const p = String(src.evals[i][9] || '').trim(); if (p && !/^(aucun|non renseigne|sans)/.test(norm(p))) profiles.set(p, (profiles.get(p) || 0) + 1); });
     const badges = [];
     const add = (kind, name) => {
-      const k = nameKey(name);
+      const k = nameKey(name); if (!k) return;
       // Mention : même nom ; profil : l'un des noms contient l'autre (« CDC Habitat » / « Profil CDC Habitat 2025 »).
-      const sets = obligations.sets.filter(x => x.kind === kind && (kind === 'mention' ? nameKey(x.name) === k : k && (nameKey(x.name).includes(k) || k.includes(nameKey(x.name)))));
-      if (sets.length) badges.push({id: '', kind, name, sets, color: ''});
+      // Mention : le nom du dossier commence par celui de la mention (« BEE+ Niveau RT2012 -10% » → BEE+) ; le plus long l'emporte
+      // (« Label BBCA option Contribution Neutralité » n'est pas « Label BBCA »). Profil : l'un des noms contient l'autre.
+      const starts = x => { const n = nameKey(x.name); return n && (k === n || k.startsWith(n + ' ')); };
+      const best = Math.max(0, ...obligations.sets.filter(x => x.kind === 'mention' && starts(x)).map(x => nameKey(x.name).length));
+      const sets = obligations.sets.filter(x => x.kind === kind && (kind === 'mention' ? starts(x) && nameKey(x.name).length === best : nameKey(x.name) && (nameKey(x.name).includes(k) || k.includes(nameKey(x.name)))));
+      if (!sets.length) return;
+      // Une seule pastille par mention du référentiel, quel que soit le libellé du dossier.
+      const label = kind === 'mention' ? sets[0].name : name;
+      if (kind === 'mention' && badges.some(x => x.kind === 'mention' && nameKey(x.name) === nameKey(label))) return;
+      badges.push({id: '', kind, name: label, sets, color: ''});
     };
     mentionCounts(c).forEach(([n]) => add('mention', n));
     [...profiles.entries()].sort((a, b) => b[1] - a[1]).forEach(([n]) => add('profile', n));
-    return {badges, of: r => badges.filter(b => b.sets.some(x => x.codes.includes(r.code) && refs.get(r.id)?.has(refKey(x.referential))))};
+    // Code 1.x.x de la version du tableau et même intitulé ; sinon (anciennes versions, autres numérotations) même
+    // intitulé que l'exigence de référence ou que l'exigence elle-même.
+    const holds = (x, r) => (x.codes.includes(r.code) && sameTitle(x.titles[r.code], r.label)) || Object.values(x.titles).some(t => titleMatch(t, r.reference) || titleMatch(t, r.label));
+    return {badges, of: r => badges.filter(b => b.sets.some(x => refs.get(r.id)?.has(refKey(x.referential)) && holds(x, r)))};
   }
   // Numéros et couleurs des seules pastilles affichées : M1, M2… (mentions, de la plus fréquente) puis P1, P2… (profils).
   function numberBadges(list) {
     const n = {mention: 0, profile: 0};
     list.forEach((b, i) => { b.id = `${b.kind === 'mention' ? 'M' : 'P'}${++n[b.kind]}`; b.color = BADGE_COLORS[i % BADGE_COLORS.length]; });
     return list;
+  }
+  // Un même code peut désigner une autre exigence dans une autre version du référentiel : l'intitulé doit concorder
+  // (au moins la moitié des mots significatifs en commun ; sans intitulé connu, le code suffit).
+  function sameTitle(a, b) {
+    const words = v => new Set(norm(v).split(' ').filter(w => w.length > 3));
+    const x = words(a), y = words(b); if (!x.size || !y.size) return true;
+    let common = 0; x.forEach(w => { if (y.has(w)) common++; });
+    return common / Math.min(x.size, y.size) >= 0.5;
+  }
+  // Intitulés équivalents : mêmes nombres (« niveau 55 » ≠ « niveau 52 », « -10% » ≠ « -20% ») et au moins 60 % de mots en commun.
+  const STOP = new Set(['les', 'des', 'par', 'pour', 'dans', 'avec', 'sur', 'une', 'aux', 'est']);
+  function titleTokens(v) { return norm(String(v || '').replace(/\([^)]*\)/g, ' ').replace(/[«»“”"*]/g, ' ')).split(' ').map(w => w.replace(/^[a-z]'/, '').replace(/s$/, '')).filter(w => w.length > 2 && !STOP.has(w)); }
+  function titleMatch(a, b) {
+    const x = new Set(titleTokens(a)), y = new Set(titleTokens(b)); if (x.size < 2 || y.size < 2) return false;
+    const nums = set => [...set].filter(w => /\d/.test(w)).sort().join('|'); if (nums(x) !== nums(y)) return false;
+    let common = 0; x.forEach(w => { if (y.has(w)) common++; });
+    return common / (x.size + y.size - common) >= 0.6;
   }
   function badgeChip(x, y, b) {
     const w = 12 + b.id.length * 8;
@@ -291,9 +320,9 @@
     let out = text('Obligatoire pour :', LEFT, y, 13, 'start', '#33524a', 800), x = LEFT + 128, line = 0;
     for (const b of list) {
       const label = fit(b.name, 330, 13), w = badgeChip(0, 0, b).w + 8 + label.length * 13 * 0.54 + 22;
-      if (x + w > RIGHT) { if (line) { out += text('…', x, y + line * 20, 13, 'start', '#33524a', 700); break; } line = 1; x = LEFT + 128; }
-      const chip = badgeChip(x, y + line * 20 - 14.5, b);
-      out += chip.svg + text(label, x + chip.w + 8, y + line * 20, 13, 'start', '#33524a', 600);
+      if (x + w > RIGHT) { if (line === 2) { out += text('…', x, y + line * 18, 13, 'start', '#33524a', 700); break; } line++; x = LEFT + 128; }
+      const chip = badgeChip(x, y + line * 18 - 14.5, b);
+      out += chip.svg + text(label, x + chip.w + 8, y + line * 18, 13, 'start', '#33524a', 600);
       x += w;
     }
     return out;
@@ -431,7 +460,7 @@
       out += reqRow(LEFT + 36, y, CW - 40, r, c.dossiers, maxShare, {h: rowH - 4, size: rowH > 44 ? 18 : 16, badges});
     });
     // V29.10 : avec la table des exigences obligatoires, la légende des pastilles remplace celle des cibles.
-    if (ob) return out + (used.size ? badgeLegend(ob.badges.filter(b => used.has(b)), 846) : text('Aucune de ces exigences n’est obligatoire pour les mentions ou profils du périmètre.', LEFT, 852, 13, 'start', '#5f736b', 500));
+    if (ob) return out + (used.size ? badgeLegend(ob.badges.filter(b => used.has(b)), 828) : text('Aucune de ces exigences n’est obligatoire pour les mentions ou profils du périmètre.', LEFT, 852, 13, 'start', '#5f736b', 500));
     return out + targetLegend(852);
   }
   function targetsSvg(m, c) {

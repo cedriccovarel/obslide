@@ -1107,14 +1107,6 @@ const MAP_GEOJSON_URLS = [
       ${items.length < maxRows ? `<div class="section-actions"><button class="btn btn-secondary btn-small" type="button" data-add="1" data-path="${path}">+ Ajouter une ligne</button></div>` : ''}`;
   }
 
-  function notesEditor(path, title) {
-    const notes = getByPath(state, path);
-    return `<div class="control-section"><h3>${esc(title)}</h3>
-      <p class="help">Texte libre. Les repères sont affichés tels quels sur la slide.</p>
-      ${notes.map((n, i) => `<div class="field"><label>Repère ${i + 1}</label><textarea data-note="1" data-path="${path}" data-index="${i}">${esc(n)}</textarea></div>`).join('')}
-    </div>`;
-  }
-
   function mapTotal() {
     return Object.values(state.map.values || {}).reduce((total, value) => total + Math.max(0, num(value)), 0);
   }
@@ -2220,8 +2212,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
           <p class="help">La longueur de chaque barre correspond à sa part dans le total des occurrences de performances.</p>
           ${listEditor('labels.performances', lists.performances, 'Occurrences', 12)}
         </div>
-        ${notesEditor('labels.labelNotes', 'Repères labels')}
-        ${notesEditor('labels.perfNotes', 'Repères performances')}
       `;
     }
 
@@ -2471,9 +2461,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (typeof schedulePreviewFit === 'function') schedulePreviewFit();
   }
 
-  // V29.10 : marge de 2 cm en haut de chaque slide (sauf la couverture) pour l'export Google Slides. Le contenu est
-  // réduit d'un bloc (13,333 × 7,5 po : 2 cm = 94,5 px sur 900) ; l'export mesure les positions et tailles réelles.
-  const SLIDE_TOP_MARGIN = 94.5;
+  // V29.10 : marge de 1 cm (V29.11) en haut de chaque slide (sauf la couverture) pour l'export Google Slides. Le contenu est
+  // réduit d'un bloc (13,333 × 7,5 po : 1 cm = 47,25 px sur 900) ; l'export mesure les positions et tailles réelles.
+  const SLIDE_TOP_MARGIN = 47.25;
   function frameSlide() {
     if (!slide || tabType(activeTab) === 'cover' || slide.firstElementChild?.classList.contains('slide-safe')) return;
     const safe = document.createElement('div');
@@ -2614,10 +2604,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }).join('')}</div>`;
   }
 
-  function renderNotes(notes, title) {
-    return `<div class="reperes-box"><div class="reperes-title">${esc(title)}</div>${notes.filter(Boolean).map((n, i) => `<div class="repere-row"><span class="repere-dot">${i + 1}</span><span>${esc(n)}</span></div>`).join('')}</div>`;
-  }
-
   function renderLabelsSlide() {
     const labelItems = state.labels.labels;
     const perfItems = state.labels.performances;
@@ -2628,12 +2614,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       <section class="card left-card">
         ${cardTab('1. LABELS', '✓')}
         <div class="chart-zone">${renderBars(labelItems)}</div>
-        ${renderNotes(state.labels.labelNotes, 'Repères')}
       </section>
       <section class="card right-card">
         ${cardTab('2. PERFORMANCES', '◴')}
         <div class="chart-zone">${renderBars(perfItems, n => /Bbio|Cep/i.test(n))}</div>
-        ${renderNotes(state.labels.perfNotes, 'Lecture des mentions')}
       </section>
       <div class="footer-note">
         <div class="round-icon">💡</div>
@@ -5109,21 +5093,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     });
   }
 
-  function cNotes(ctx, notes, x, y, w, h, title) {
-    cr(ctx, x, y, w, h, 14, '#fff', '#d1ddda', 1);
-    ct(ctx, title, x + 14, y + 22, 13, 900, EXPORT_TEXT);
-    ctx.strokeStyle = '#e0e8e6'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, y + 32); ctx.lineTo(x + w, y + 32); ctx.stroke();
-    const visible = notes.filter(Boolean).slice(0, 4);
-    const rowH = (h - 38) / Math.max(1, visible.length);
-    visible.forEach((note, i) => {
-      const cy = y + 38 + i * rowH + 12;
-      cr(ctx, x + 12, cy - 8, 22, 22, 11, '#0c7c4d');
-      ct(ctx, i + 1, x + 23, cy + 3, 10, 900, '#fff', 'center', 'middle');
-      cwrap(ctx, note, x + 44, cy, w - 56, 10.5, 500, EXPORT_TEXT, 1.18, 2);
-    });
-  }
-
   function cDonut(ctx, items, cx, cy, r = 50, inner = 25) {
     const total = Math.max(1, sum(items));
     let start = -Math.PI / 2;
@@ -5662,11 +5631,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'labels') {
       cHeader(ctx, state.labels.title, state.labels.subtitle);
       cCard(ctx, 30, 198, 720, 548, 'LABELS', '◎');
-      cBars(ctx, state.labels.labels, 55, 243, 670, 235, null, 7);
-      cNotes(ctx, state.labels.labelNotes, 55, 493, 670, 205, 'Repères');
+      cBars(ctx, state.labels.labels, 55, 243, 670, 470, null, 7);
       cCard(ctx, 780, 198, 790, 548, 'PERFORMANCES', '↗');
-      cBars(ctx, state.labels.performances, 805, 243, 740, 295, name => /2031|2028/i.test(name), 12);
-      cNotes(ctx, state.labels.perfNotes, 805, 553, 740, 145, 'Lecture des mentions');
+      cBars(ctx, state.labels.performances, 805, 243, 740, 470, name => /2031|2028/i.test(name), 12);
       cr(ctx, 58, 775, 1484, 78, 14, '#fff', EXPORT_LINE, 1);
       ct(ctx, 'À RETENIR', 80, 802, 12, 900, EXPORT_GREEN);
       const topLabels = [...state.labels.labels].sort((a,b)=>num(b.value)-num(a.value)).slice(0,2).map(x=>x.name).join(' et ');

@@ -84,3 +84,18 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - « <br> » des cellules Salesforce : retour à la ligne (mentions séparées), jamais affiché.
 - Interlignes : un texte sur plusieurs lignes garde au moins 1,25.
 - Non modifié : le rendu « PNG secours » (canvas) garde l'ancienne mise en page.
+
+# V29.11 — Marge 1 cm, pastilles « obligatoire » sur les vraies données, Labels & performances
+
+- Marge du haut ramenée à 1 cm (contenu réduit à 94,75 %).
+- Pastilles « obligatoire » : une mention de dossier est reconnue si son nom commence par celui de la mention du
+  référentiel (« BEE+ Niveau RT2012 -10% », « BEE+ option TFPB » → BEE+ ; le « + » compte), une pastille par
+  mention. Les exports RAPPORT réels portent d'anciennes numérotations (« 1.1 », « 4.A.2 », « 0401-0200 ») :
+  l'exigence est rapprochée par son intitulé de référence (« Exigence associée: Exigence de référence:
+  Intitulé ») — mêmes nombres et au moins 60 % de mots en commun — ou par le code 1.x.x avec le même intitulé.
+  Vérifié sur un export réel (3 389 dossiers) : BEE+, Habitat Qualité, Économie circulaire, Taxinomie, labels
+  Effinergie, profil CDC Habitat. Légende sur 3 lignes au plus.
+- Table locale à réimporter : cases à chiffre (critères, référentiels Rénovation) prises comme obligatoires
+  (BEE+ Rénovation), intitulés stockés avec les codes.
+- Labels & performances : encarts « Repères » / « Lecture des mentions » retirés ; noms à 18 px, nombres à 20 px,
+  barres plus courtes, rangées espacées.

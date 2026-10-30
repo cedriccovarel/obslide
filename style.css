@@ -266,7 +266,7 @@ button { cursor: pointer; }
    --------------------------- */
 
 .slide * { box-sizing: border-box; }
-/* V29.10 : marge de 2 cm en haut (voir frameSlide) ; le bloc garde son repère 1600 × 900 pour les positions absolues. */
+/* V29.11 : marge de 1 cm en haut (voir frameSlide) ; le bloc garde son repère 1600 × 900 pour les positions absolues. */
 .slide-safe { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 50% 0; transform: translateY(var(--slide-safe-top)) scale(var(--slide-safe-scale)); }
 .slide h1, .slide h2, .slide h3, .slide p { margin: 0; }
 .slide .s-head {
@@ -1730,3 +1730,15 @@ body.auth-granted .preview-area{
 .req-from-observatoire{display:flex;flex-direction:column;gap:3px;margin:8px 0 10px;padding:10px 12px;border:1px solid #9fd0b4;border-left:4px solid #16864f;border-radius:10px;background:#eef7f1;color:#173b30;font-size:12px;line-height:1.4}
 .req-from-observatoire b{color:#06402b;font-size:12.5px}
 .carbon-import-dropzone.is-secondary{padding-top:10px;padding-bottom:10px;opacity:.85}
+
+/* V29.11 — Labels & performances : sans encarts de repères ; barres plus courtes, textes plus grands, rangées aérées. */
+.labels-slide .chart-zone, .labels-slide .right-card .chart-zone { height: 100%; overflow: hidden; display: flex; align-items: center; padding: 8px 12px 0; }
+.labels-slide .bar-chart { width: 100%; gap: 26px; }
+.labels-slide .right-card .bar-chart { gap: 12px; }
+.labels-slide .bar-row, .labels-slide .right-card .bar-row { grid-template-columns: 290px minmax(0, 220px) 48px 64px; gap: 18px; justify-content: start; }
+.labels-slide .right-card .bar-row { grid-template-columns: 260px minmax(0, 290px) 48px 64px; }
+.labels-slide .bar-name { text-align: left; font-size: 18px; line-height: 1.25; color: #0b2328; }
+.labels-slide .bar-track { height: 12px; border-radius: 6px; }
+.labels-slide .bar-fill { border-radius: 6px; }
+.labels-slide .bar-count { font-size: 20px; text-align: right; }
+.labels-slide .bar-percent { font-size: 15px; }
