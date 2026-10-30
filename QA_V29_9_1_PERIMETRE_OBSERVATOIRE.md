@@ -99,3 +99,12 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
   (BEE+ Rénovation), intitulés stockés avec les codes.
 - Labels & performances : encarts « Repères » / « Lecture des mentions » retirés ; noms à 18 px, nombres à 20 px,
   barres plus courtes, rangées espacées.
+
+# V29.12 — Pastilles parlantes
+
+- Les pastilles « obligatoire » portent le sigle ou un pictogramme de la mention au lieu de M1 / P1 : BEE+, TFPB,
+  HQ, BBCA, BBCA+, Taxo A / Taxo Ad, Eff+, BEPOS 13 / 17 / RE, BBC 17 / Réno / PE / Tert, E+C-, HZC, BPE / BPEC ;
+  👂 acoustique, 💨 qualité de l'air, ♻️ économie circulaire, 🦋 biodiversité, € évaluation des charges,
+  🧓 habitat sénior, 🌿 biosourcé. Profil : nom court dans une pastille à contour.
+- Couleur fixe par mention (identique d'une slide à l'autre). Au plus 4 pastilles par ligne, puis « +n » ; la légende
+  les détaille toutes. Vérifié sur un export réel (3 389 dossiers).

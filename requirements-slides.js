@@ -289,10 +289,31 @@
     const holds = (x, r) => (x.codes.includes(r.code) && sameTitle(x.titles[r.code], r.label)) || Object.values(x.titles).some(t => titleMatch(t, r.reference) || titleMatch(t, r.label));
     return {badges, of: r => badges.filter(b => b.sets.some(x => refs.get(r.id)?.has(refKey(x.referential)) && holds(x, r)))};
   }
-  // Numéros et couleurs des seules pastilles affichées : M1, M2… (mentions, de la plus fréquente) puis P1, P2… (profils).
+  // V29.12 : pastille = sigle ou pictogramme de la mention (« BEE+ », oreille pour l'acoustique…), nom court pour un profil.
+  const BADGE_TAGS = [
+    [/^bee plus/, 'BEE+'], [/tfpb/, 'TFPB'], [/acoustique/, '👂'], [/qualite de l'?air|^qai\b/, '💨'], [/economie circulaire/, '♻️'],
+    [/biodiversite/, '🦋'], [/evaluation.? des charges/, '€'], [/senior|autonomie/, '🧓'], [/biosource/, '🌿'], [/horizon zero carbone/, 'HZC'],
+    [/contribution neutralite/, 'BBCA+'], [/engagement bbca/, 'BBCA E'], [/bbca/, 'BBCA'], [/^e plus c/, 'E+C-'],
+    [/bepos plus.*re ?2020/, 'BEPOS+ RE'], [/bepos plus/, 'BEPOS+'], [/bepos.*re ?2020/, 'BEPOS RE'], [/bepos.*2013/, 'BEPOS 13'], [/bepos.*2017/, 'BEPOS 17'], [/bepos/, 'BEPOS'],
+    [/bbc effinergie renovation tertiaire/, 'BBC Tert'], [/bbc effinergie renovation.*\bpe\b|premiere etape/, 'BBC PE'], [/bbc effinergie renovation/, 'BBC Réno'], [/bbc effinergie.*2017/, 'BBC 17'], [/bbc effinergie/, 'BBC'], [/effinergie plus/, 'Eff+'], [/effinergie re ?2020/, 'Eff RE'],
+    [/taxinomie.*attenuation/, 'Taxo A'], [/taxinomie.*adaptation/, 'Taxo Ad'], [/^bpec\b|carbone \(?bpec/, 'BPEC'], [/^bpe\b|energetique \(?bpe\b/, 'BPE'],
+    [/habitat qualite/, 'HQ'], [/constructibilite/, 'Bonus']
+  ];
+  const TAG_COLORS = {'BEE+': '#0b5a3d', 'TFPB': '#a16207', 'HQ': '#c2410c', 'Taxo A': '#1d4ed8', 'Taxo Ad': '#0e7490', 'BBCA': '#475569', 'BBCA+': '#1f2937', 'BBCA E': '#64748b',
+    'Eff+': '#7c3aed', 'Eff RE': '#6d28d9', 'BEPOS 13': '#be185d', 'BEPOS 17': '#b91c1c', 'BEPOS': '#be185d', 'BEPOS+': '#4d7c0f', 'BEPOS RE': '#9d174d', 'BEPOS+ RE': '#3f6212',
+    'BBC 17': '#92400e', 'BBC': '#92400e', 'BBC Réno': '#5b21b6', 'BBC PE': '#7e22ce', 'BBC Tert': '#15803d', 'E+C-': '#0369a1', 'HZC': '#334155', 'BPE': '#0f766e', 'BPEC': '#115e59', 'Bonus': '#78350f',
+    '👂': '#2563eb', '💨': '#0891b2', '♻️': '#15803d', '🦋': '#7c3aed', '€': '#a16207', '🧓': '#9a3412', '🌿': '#4d7c0f'};
+  function badgeTag(b) {
+    const k = nameKey(b.name);
+    if (b.kind === 'mention') return (BADGE_TAGS.find(([re]) => re.test(k)) || [, k.split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('').slice(0, 4)])[1];
+    const w = k.split(' ').filter(x => x.length > 1 && !/^\d+$/.test(x));
+    return (w[0] || 'P').length <= 4 ? w[0].toUpperCase() : w[0][0].toUpperCase() + w[0].slice(1, 10);
+  }
   function numberBadges(list) {
-    const n = {mention: 0, profile: 0};
-    list.forEach((b, i) => { b.id = `${b.kind === 'mention' ? 'M' : 'P'}${++n[b.kind]}`; b.color = BADGE_COLORS[i % BADGE_COLORS.length]; });
+    const seen = new Map();
+    // Couleur fixe par mention (même couleur d'une slide à l'autre) ; autres sigles et profils : couleur tirée du sigle.
+    const hue = t => [...t].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7) % BADGE_COLORS.length;
+    list.forEach(b => { let t = badgeTag(b); const n = (seen.get(t) || 0) + 1; seen.set(t, n); b.id = n > 1 ? `${t} ${n}` : t; b.color = TAG_COLORS[b.id] || BADGE_COLORS[hue(b.id)]; });
     return list;
   }
   // Un même code peut désigner une autre exigence dans une autre version du référentiel : l'intitulé doit concorder
@@ -312,8 +333,12 @@
     let common = 0; x.forEach(w => { if (y.has(w)) common++; });
     return common / (x.size + y.size - common) >= 0.6;
   }
+  // Pictogramme seul : pastille ronde claire ; sigle : pastille pleine. Un profil a un contour (pas un aplat) pour le distinguer.
   function badgeChip(x, y, b) {
-    const w = 12 + b.id.length * 8;
+    const icon = /\p{Extended_Pictographic}|€/u.test(b.id) && [...b.id.replace(/\uFE0F/g, '')].length <= 2;
+    const w = icon ? 26 : 14 + [...b.id].length * 7.4;
+    if (icon) return {w, svg: `<rect x="${x}" y="${y - 2}" width="${w}" height="24" rx="12" fill="#ffffff" stroke="${b.color}" stroke-width="1.6"/>` + text(b.id, x + w / 2, y + 15.5, 14, 'middle', b.color, 800)};
+    if (b.kind === 'profile') return {w, svg: `<rect x="${x}" y="${y}" width="${w}" height="20" rx="10" fill="#ffffff" stroke="${b.color}" stroke-width="1.6"/>` + text(b.id, x + w / 2, y + 14.5, 11.5, 'middle', b.color, 800)};
     return {w, svg: box(x, y, w, 20, b.color, 10) + text(b.id, x + w / 2, y + 14.5, 11.5, 'middle', '#ffffff', 800)};
   }
   function badgeLegend(list, y) {
@@ -375,7 +400,10 @@
     const rowH = opts.h || 34, fs = opts.size || 16;
     const share = pct(r.count, denom), barX = x + w * (opts.barStart || 0.56), barW = w * (opts.barWidth || 0.27);
     let out = codeChip(x, y + (rowH - 26) / 2, r.code, r.target), bx = barX - 14;
-    for (const b of [...(opts.badges || [])].reverse()) { const chip = badgeChip(0, 0, b); bx -= chip.w; out += badgeChip(bx, y + rowH / 2 - 10, b).svg; bx -= 5; }
+    // Au plus 4 pastilles par ligne, puis « +n » (la légende les détaille toutes) : l'intitulé reste lisible.
+    const all = opts.badges || [], shown = all.length > 5 ? all.slice(0, 4) : all;
+    const chips = all.length > shown.length ? [...shown, {id: `+${all.length - shown.length}`, color: '#7a8a83', kind: 'more'}] : shown;
+    for (const b of [...chips].reverse()) { const chip = badgeChip(0, 0, b); bx -= chip.w; out += badgeChip(bx, y + rowH / 2 - 10, b).svg; bx -= 5; }
     out += text(fit(r.label, bx - x - 86, fs), x + 76, y + rowH / 2 + fs * 0.36, fs, 'start', '#0b2328', 600);
     out += box(barX, y + rowH / 2 - 7, barW, 14, '#e4ede9', 7);
     out += box(barX, y + rowH / 2 - 7, barW * (maxShare ? share / maxShare : 0), 14, targetOf(r.target).color, 7);
