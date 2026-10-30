@@ -248,7 +248,11 @@ const MAP_GEOJSON_URLS = [
       threshold2028: 589.63,
       threshold2031: 498.16,
       showThreshold2028: true,
-      showThreshold2031: true
+      showThreshold2031: true,
+      thresholdEnergy2028: null,
+      thresholdEnergy2031: null,
+      showThresholdEnergy2028: true,
+      showThresholdEnergy2031: true
     },
     dpe: {
       title: 'DPE AVANT / APRÈS TRAVAUX',
@@ -2298,19 +2302,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       controls.innerHTML = `
         <div class="control-section"><h3>IC Énergie</h3>
           <div class="fields-2">${field('IC moyen', 'carbon.energyAvg')}${field('IC max moyen', 'carbon.energyMaxAvg')}</div>
+          ${thresholdManager('Energy')}
+          <div class="inline-note">Chaque seuil est facultatif : décoche-le pour le masquer complètement de la slide.</div>
         </div>
         <div class="control-section"><h3>IC Construction</h3>
           <div class="fields-2">${field('IC moyen', 'carbon.constructionAvg')}${field('IC max moyen', 'carbon.constructionMaxAvg')}</div>
-          <div class="threshold-manager">
-            <div class="threshold-control">
-              <label class="threshold-toggle"><input type="checkbox" data-threshold-toggle="2028" ${state.carbon.showThreshold2028 !== false ? 'checked' : ''}><span>Afficher le seuil 2028</span></label>
-              <div class="field threshold-value ${state.carbon.showThreshold2028 === false ? 'is-disabled' : ''}"><label>Valeur du seuil 2028</label><input type="number" step="0.01" data-bind="carbon.threshold2028" value="${esc(state.carbon.threshold2028)}" ${state.carbon.showThreshold2028 === false ? 'disabled' : ''}></div>
-            </div>
-            <div class="threshold-control">
-              <label class="threshold-toggle"><input type="checkbox" data-threshold-toggle="2031" ${state.carbon.showThreshold2031 !== false ? 'checked' : ''}><span>Afficher le seuil 2031</span></label>
-              <div class="field threshold-value ${state.carbon.showThreshold2031 === false ? 'is-disabled' : ''}"><label>Valeur du seuil 2031</label><input type="number" step="0.01" data-bind="carbon.threshold2031" value="${esc(state.carbon.threshold2031)}" ${state.carbon.showThreshold2031 === false ? 'disabled' : ''}></div>
-            </div>
-          </div>
+          ${thresholdManager('')}
           <div class="inline-note">Chaque seuil est facultatif : décoche-le pour le masquer complètement de la slide.</div>
         </div>`;
     }
@@ -3185,18 +3182,24 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       </section>` : ''}`;
   }
 
-  function niceScale(v, base) {
-    const x = Math.max(num(v) * 1.08, base);
-    if (x <= 500) return 500;
-    if (x <= 750) return 750;
-    if (x <= 1000) return 1000;
-    if (x <= 1500) return 1500;
-    if (x <= 2000) return 2000;
-    return Math.ceil(x / 1000) * 1000;
-  }
-
   function gaugeTicks(scale) {
     return [0, .25, .5, .75, 1].map(p => `<span class="gauge-tick" style="left:${p*100}%">${frSmart(scale*p)}</span>`).join('');
+  }
+
+  // V29.9.5 : seuils 2028 / 2031 facultatifs, pour l'IC Construction (prefix '') comme pour l'IC Énergie (prefix 'Energy').
+  function carbonThresholds(c, prefix) {
+    return ['2028', '2031'].filter(y => c[`showThreshold${prefix}${y}`] !== false && num(c[`threshold${prefix}${y}`]) > 0).map(y => ({year:y, value:c[`threshold${prefix}${y}`]}));
+  }
+  // La jauge va de 0 à l'IC max moyen (repli sur 1 000 s'il n'est pas renseigné).
+  const carbonScale = maxAvg => num(maxAvg) > 0 ? num(maxAvg) : 1000;
+  function thresholdManager(prefix) {
+    const c = state.carbon;
+    return `<div class="threshold-manager">${['2028', '2031'].map(y => { const on = c[`showThreshold${prefix}${y}`] !== false; return `
+            <div class="threshold-control">
+              <label class="threshold-toggle"><input type="checkbox" data-threshold-toggle="${prefix}${y}" ${on ? 'checked' : ''}><span>Afficher le seuil ${y}</span></label>
+              <div class="field threshold-value ${on ? '' : 'is-disabled'}"><label>Valeur du seuil ${y}</label><input type="number" step="0.01" data-bind="carbon.threshold${prefix}${y}" value="${esc(c[`threshold${prefix}${y}`] ?? '')}" ${on ? '' : 'disabled'}></div>
+            </div>`; }).join('')}
+          </div>`;
   }
 
   function carbonGauge(avg, maxAvg, scale, thresholds = []) {
@@ -3232,12 +3235,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   function renderCarbonSlide() {
     const c = state.carbon;
-    const eScale = niceScale(c.energyMaxAvg, 500);
-    const constructionThresholds = [];
-    if (c.showThreshold2028 !== false && num(c.threshold2028) > 0) constructionThresholds.push({year:'2028', value:c.threshold2028});
-    if (c.showThreshold2031 !== false && num(c.threshold2031) > 0) constructionThresholds.push({year:'2031', value:c.threshold2031});
-    const thresholdMax = constructionThresholds.reduce((max, item) => Math.max(max, num(item.value)), 0);
-    const cScale = niceScale(Math.max(num(c.constructionMaxAvg), thresholdMax), 1000);
+    const eScale = carbonScale(c.energyMaxAvg), cScale = carbonScale(c.constructionMaxAvg);
+    const energyThresholds = carbonThresholds(c, 'Energy'), constructionThresholds = carbonThresholds(c, '');
     return `
       ${head(state.carbon.title, state.carbon.subtitle, '', 'Plus l’indicateur est bas, meilleure est la performance')}
       <section class="card energy-card">
@@ -3246,7 +3245,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
           <div class="carbon-value"><div class="label">IC MOYEN</div><b>${fr(c.energyAvg)}</b><div class="unit">kg éq CO₂/m²</div></div>
           <div class="carbon-value"><div class="label">IC MAX MOYEN</div><b>${fr(c.energyMaxAvg)}</b><div class="unit">kg éq CO₂/m²</div></div>
         </div>
-        ${carbonGauge(c.energyAvg, c.energyMaxAvg, eScale)}
+        ${carbonGauge(c.energyAvg, c.energyMaxAvg, eScale, energyThresholds)}
         <div class="carbon-explainer"><b>Lecture :</b> l’IC max moyen permettait ${fr(c.energyMaxAvg)} kg éq CO₂/m². La moyenne observée est de ${fr(c.energyAvg)} kg éq CO₂/m², ${ratioText(c.energyAvg,c.energyMaxAvg)}.</div>
       </section>
       <section class="card construction-card">
@@ -5808,14 +5807,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'carbon') {
       cHeader(ctx, state.carbon.title, state.carbon.subtitle, 'Plus l’indicateur est bas, meilleure est la performance');
       const c = state.carbon;
-      const eScale = niceScale(c.energyMaxAvg, 500);
-      const thresholds = [];
-      if (c.showThreshold2028 !== false && num(c.threshold2028) > 0) thresholds.push({year:'2028', value:c.threshold2028});
-      if (c.showThreshold2031 !== false && num(c.threshold2031) > 0) thresholds.push({year:'2031', value:c.threshold2031});
-      const tmax = thresholds.reduce((m,t)=>Math.max(m,num(t.value)),0);
-      const cScale = niceScale(Math.max(num(c.constructionMaxAvg), tmax), 1000);
+      const eScale = carbonScale(c.energyMaxAvg), cScale = carbonScale(c.constructionMaxAvg);
+      const thresholds = carbonThresholds(c, '');
       const cards = [
-        {x:55,title:'IC ÉNERGIE',avg:c.energyAvg,max:c.energyMaxAvg,scale:eScale,thresholds:[]},
+        {x:55,title:'IC ÉNERGIE',avg:c.energyAvg,max:c.energyMaxAvg,scale:eScale,thresholds:carbonThresholds(c, 'Energy')},
         {x:855,title:'IC CONSTRUCTION',avg:c.constructionAvg,max:c.constructionMaxAvg,scale:cScale,thresholds}
       ];
       cards.forEach(card => {

@@ -57,3 +57,10 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
   Intitulé »).
 - Vérifié : « Gestion de chantier » (Cible 1) → 1 ; « 2 - Biodiversité » → 2 ; « 3. Énergie » → 3 ;
   référence « 1.3.2 Chantier… » → 1.
+
+# V29.9.5 — Slide Indicateurs carbone : seuils IC Énergie
+
+- IC Énergie : cases « Afficher le seuil 2028 / 2031 » et valeurs, comme pour l'IC Construction (aperçu et
+  export). Aucune valeur par défaut : un seuil vide n'est pas affiché.
+- Les deux jauges vont de 0 à l'IC max moyen saisi (repli sur 1 000 s'il est vide) ; un seuil au-delà est
+  placé en bout de jauge avec sa valeur réelle.
