@@ -706,10 +706,10 @@ const MAP_GEOJSON_URLS = [
   function slideTextScale(tabId = activeTab) { return Math.max(.7, Math.min(1.6, Number(state.presentation.textScaleByTab?.[tabId]) || 1)); }
   function currentTextScale(tabId = activeTab) { return globalTextScale() * slideTextScale(tabId); }
   function applyTextScaleToSlide() {
-    if (tabType(activeTab) === 'nexityMap') { slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap); return; }
-    if (tabType(activeTab) === 'nexityPodium') { slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium); return; }
-    if (tabType(activeTab) === 'carbonDistribution') { slide.innerHTML = window.OBSCarbonDistribution.svg(state.carbonDistribution); return; }
-    if (tabType(activeTab) === 'requirements') { slide.innerHTML = window.OBSRequirementsSlides.svg(state.requirements); return; }
+    if (tabType(activeTab) === 'nexityMap') { slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap); frameSlide(); return; }
+    if (tabType(activeTab) === 'nexityPodium') { slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium); frameSlide(); return; }
+    if (tabType(activeTab) === 'carbonDistribution') { slide.innerHTML = window.OBSCarbonDistribution.svg(state.carbonDistribution); frameSlide(); return; }
+    if (tabType(activeTab) === 'requirements') { slide.innerHTML = window.OBSRequirementsSlides.svg(state.requirements); frameSlide(); return; }
     if (!slide) return;
     const scale = currentTextScale();
     slide.dataset.textScale = String(scale);
@@ -1330,23 +1330,9 @@ Paris\t7">${esc(state.map.paste || '')}</textarea></div>
     return evolutionRowsSorted().reduce((sum, row) => sum + evolutionTotalForRow(row), 0);
   }
 
-  function evolutionPeakRow() {
-    const rows = evolutionRowsSorted();
-    return rows.reduce((best, row) => !best || evolutionTotalForRow(row) > evolutionTotalForRow(best) ? row : best, null);
-  }
-
   function evolutionLatestRow() {
     const rows = evolutionRowsSorted();
     return rows.length ? rows[rows.length - 1] : null;
-  }
-
-  function evolutionTrendPercent() {
-    const rows = evolutionRowsSorted();
-    if (rows.length < 2) return null;
-    const first = evolutionTotalForRow(rows[0]);
-    const last = evolutionTotalForRow(rows[rows.length - 1]);
-    if (first <= 0) return null;
-    return ((last - first) / first) * 100;
   }
 
   function evolutionTopSeries() {
@@ -2451,7 +2437,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
     dataRenderSlideFilterToolbar();
-    if (!['nexityMap','nexityPodium','carbonDistribution','requirements'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(tabType(activeTab) !== 'cover');
+    // V29.10 : la couverture n'a ni logo ni mention « Confidentiel » (le bandeau porte déjà le logo).
+    if (!['cover','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(true);
     const slideClasses = {
       cover: 'cover-slide',
       labels: 'labels-slide',
@@ -2480,7 +2467,34 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (!['map','socialZoning','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(currentType)) applyTextScaleToSlide();
     if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
     if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
+    frameSlide();
     if (typeof schedulePreviewFit === 'function') schedulePreviewFit();
+  }
+
+  // V29.10 : marge de 2 cm en haut de chaque slide (sauf la couverture) pour l'export Google Slides. Le contenu est
+  // réduit d'un bloc (13,333 × 7,5 po : 2 cm = 94,5 px sur 900) ; l'export mesure les positions et tailles réelles.
+  const SLIDE_TOP_MARGIN = 94.5;
+  function frameSlide() {
+    if (!slide || tabType(activeTab) === 'cover' || slide.firstElementChild?.classList.contains('slide-safe')) return;
+    const safe = document.createElement('div');
+    safe.className = 'slide-safe';
+    safe.style.setProperty('--slide-safe-scale', String((900 - SLIDE_TOP_MARGIN) / 900));
+    safe.style.setProperty('--slide-safe-top', `${SLIDE_TOP_MARGIN}px`);
+    while (slide.firstChild) safe.appendChild(slide.firstChild);
+    slide.appendChild(safe);
+    relaxLineHeights(safe);
+  }
+  // V29.10 : un texte sur plusieurs lignes garde au moins 1,25 d'interligne (lisibilité, repris tel quel par l'export).
+  function relaxLineHeights(root) {
+    const k = root.getBoundingClientRect().width / 1600 || 1;
+    root.querySelectorAll('*').forEach(el => {
+      if (el.closest('svg') || ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return;
+      const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight);
+      if (!fs || !lh || lh / fs >= 1.2) return;
+      const range = document.createRange(); range.selectNodeContents(el);
+      const tops = [...range.getClientRects()].filter(r => r.width > 1).map(r => r.top).sort((x, y) => x - y);
+      if (tops.some((t, i) => i && t - tops[i - 1] > lh * k * 0.6)) el.style.lineHeight = '1.25';
+    });
   }
 
 
@@ -2559,7 +2573,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function renderCoverSlide() {
     const logoSrc = state.cover.logoDataUrl || '';
     return `<div class="cover-layout">
-      <img class="cover-background" src="assets/cover_template_base.png" alt="Fond de couverture">
+      <img class="cover-banner" src="assets/cover_banner.png" alt="Bandeau de couverture Prestaterre Certifications">
       ${logoSrc ? `<img class="cover-client-logo" src="${esc(logoSrc)}" alt="Logo client">` : `<button class="cover-logo-placeholder" type="button" data-cover-placeholder="1" title="Ajouter une image ou un logo"><span>+</span><b>Ajouter une image / un logo</b></button>`}
       <div class="cover-date-text">${esc(state.cover.dateText || '')}</div>
     </div>`;
@@ -2977,9 +2991,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function renderEvolutionSlide() {
     const rows = evolutionRowsSorted();
     const visibleMeta = evolutionVisibleMeta();
-    const latest = evolutionLatestRow();
-    const peak = evolutionPeakRow();
-    const trend = evolutionTrendPercent();
     const total = evolutionGlobalTotal();
     const cardTitle = state.evolution.title || 'ÉVOLUTION DES OPÉRATIONS';
     const cardSubtitle = state.evolution.subtitle || 'Nombre d’opérations par année et par référentiel';
@@ -2991,21 +3002,6 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
             <div class="evolution-kpi-label">Total période</div>
             <div class="evolution-kpi-value">${frSmart(total)}</div>
             <div class="evolution-kpi-note">opérations cumulées</div>
-          </section>
-          <section class="card evolution-kpi-card compact">
-            <div class="evolution-kpi-label">Année pic</div>
-            <div class="evolution-kpi-value">${peak ? esc(peak.year) : '—'}</div>
-            <div class="evolution-kpi-note">${peak ? frSmart(evolutionTotalForRow(peak)) + ' opérations' : 'non disponible'}</div>
-          </section>
-          <section class="card evolution-kpi-card compact">
-            <div class="evolution-kpi-label">Dernière année</div>
-            <div class="evolution-kpi-value">${latest ? esc(latest.year) : '—'}</div>
-            <div class="evolution-kpi-note">${latest ? frSmart(evolutionTotalForRow(latest)) + ' opérations' : 'à renseigner'}</div>
-          </section>
-          <section class="card evolution-kpi-card compact">
-            <div class="evolution-kpi-label">Tendance</div>
-            <div class="evolution-kpi-value">${trend === null ? '—' : (trend >= 0 ? '+' : '') + frSmart(trend) + ' %'}</div>
-            <div class="evolution-kpi-note">du 1er au dernier point</div>
           </section>
         </div>
         <section class="card evolution-chart-card evolution-chart-card-large">
@@ -3547,12 +3543,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const idfFeatures = features.filter(feature => IDF_CODES.includes(mapFeatureCode(feature)));
     if (!idfFeatures.length) return;
 
-    const x = 1178, y = 365, width = 382, height = 458;
+    const x = 1160, y = 375, width = 400, height = 505;
     svg.appendChild(mapSvgEl('rect', { x, y, width, height, rx: 18, fill: '#ffffff', stroke: forest, 'stroke-width': 1.5 }));
     mapAddText(svg, 'ZOOM ÎLE-DE-FRANCE', x + 20, y + 34, { fill: forest, size: 17, weight: 900 });
     mapAddText(svg, `${frSmart(getIdfMapTotal())} OPÉRATIONS`, x + width - 20, y + 34, { fill: forest, size: 13, weight: 900, anchor: 'end' });
 
-    const mapBox = { x: x + 18, y: y + 55, width: 346, height: 258 };
+    const mapBox = { x: x + 24, y: y + 58, width: 352, height: 258 };
     const project = createMapProjector(idfFeatures, mapBox);
     const maxValue = Math.max(1, ...IDF_CODES.map(code => Math.max(0, num(state.map.values?.[code]))));
     idfFeatures.forEach(feature => {
@@ -3582,7 +3578,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const cols = [['75','77','78','91'], ['92','93','94','95']];
     cols.forEach((codes, colIndex) => {
       let yy = dividerY + 50;
-      const listX = x + 18 + colIndex * 178;
+      const listX = x + 24 + colIndex * 188;
       codes.forEach(code => {
         const dep = DEPARTMENTS.find(d => d.code === code);
         const value = Math.max(0, num(state.map.values?.[code]));
@@ -3657,7 +3653,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       if (dep && features.length <= 8) mapAddText(svg, dep.name.toUpperCase(), c[0], departmentLabelY, { fill:text, size:7.5, weight:700, anchor:'middle' });
     });
 
-    svg.appendChild(mapSvgEl('rect', { x:1188, y:62, width:357, height:786, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
+    svg.appendChild(mapSvgEl('rect', { x:1160, y:62, width:400, height:786, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
     mapAddText(svg, 'ZOOM R\u00c9GIONAL', 1214, 102, { fill:forest, size:12, weight:900 });
     mapAddText(svg, region.name.toUpperCase(), 1214, 132, { fill:text, size:15, weight:900 });
     mapAddText(svg, 'TOTAL OP\u00c9RATIONS', 1214, 178, { fill:forest, size:12, weight:900 });
@@ -3673,7 +3669,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     rows.forEach(item => {
       mapAddText(svg, item.code, 1214, yy, { fill:forest, size:10.5, weight:900 });
       mapAddText(svg, item.dep ? item.dep.name : item.code, 1250, yy, { fill:text, size:9.5, weight:700 });
-      mapAddText(svg, frSmart(item.value), 1518, yy, { fill:forest, size:11, weight:900, anchor:'end' });
+      mapAddText(svg, frSmart(item.value), 1528, yy, { fill:forest, size:11, weight:900, anchor:'end' });
       yy += rowHeight;
     });
 
@@ -3748,13 +3744,13 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
     const nationalTotal = mapTotal();
     const dromTotal = ['971','972','973','974','976'].reduce((total, code) => total + Math.max(0, num(state.map.values?.[code])), 0);
-    svg.appendChild(mapSvgEl('rect', { x: 1195, y: 80, width: 350, height: 240, rx: 18, fill: '#f7faf8', stroke: forest, 'stroke-width': 1.5 }));
-    mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill: forest, size: 14, weight: 900 });
-    mapAddText(svg, frSmart(nationalTotal), 1220, 185, { fill: forest, size: 48, weight: 900 });
-    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1220, 214, { fill:text, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1220, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
-    mapAddText(svg, `Île-de-France : ${frSmart(idfTotal)}`, 1220, dataRuntime.connected?262:220, { fill: text, size: 13, weight: 700 });
-    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, dataRuntime.connected?286:248, { fill: '#557567', size: 11, weight: 600 });
-    mapAddText(svg, 'Fond blanc · contours départementaux vert forêt', 1220, dataRuntime.connected?310:286, { fill: '#557567', size: 10, weight: 600 });
+    svg.appendChild(mapSvgEl('rect', { x:1160, y:80, width:400, height:260, rx: 18, fill: '#f7faf8', stroke: forest, 'stroke-width': 1.5 }));
+    mapAddText(svg, 'TOTAL OPÉRATIONS', 1192, 120, { fill: forest, size: 14, weight: 900 });
+    mapAddText(svg, frSmart(nationalTotal), 1192, 185, { fill: forest, size: 48, weight: 900 });
+    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1192, 214, { fill:text, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1192, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
+    mapAddText(svg, `Île-de-France : ${frSmart(idfTotal)}`, 1192, dataRuntime.connected?262:220, { fill: text, size: 13, weight: 700 });
+    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1192, dataRuntime.connected?286:248, { fill: '#557567', size: 11, weight: 600 });
+    mapAddText(svg, 'Fond blanc · contours départementaux vert forêt', 1192, dataRuntime.connected?310:286, { fill: '#557567', size: 10, weight: 600 });
 
     drawIdfMapInset(svg, features);
     applyTextScaleToSlide();
@@ -3837,14 +3833,14 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const dromRegions = REGIONS.filter(region => region.overseas);
     const dromTotal = dromRegions.reduce((total, region) => total + Math.max(0, num(totals[region.name])), 0);
 
-    svg.appendChild(mapSvgEl('rect', { x:1195, y:80, width:350, height:300, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
-    mapAddText(svg, 'TOTAL OPÉRATIONS', 1220, 120, { fill:forest, size:14, weight:900 });
-    mapAddText(svg, frSmart(nationalTotal), 1220, 185, { fill:forest, size:48, weight:900 });
-    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1220, 214, { fill:textColor, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1220, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
-    mapAddText(svg, 'VUE PAR RÉGION', 1220, dataRuntime.connected?266:225, { fill:forest, size:13, weight:900 });
-    mapAddText(svg, 'Départements regroupés automatiquement', 1220, dataRuntime.connected?290:250, { fill:textColor, size:11, weight:600 });
-    mapAddText(svg, 'Limites départementales masquées', 1220, dataRuntime.connected?312:272, { fill:textColor, size:11, weight:600 });
-    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1220, dataRuntime.connected?340:302, { fill:'#557567', size:10.5, weight:600 });
+    svg.appendChild(mapSvgEl('rect', { x:1160, y:80, width:400, height:320, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
+    mapAddText(svg, 'TOTAL OPÉRATIONS', 1192, 120, { fill:forest, size:14, weight:900 });
+    mapAddText(svg, frSmart(nationalTotal), 1192, 185, { fill:forest, size:48, weight:900 });
+    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1192, 214, { fill:textColor, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1192, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
+    mapAddText(svg, 'VUE PAR RÉGION', 1192, dataRuntime.connected?266:225, { fill:forest, size:13, weight:900 });
+    mapAddText(svg, 'Départements regroupés automatiquement', 1192, dataRuntime.connected?290:250, { fill:textColor, size:11, weight:600 });
+    mapAddText(svg, 'Limites départementales masquées', 1192, dataRuntime.connected?312:272, { fill:textColor, size:11, weight:600 });
+    if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1192, dataRuntime.connected?340:302, { fill:'#557567', size:10.5, weight:600 });
 
     const topRegions = metroRegions
       .map(region => ({ name:region.name, value:Math.max(0, num(totals[region.name])) }))
@@ -3852,12 +3848,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       .sort((a,b) => b.value - a.value)
       .slice(0, 6);
     if (topRegions.length) {
-      svg.appendChild(mapSvgEl('rect', { x:1195, y:405, width:350, height:300, rx:18, fill:'#ffffff', stroke:'#c9ddd1', 'stroke-width':1.2 }));
-      mapAddText(svg, 'RÉGIONS LES PLUS REPRÉSENTÉES', 1220, 440, { fill:forest, size:12, weight:900 });
-      let yy = 478;
+      svg.appendChild(mapSvgEl('rect', { x:1160, y:405, width:400, height:320, rx:18, fill:'#ffffff', stroke:'#c9ddd1', 'stroke-width':1.2 }));
+      mapAddText(svg, 'RÉGIONS LES PLUS REPRÉSENTÉES', 1192, 460, { fill:forest, size:12, weight:900 });
+      let yy = 498;
       topRegions.forEach((item, i) => {
-        mapAddText(svg, `${i+1}. ${item.name}`, 1220, yy, { fill:textColor, size:11, weight:700 });
-        mapAddText(svg, frSmart(item.value), 1518, yy, { fill:forest, size:12, weight:900, anchor:'end' });
+        mapAddText(svg, `${i+1}. ${item.name}`, 1192, yy, { fill:textColor, size:11, weight:700 });
+        mapAddText(svg, frSmart(item.value), 1528, yy, { fill:forest, size:12, weight:900, anchor:'end' });
         yy += 36;
       });
     }
@@ -5479,17 +5475,11 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function cEvolutionSlide(ctx) {
     const rows = evolutionRowsSorted();
     const visibleMeta = evolutionVisibleMeta();
-    const latest = evolutionLatestRow();
-    const peak = evolutionPeakRow();
-    const trend = evolutionTrendPercent();
     const total = evolutionGlobalTotal();
     cHeader(ctx, state.evolution.title || 'ÉVOLUTION DES OPÉRATIONS', state.evolution.subtitle || 'Nombre d’opérations par année et par référentiel');
 
     const kpis = [
-      ['Total période', frSmart(total), 'opérations cumulées'],
-      ['Année pic', peak ? String(peak.year) : '—', peak ? `${frSmart(evolutionTotalForRow(peak))} opérations` : 'non disponible'],
-      ['Dernière année', latest ? String(latest.year) : '—', latest ? `${frSmart(evolutionTotalForRow(latest))} opérations` : 'à renseigner'],
-      ['Tendance', trend == null ? '—' : `${trend >= 0 ? '+' : ''}${frSmart(trend)} %`, 'du 1er au dernier point']
+      ['Total période', frSmart(total), 'opérations cumulées']
     ];
     const kx=52, ky=158, kgap=16, kw=(1496-kgap*3)/4, kh=112;
     kpis.forEach((k,i)=>{
@@ -6817,7 +6807,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     return byName?byName.code:'';
   }
   function dataStatus(v){const s=dataNorm(v);if(/annul|aband/.test(s))return 'cancelled';if(/evaluation conforme|eval conforme|conforme|solde/.test(s))return 'compliant';if(/visite realisee|visite realise|visite/.test(s))return 'visit';if(/analyse realisee|analyse realise/.test(s))return 'analysis';if(/analyse planifiee|analyse planifie/.test(s))return 'planned';if(/dossier incomplet|incomplet/.test(s))return 'incomplete';if(/non demarree|non demarre|non demar/.test(s))return 'notStarted';return 'notStarted';}
-  function dataRawValue(row, field){ return field ? row[field] : ''; }
+  // V29.10 : les cellules Salesforce « BEE+<br>Option TFPB » : un retour à la ligne par <br>, jamais affiché tel quel.
+  function dataRawValue(row, field){ const v = field ? row[field] : ''; return typeof v === 'string' ? v.replace(/\s*(?:<br\s*\/?>|&lt;br\s*\/?&gt;)\s*/gi, '\n').trim() : v; }
   function dataFirstNonEmpty(values){ for(const v of values){ if(String(v??'').trim()!=='') return v; } return ''; }
   function dataDateYear(v){ const s=String(v??'').trim(); const m=s.match(/\b(20\d{2}|19\d{2})\b/); return m?Number(m[1]):0; }
   function dataBoolish(v){ const s=dataNorm(v); return /^(1|oui|yes|true|x|vrai)$/.test(s); }

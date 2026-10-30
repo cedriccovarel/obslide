@@ -64,3 +64,23 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
   export). Aucune valeur par défaut : un seuil vide n'est pas affiché.
 - Les deux jauges vont de 0 à l'IC max moyen saisi (repli sur 1 000 s'il est vide) ; un seuil au-delà est
   placé en bout de jauge avec sa valeur réelle.
+
+# V29.10 — Mise en page des exports (Google Slides)
+
+- Toutes les slides sauf la couverture : marge de 2 cm en haut (le contenu est réduit d'un bloc à 89,5 %,
+  centré ; l'export mesure les positions réelles, les textes restent modifiables).
+- Couverture : nouveau bandeau Prestaterre Certifications ; date / période sous le logo client ; plus de logo
+  Prestaterre ni de « Confidentiel » en bas de page, plus de barre verticale verte.
+- Évolution des opérations : encarts « Année pic », « Dernière année » et « Tendance » retirés.
+- Cartographie : encarts de droite élargis (marges intérieures), zoom Île-de-France plus haut.
+- Exigences · Mentions & exigences associées : plus de trait « part du panel » ; à droite, « n / N dossiers »
+  de la mention ayant retenu l'exigence.
+- Exigences · Vue d'ensemble : un seul encart Neuf / Rénovation ; nouvel encart « Mentions · dossiers »
+  (5 mentions les plus présentes et leurs dossiers).
+- Exigences les plus récurrentes : pastilles M1, M2… / P1, P2… = mention ou profil du périmètre qui rend
+  l'exigence obligatoire ; légende des pastilles à la place de la légende des cibles. La table « exigence →
+  mentions / profils » est un fichier .json importé dans le panneau Exigences et gardé dans le navigateur
+  (rien n'est publié). Colonne « Profil spécifique » lue dans l'export RAPPORT.
+- « <br> » des cellules Salesforce : retour à la ligne (mentions séparées), jamais affiché.
+- Interlignes : un texte sur plusieurs lignes garde au moins 1,25.
+- Non modifié : le rendu « PNG secours » (canvas) garde l'ancienne mise en page.

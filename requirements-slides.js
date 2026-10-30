@@ -59,7 +59,8 @@
     created: ['Évaluation: Date de création', 'Date de création', 'Évaluation: Opération: Date de création'],
     // Cible 1 à 4 : transmise par l'Observatoire (calculée avec ses règles) ou colonne « Cible » d'un export.
     target: ['Cible', 'Cible (calculée)', 'Numéro de cible'],
-    reference: ['Exigence associée: Exigence de référence: Intitulé', 'Exigence de référence', 'Intitulé de référence']
+    reference: ['Exigence associée: Exigence de référence: Intitulé', 'Exigence de référence', 'Intitulé de référence'],
+    profile: ['Évaluation: Opération: Profil spécifique', 'Profil spécifique', 'Profil']
   };
   function findColumns(headers) {
     const n = headers.map(norm), out = {};
@@ -108,7 +109,7 @@
     const h = headerRow(matrix), mp = h.mapping;
     if (h.index < 0 || (mp.requirement < 0 && mp.code < 0)) throw new Error('Colonne d’exigence introuvable. Attendu : « Exigence associée: Nom » ou « Code d’exigence ».');
     if (mp.evaluation < 0 && mp.operation < 0) throw new Error('Colonne d’évaluation introuvable. Attendu : « Évaluation: Code interne » (ou à défaut « Évaluation: Opération: Code interne »).');
-    const get = (row, k) => mp[k] >= 0 ? String(row[mp[k]] ?? '').trim() : '';
+    const get = (row, k) => mp[k] >= 0 ? String(row[mp[k]] ?? '').replace(/\s*(?:<br\s*\/?>|&lt;br\s*\/?&gt;)\s*/gi, k === 'mentions' ? '\n' : ' ').trim() : '';
     const basis = mp.year >= 0 ? 'année de l’opération' : (mp.created >= 0 ? 'année de création de l’évaluation' : 'année de version du référentiel');
     const evals = [], evalIndex = new Map(), reqs = [], reqIndex = new Map(), occ = [], seen = new Set();
     let ignored = 0;
@@ -122,7 +123,7 @@
       const year = yearFrom(get(row, 'year')) || yearFrom(get(row, 'created')) || yearFrom(get(row, 'version'));
       if (e === undefined) {
         e = evals.length; evalIndex.set(key, e);
-        evals.push([key, ref, year, natureOf(ref), get(row, 'moa'), get(row, 'status'), splitMulti(get(row, 'mentions')).join('|'), get(row, 'region'), get(row, 'operation')]);
+        evals.push([key, ref, year, natureOf(ref), get(row, 'moa'), get(row, 'status'), splitMulti(get(row, 'mentions')).join('|'), get(row, 'region'), get(row, 'operation'), get(row, 'profile')]);
       } else {
         const ev = evals[e];   // métadonnées : première valeur non vide
         if (!ev[1] && ref) { ev[1] = ref; ev[3] = natureOf(ref); }
@@ -131,6 +132,7 @@
         if (!ev[5]) ev[5] = get(row, 'status');
         if (!ev[6]) ev[6] = splitMulti(get(row, 'mentions')).join('|');
         if (!ev[8]) ev[8] = get(row, 'operation');
+        if (!ev[9]) ev[9] = get(row, 'profile');
       }
       const code = codeOf(get(row, 'code')) || codeOf(reqText);
       // Cible : colonne Cible, sinon code 1.x.x, sinon premier chiffre de l'intitulé (« 1 - … », « 2. … »).
@@ -239,6 +241,64 @@
     return `Périmètre : ${parts.join(' · ')} · années : ${c.src.basis} · Source : export RAPPORT (${c.src.name}${date ? `, importé le ${date}` : ''})`;
   }
 
+  /* ------------------------------------------------------------------ exigences obligatoires (V29.10) */
+  // Table locale « exigence → mentions / profils qui la rendent obligatoire », tirée des référentiels et profils.
+  // Importée par l'utilisateur et gardée dans ce navigateur seulement (rien n'est publié avec le site).
+  // {format:'obslide-obligations', sets:[{kind:'mention'|'profile', name, referential, codes:['1.1.1', …]}]}
+  const OBLIG_KEY = 'obslide-obligations-v1';
+  let obligations = null;
+  try { obligations = JSON.parse(localStorage.getItem(OBLIG_KEY) || 'null'); } catch (_) {}
+  function setObligations(o) { obligations = o; try { o ? localStorage.setItem(OBLIG_KEY, JSON.stringify(o)) : localStorage.removeItem(OBLIG_KEY); } catch (_) {} }
+  function parseObligations(raw) {
+    const j = JSON.parse(raw);
+    if (j?.format !== 'obslide-obligations' || !Array.isArray(j.sets)) throw new Error('Fichier attendu : table des exigences obligatoires (format obslide-obligations).');
+    j.sets = j.sets.filter(x => x && x.name && Array.isArray(x.codes)).map(x => ({kind: x.kind === 'profile' ? 'profile' : 'mention', name: String(x.name), referential: String(x.referential || ''), codes: x.codes.map(codeOf).filter(Boolean)}));
+    return j;
+  }
+  // Famille de référentiel : Logement / Tertiaire × Neuf / Rénovation / Exploitation (les codes 1.x.x n'ont de sens que dans une famille).
+  const refKey = name => { const n = norm(name); return (/tertiaire/.test(n) ? 'T' : 'L') + (/exploitation/.test(n) ? 'E' : /renovation/.test(n) ? 'R' : 'N'); };
+  const nameKey = v => norm(String(v || '').replace(/\([^)]*\)/g, ' ')).replace(/\bversion du\b.*$/, '').replace(/\b(label|mention|profil|bee)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  const BADGE_COLORS = ['#0b5a3d', '#c2410c', '#1d4ed8', '#7c3aed', '#be185d', '#0e7490', '#a16207', '#4d7c0f', '#475569', '#b91c1c'];
+  // Pastilles des mentions et profils du périmètre : M1, M2… (mentions, de la plus fréquente) puis P1, P2… (profils).
+  function obligationBadges(c) {
+    if (!obligations?.sets?.length) return null;
+    const src = c.src, refs = new Map();
+    c.occ.forEach(([e, r]) => { if (!refs.has(r)) refs.set(r, new Set()); refs.get(r).add(refKey(src.evals[e][1])); });
+    const profiles = new Map();
+    c.evalIdx.forEach(i => { const p = String(src.evals[i][9] || '').trim(); if (p && !/^(aucun|non renseigne|sans)/.test(norm(p))) profiles.set(p, (profiles.get(p) || 0) + 1); });
+    const badges = [];
+    const add = (kind, name) => {
+      const k = nameKey(name);
+      // Mention : même nom ; profil : l'un des noms contient l'autre (« CDC Habitat » / « Profil CDC Habitat 2025 »).
+      const sets = obligations.sets.filter(x => x.kind === kind && (kind === 'mention' ? nameKey(x.name) === k : k && (nameKey(x.name).includes(k) || k.includes(nameKey(x.name)))));
+      if (sets.length) badges.push({id: '', kind, name, sets, color: ''});
+    };
+    mentionCounts(c).forEach(([n]) => add('mention', n));
+    [...profiles.entries()].sort((a, b) => b[1] - a[1]).forEach(([n]) => add('profile', n));
+    return {badges, of: r => badges.filter(b => b.sets.some(x => x.codes.includes(r.code) && refs.get(r.id)?.has(refKey(x.referential))))};
+  }
+  // Numéros et couleurs des seules pastilles affichées : M1, M2… (mentions, de la plus fréquente) puis P1, P2… (profils).
+  function numberBadges(list) {
+    const n = {mention: 0, profile: 0};
+    list.forEach((b, i) => { b.id = `${b.kind === 'mention' ? 'M' : 'P'}${++n[b.kind]}`; b.color = BADGE_COLORS[i % BADGE_COLORS.length]; });
+    return list;
+  }
+  function badgeChip(x, y, b) {
+    const w = 12 + b.id.length * 8;
+    return {w, svg: box(x, y, w, 20, b.color, 10) + text(b.id, x + w / 2, y + 14.5, 11.5, 'middle', '#ffffff', 800)};
+  }
+  function badgeLegend(list, y) {
+    let out = text('Obligatoire pour :', LEFT, y, 13, 'start', '#33524a', 800), x = LEFT + 128, line = 0;
+    for (const b of list) {
+      const label = fit(b.name, 330, 13), w = badgeChip(0, 0, b).w + 8 + label.length * 13 * 0.54 + 22;
+      if (x + w > RIGHT) { if (line) { out += text('…', x, y + line * 20, 13, 'start', '#33524a', 700); break; } line = 1; x = LEFT + 128; }
+      const chip = badgeChip(x, y + line * 20 - 14.5, b);
+      out += chip.svg + text(label, x + chip.w + 8, y + line * 20, 13, 'start', '#33524a', 600);
+      x += w;
+    }
+    return out;
+  }
+
   /* ------------------------------------------------------------------ dessin SVG */
   function text(str, x, y, size, anchor = 'start', color = '#0b2328', weight = 600, extra = '') {
     return `<text x="${x}" y="${y}" font-size="${size}" font-family="Arial,Helvetica,sans-serif" font-weight="${weight}" fill="${color}" text-anchor="${anchor}" ${extra}>${esc(str)}</text>`;
@@ -285,8 +345,9 @@
   function reqRow(x, y, w, r, denom, maxShare, opts = {}) {
     const rowH = opts.h || 34, fs = opts.size || 16;
     const share = pct(r.count, denom), barX = x + w * (opts.barStart || 0.56), barW = w * (opts.barWidth || 0.27);
-    let out = codeChip(x, y + (rowH - 26) / 2, r.code, r.target);
-    out += text(fit(r.label, barX - x - 92, fs), x + 76, y + rowH / 2 + fs * 0.36, fs, 'start', '#0b2328', 600);
+    let out = codeChip(x, y + (rowH - 26) / 2, r.code, r.target), bx = barX - 14;
+    for (const b of [...(opts.badges || [])].reverse()) { const chip = badgeChip(0, 0, b); bx -= chip.w; out += badgeChip(bx, y + rowH / 2 - 10, b).svg; bx -= 5; }
+    out += text(fit(r.label, bx - x - 86, fs), x + 76, y + rowH / 2 + fs * 0.36, fs, 'start', '#0b2328', 600);
     out += box(barX, y + rowH / 2 - 7, barW, 14, '#e4ede9', 7);
     out += box(barX, y + rowH / 2 - 7, barW * (maxShare ? share / maxShare : 0), 14, targetOf(r.target).color, 7);
     out += text(`${fmt(share, share < 10 ? 1 : 0)} %`, barX + barW + 16, y + rowH / 2 + 6, 17, 'start', '#06402B', 800);
@@ -303,24 +364,40 @@
     return out;
   }
 
+  // V29.10 : dossiers de chaque mention du périmètre, du plus fréquent au moins fréquent.
+  function mentionCounts(c) {
+    const counts = new Map();
+    c.evalIdx.forEach(i => String(c.src.evals[i][6] || '').split('|').filter(Boolean).forEach(x => counts.set(x, (counts.get(x) || 0) + 1)));
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr'));
+  }
   function overviewSvg(m, c) {
     let out = '';
-    const kpis = [
-      ['DOSSIERS ANALYSÉS', fmt(c.dossiers), 'évaluations uniques'],
-      ['EXIGENCES RETENUES', fmt(c.occ.length), `${plural(c.distinct, 'exigence distincte', 'exigences distinctes')}`],
-      ['NEUF', fmt(c.natureCount.N), `${fmt(pct(c.natureCount.N, c.dossiers), 1)} % du panel`],
-      ['RÉNOVATION', fmt(c.natureCount.R), `${fmt(pct(c.natureCount.R, c.dossiers), 1)} % du panel`]
-    ];
-    const kw = (CW - 3 * 18) / 4;
-    kpis.forEach((k, i) => {
-      const x = LEFT + i * (kw + 18);
-      out += box(x, 140, kw, 112, '#f7faf8', 16, '#d6e3de');
-      out += text(k[0], x + 22, 170, 13, 'start', '#5f7b6f', 800, 'letter-spacing="1.5"');
-      out += text(k[1], x + 22, 216, 42, 'start', '#06402B', 900);
-      out += text(k[2], x + 22, 240, 14, 'start', '#33524a', 600);
+    // V29.10 : Neuf et Rénovation dans un seul encart ; le 4e encart liste les 5 mentions les plus présentes.
+    const ky = 140, kh = 150, gap = 18, unit = (CW - 3 * gap) / 5.2, widths = [unit, unit, unit * 1.3, unit * 1.9];
+    let x = LEFT;
+    const card = (w, kicker) => { out += box(x, ky, w, kh, '#f7faf8', 16, '#d6e3de') + text(kicker, x + 22, ky + 30, 13, 'start', '#5f7b6f', 800, 'letter-spacing="1.5"'); };
+    [['DOSSIERS ANALYSÉS', fmt(c.dossiers), 'évaluations uniques'], ['EXIGENCES RETENUES', fmt(c.occ.length), plural(c.distinct, 'exigence distincte', 'exigences distinctes')]].forEach((k, i) => {
+      card(widths[i], k[0]);
+      out += text(k[1], x + 22, ky + 88, 44, 'start', '#06402B', 900) + text(k[2], x + 22, ky + 120, 14, 'start', '#33524a', 600);
+      x += widths[i] + gap;
+    });
+    card(widths[2], 'NEUF / RÉNOVATION');
+    [['N', 'Neuf'], ['R', 'Rénovation']].forEach(([k, label], j) => {
+      const cx = x + 22 + j * widths[2] / 2;
+      out += text(fmt(c.natureCount[k]), cx, ky + 88, 40, 'start', '#06402B', 900);
+      out += text(label, cx, ky + 114, 14, 'start', '#0b2328', 700) + text(`${fmt(pct(c.natureCount[k], c.dossiers), 1)} % du panel`, cx, ky + 134, 13, 'start', '#33524a', 500);
+    });
+    x += widths[2] + gap;
+    card(widths[3], 'MENTIONS · DOSSIERS');
+    const top = mentionCounts(c).slice(0, 5);
+    if (!top.length) out += text('Aucune mention renseignée', x + 22, ky + 80, 14, 'start', '#7a8a83', 500);
+    top.forEach(([name, n], i) => {
+      const y = ky + 56 + i * 20;
+      out += text(fit(name, widths[3] - 140, 14), x + 22, y, 14, 'start', '#0b2328', 600);
+      out += text(plural(n, 'dossier', 'dossiers'), x + widths[3] - 22, y, 14, 'end', '#06402B', 800);
     });
     // Répartition par cible
-    const px = LEFT, py = 272, pw = 560, ph = 588;
+    const px = LEFT, py = 308, pw = 560, ph = 552;
     out += panel(px, py, pw, ph, 'RÉPARTITION PAR CIBLE', 'Part des exigences retenues');
     const totalOcc = c.occ.length;
     ['1', '2', '3', '4'].forEach((t, i) => {
@@ -336,7 +413,7 @@
     const qx = LEFT + pw + 18, qw = CW - pw - 18, n = Math.min(8, c.ranked.length);
     out += panel(qx, py, qw, ph, 'EXIGENCES LES PLUS RETENUES', `Top ${n} · part des ${fmt(c.dossiers)} dossiers`);
     const maxShare = pct(c.ranked[0]?.count || 0, c.dossiers);
-    c.ranked.slice(0, n).forEach((r, i) => { out += reqRow(qx + 24, py + 82 + i * 60, qw - 48, r, c.dossiers, maxShare, {h: 50, size: 16}); });
+    c.ranked.slice(0, n).forEach((r, i) => { out += reqRow(qx + 24, py + 80 + i * 57, qw - 48, r, c.dossiers, maxShare, {h: 48, size: 16}); });
     return out;
   }
   function topSvg(m, c) {
@@ -344,13 +421,17 @@
     let out = text('#', LEFT + 14, 148, 13, 'middle', '#5f7b6f', 800) + text('EXIGENCE', LEFT + 112, 148, 13, 'start', '#5f7b6f', 800, 'letter-spacing="1.5"');
     out += text('PART DES DOSSIERS', LEFT + 40 + (CW - 40) * 0.56, 148, 13, 'start', '#5f7b6f', 800, 'letter-spacing="1.5"');
     out += text('DOSSIERS', RIGHT - 8, 148, 13, 'end', '#5f7b6f', 800, 'letter-spacing="1.5"');
-    const maxShare = pct(c.ranked[0]?.count || 0, c.dossiers);
-    c.ranked.slice(0, n).forEach((r, i) => {
-      const y = 164 + i * rowH;
+    const maxShare = pct(c.ranked[0]?.count || 0, c.dossiers), ob = obligationBadges(c), rows = c.ranked.slice(0, n);
+    const rowBadges = rows.map(r => ob ? ob.of(r) : []), used = new Set(rowBadges.flat());
+    if (ob) numberBadges(ob.badges.filter(b => used.has(b)));
+    rows.forEach((r, i) => {
+      const y = 164 + i * rowH, badges = rowBadges[i];
       if (i % 2 === 0) out += box(LEFT, y, CW, rowH - 4, '#f4f8f6', 10);
       out += text(String(i + 1), LEFT + 14, y + rowH / 2 + 4, 17, 'middle', '#06402B', 900);
-      out += reqRow(LEFT + 36, y, CW - 40, r, c.dossiers, maxShare, {h: rowH - 4, size: rowH > 44 ? 18 : 16});
+      out += reqRow(LEFT + 36, y, CW - 40, r, c.dossiers, maxShare, {h: rowH - 4, size: rowH > 44 ? 18 : 16, badges});
     });
+    // V29.10 : avec la table des exigences obligatoires, la légende des pastilles remplace celle des cibles.
+    if (ob) return out + (used.size ? badgeLegend(ob.badges.filter(b => used.has(b)), 846) : text('Aucune de ces exigences n’est obligatoire pour les mentions ou profils du périmètre.', LEFT, 852, 13, 'start', '#5f736b', 500));
     return out + targetLegend(852);
   }
   function targetsSvg(m, c) {
@@ -409,9 +490,7 @@
     return out + text('Lecture : part des dossiers de l’année ayant retenu l’exigence (couleur plus foncée = plus fréquente). Classement sur l’ensemble du périmètre.', LEFT, 852, 13, 'start', '#5f736b', 500);
   }
   function mentionsSvg(m, c) {
-    const src = c.src, counts = new Map();
-    c.evalIdx.forEach(i => String(src.evals[i][6] || '').split('|').filter(Boolean).forEach(x => counts.set(x, (counts.get(x) || 0) + 1)));
-    const mentions = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const src = c.src, mentions = mentionCounts(c);
     if (!mentions.length) return text('Aucune mention renseignée dans la source (colonne « Évaluation: Opération: Mentions »).', W / 2, 460, 20, 'middle', '#5f736b');
     const focus = mentions.some(x => x[0] === m.mentionFocus) ? m.mentionFocus : mentions[0][0];
     const lx = LEFT, lw = 560, ly = 140, lh = 700;
@@ -431,21 +510,18 @@
     const items = [...fc.entries()].sort((a, b) => b[1] - a[1]).slice(0, Math.min(Number(m.topN) || 10, 10));
     const rx = LEFT + lw + 18, rw = CW - lw - 18;
     out += panel(rx, ly, rw, lh, 'EXIGENCES ASSOCIÉES', `Dossiers « ${fit(focus, 420, 21, true)} » · ${plural(evalSet.size, 'dossier', 'dossiers')}`);
-    const panelShare = new Map(c.ranked.map(r => [r.id, pct(r.count, c.dossiers)]));
-    const barX = rx + rw * 0.56, barW = rw * 0.25;
+    const barX = rx + rw * 0.5, barW = rw * 0.23;
     out += text('PART DES DOSSIERS DE LA MENTION', barX, ly + 84, 11, 'start', '#5f7b6f', 800, 'letter-spacing="1"');
     items.forEach(([r, n], i) => {
-      const y = ly + 100 + i * 58, rr = src.reqs[r], share = pct(n, evalSet.size), ref = panelShare.get(r) || 0;
+      const y = ly + 100 + i * 58, rr = src.reqs[r], share = pct(n, evalSet.size);
       out += codeChip(rx + 24, y + 6, rr[1], rr[3]);
       out += text(fit(rr[2] || rr[0], barX - rx - 116, 15), rx + 100, y + 24, 15, 'start', '#0b2328', 600);
       out += box(barX, y + 12, barW, 14, '#e4ede9', 7) + box(barX, y + 12, barW * share / 100, 14, targetOf(rr[3]).color, 7);
-      out += `<line x1="${barX + barW * ref / 100}" x2="${barX + barW * ref / 100}" y1="${y + 6}" y2="${y + 32}" stroke="#0b2328" stroke-width="2.5"/>`;
-      out += text(`${fmt(share, 0)} %`, rx + rw - 96, y + 25, 18, 'end', '#06402B', 800);
-      const gap = share - ref;
-      out += text(`${gap >= 0 ? '+' : '−'}${fmt(Math.abs(gap), 0)} pts`, rx + rw - 24, y + 25, 13, 'end', gap >= 0 ? '#16714c' : '#a24b14', 700);
+      out += text(`${fmt(share, 0)} %`, rx + rw - 150, y + 25, 18, 'end', '#06402B', 800);
+      // V29.10 : nombre de dossiers de la mention ayant retenu l'exigence, sur le total de la mention.
+      out += text(`${fmt(n)} / ${plural(evalSet.size, 'dossier', 'dossiers')}`, rx + rw - 24, y + 25, 13, 'end', '#33524a', 700);
     });
-    out += `<line x1="${rx + 24}" x2="${rx + 24}" y1="${ly + lh - 30}" y2="${ly + lh - 14}" stroke="#0b2328" stroke-width="2.5"/>`;
-    out += text('trait = part sur l’ensemble du panel · pts = écart de la mention par rapport au panel', rx + 34, ly + lh - 17, 13, 'start', '#5f736b', 500);
+    out += text(`% et n / ${fmt(evalSet.size)} = dossiers « ${fit(focus, 360, 13)} » ayant retenu l’exigence`, rx + 24, ly + lh - 17, 13, 'start', '#5f736b', 500);
     return out;
   }
   function svg(m) {
@@ -469,7 +545,7 @@
   }
 
   /* ------------------------------------------------------------------ panneau de gauche */
-  const COLUMN_LABELS = {evaluation: 'Évaluation', operation: 'Opération', requirement: 'Exigence', code: 'Code d’exigence', validated: 'Exigence validée', status: 'Statut', referential: 'Référentiel', version: 'Version', moa: 'Maître d’ouvrage', mentions: 'Mentions', region: 'Région', year: 'Année', created: 'Date de création', target: 'Cible'};
+  const COLUMN_LABELS = {evaluation: 'Évaluation', operation: 'Opération', requirement: 'Exigence', code: 'Code d’exigence', validated: 'Exigence validée', status: 'Statut', referential: 'Référentiel', version: 'Version', moa: 'Maître d’ouvrage', mentions: 'Mentions', region: 'Région', year: 'Année', created: 'Date de création', target: 'Cible', profile: 'Profil'};
   function controls(m) {
     const src = source(), o = options(src), f = Object.assign({}, defaults.filters, m.filters || {});
     const meta = VIEWS.find(v => v[0] === m.view) || VIEWS[0];
@@ -492,6 +568,12 @@
       <textarea id="obsReqPaste" rows="4" class="carbon-import-textarea" placeholder="Évaluation: Code interne · Exigence associée: Nom · Code d’exigence · Référentiel · Mentions · Statut…"></textarea>
       <div class="carbon-import-actions"><button class="btn btn-primary" type="button" data-req-apply>Analyser le tableau</button><button class="btn btn-secondary" type="button" data-req-clear>Retirer la base</button></div>
       <div id="reqImportMessage" class="carbon-import-message" aria-live="polite"></div>${status}
+    </div>
+    <div class="control-section"><h3>Exigences obligatoires — mentions et profils</h3>
+      <p class="help">Table tirée des référentiels et des profils (fichier .json). Elle reste dans ce navigateur : rien n’est mis en ligne. Sur la vue « Exigences les plus récurrentes », une pastille signale chaque mention ou profil du périmètre qui rend l’exigence obligatoire.</p>
+      <input type="file" id="reqObligInput" accept=".json" hidden>
+      <div class="carbon-import-actions"><button class="btn btn-primary" type="button" data-req-oblig>Importer la table</button>${obligations ? '<button class="btn btn-secondary" type="button" data-req-oblig-clear>Retirer</button>' : ''}</div>
+      <p class="help">${obligations ? `${esc(obligations.title || 'Table importée')} : ${plural(obligations.sets.filter(x => x.kind === 'mention').length, 'mention', 'mentions')}, ${plural(obligations.sets.filter(x => x.kind === 'profile').length, 'profil', 'profils')}.` : 'Aucune table importée : la légende des cibles est affichée.'}</p>
     </div>
     <div class="control-section"><h3>Slide</h3>
       <div class="field"><label>Vue</label>${sel('view', m.view, VIEWS.map(v => [v[0], v[1]]))}</div>
@@ -545,6 +627,11 @@
     if (!bridge?.isActive()) return;
     const t = e.target;
     if (t.matches('#reqFileInput')) { const file = t.files?.[0]; t.value = ''; if (file) importFile(file); return; }
+    if (t.matches('#reqObligInput')) {
+      const file = t.files?.[0]; t.value = ''; if (!file) return;
+      file.text().then(parseObligations).then(o => { setObligations(o); bridge.refresh(true); message(`Table importée : ${plural(o.sets.length, 'mention ou profil', 'mentions et profils')}.`); }).catch(err => message(err.message || 'Table illisible.', true));
+      return;
+    }
     if (t.matches('[data-req-check]')) {
       const m = bridge.getModel(), key = t.dataset.reqCheck;
       m.filters = Object.assign({}, defaults.filters, m.filters || {});
@@ -565,6 +652,8 @@
   document.addEventListener('click', e => {
     if (!bridge?.isActive()) return;
     if (e.target.closest('[data-req-dropzone]')) { document.getElementById('reqFileInput')?.click(); return; }
+    if (e.target.closest('[data-req-oblig]')) { document.getElementById('reqObligInput')?.click(); return; }
+    if (e.target.closest('[data-req-oblig-clear]')) { setObligations(null); bridge.refresh(true); return; }
     if (e.target.closest('[data-req-apply]')) { importText(document.getElementById('obsReqPaste')?.value || '', 'Tableau collé'); return; }
     if (e.target.closest('[data-req-clear]')) { if (confirm('Retirer la base Exigences de toutes les slides Exigences ?')) { bridge.setSource(null); bridge.refresh(true); } }
   });
@@ -588,5 +677,5 @@
     const raw = e.clipboardData?.getData('text/plain'); if (raw) { e.preventDefault(); importText(raw, 'Tableau collé'); }
   });
 
-  window.OBSRequirementsSlides = {defaults, VIEWS, configure: b => bridge = b, controls, toolbar, svg, png, compute, buildSource, textMatrix, readFile};
+  window.OBSRequirementsSlides = {defaults, VIEWS, parseObligations, obligationBadges, setObligations, configure: b => bridge = b, controls, toolbar, svg, png, compute, buildSource, textMatrix, readFile};
 })();

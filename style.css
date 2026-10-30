@@ -266,6 +266,8 @@ button { cursor: pointer; }
    --------------------------- */
 
 .slide * { box-sizing: border-box; }
+/* V29.10 : marge de 2 cm en haut (voir frameSlide) ; le bloc garde son repère 1600 × 900 pour les positions absolues. */
+.slide-safe { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 50% 0; transform: translateY(var(--slide-safe-top)) scale(var(--slide-safe-scale)); }
 .slide h1, .slide h2, .slide h3, .slide p { margin: 0; }
 .slide .s-head {
   position: absolute;
@@ -1112,10 +1114,11 @@ body.auth-granted .auth-screen{display:none}
 
 /* V22 - couverture client */
 .cover-slide{background:#fff;overflow:hidden}
-.cover-layout,.cover-background{position:absolute;inset:0;width:1600px;height:900px}
-.cover-background{display:block;object-fit:fill;z-index:0}
-.cover-client-logo{position:absolute;left:70px;top:400px;width:885px;height:185px;object-fit:contain;object-position:left center;z-index:2}
-.cover-date-text{position:absolute;right:82px;top:545px;width:440px;height:90px;display:flex;align-items:center;justify-content:flex-end;text-align:right;font-size:41px;font-weight:900;color:#050505;z-index:2;line-height:1.05}
+/* V29.10 : bandeau Prestaterre en tête (1194 × 276 → 1600 × 370), date sous le logo client, sans pied de page. */
+.cover-layout{position:absolute;inset:0;width:1600px;height:900px}
+.cover-banner{position:absolute;left:0;top:0;width:1600px;height:370px;display:block;object-fit:cover;z-index:0}
+.cover-client-logo{position:absolute;left:72px;top:430px;width:885px;height:185px;object-fit:contain;object-position:left center;z-index:2}
+.cover-date-text{position:absolute;left:72px;top:650px;width:1000px;min-height:60px;display:flex;align-items:center;justify-content:flex-start;text-align:left;font-size:41px;font-weight:900;color:#050505;z-index:2;line-height:1.2}
 
 /* V22 - même illustration et même cadrage équipements / construction */
 .equipment-slide .building-zone{left:320px!important;top:128px!important;width:740px!important;height:610px!important}
@@ -1155,7 +1158,7 @@ body.presentation-mode .slide{transform:scale(1)!important;transform-origin:top 
 .tab.drag-over{box-shadow:inset 3px 0 0 #1c8b5a}
 body.presentation-mode .tab-close{display:none!important}
 
-.cover-logo-placeholder{position:absolute;left:72px;top:400px;width:520px;height:170px;z-index:2;border:2px dashed #9bb5ab;border-radius:16px;background:#fbfdfc;color:#55736d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.cover-logo-placeholder{position:absolute;left:72px;top:430px;width:520px;height:170px;z-index:2;border:2px dashed #9bb5ab;border-radius:16px;background:#fbfdfc;color:#55736d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .cover-logo-placeholder span{font-size:52px;line-height:.8;font-weight:300;color:#06402B}
 .cover-logo-placeholder b{font-size:17px}
 .cover-logo-placeholder:hover{background:#f2f8f5;border-color:#16714c}
