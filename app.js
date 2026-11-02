@@ -708,8 +708,6 @@ const MAP_GEOJSON_URLS = [
   function applyTextScaleToSlide() {
     if (tabType(activeTab) === 'nexityMap') { slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap); frameSlide(); return; }
     if (tabType(activeTab) === 'nexityPodium') { slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium); frameSlide(); return; }
-    if (tabType(activeTab) === 'carbonDistribution') { slide.innerHTML = window.OBSCarbonDistribution.svg(state.carbonDistribution); frameSlide(); return; }
-    if (tabType(activeTab) === 'requirements') { slide.innerHTML = window.OBSRequirementsSlides.svg(state.requirements); frameSlide(); return; }
     if (!slide) return;
     const scale = currentTextScale();
     slide.dataset.textScale = String(scale);
@@ -719,14 +717,67 @@ const MAP_GEOJSON_URLS = [
       const fs = parseFloat(getComputedStyle(el).fontSize);
       return Number.isFinite(fs) && fs > 0;
     });
+    // V29.14 : toutes les tailles de base sont lues avant d'en modifier une (un enfant qui hérite ne doit pas être agrandi deux fois).
     nodes.forEach(el => {
-      let base = Number(el.dataset?.ptBaseFontSize || 0);
-      if (!(base > 0)) {
-        base = parseFloat(getComputedStyle(el).fontSize);
-        try { el.dataset.ptBaseFontSize = String(base); } catch {}
-      }
-      el.style.fontSize = `${Math.max(6, base * scale).toFixed(2)}px`;
+      if (Number(el.dataset?.ptBaseFontSize || 0) > 0) return;
+      try { el.dataset.ptBaseFontSize = String(parseFloat(getComputedStyle(el).fontSize)); } catch {}
     });
+    const setRatio = (el, r) => { el.dataset.ptFit = String(r); el.style.fontSize = `${Math.max(6, Number(el.dataset.ptBaseFontSize) * r).toFixed(2)}px`; };
+    nodes.forEach(el => setRatio(el, 1));
+    const probe = scale > 1 ? textLayoutProbe(nodes) : null;
+    nodes.forEach(el => setRatio(el, scale));
+    if (probe) fitScaledText(nodes, probe, setRatio);
+    // L'export PNG (traceur Canvas, une ligne par texte) reprend la taille de l'aperçu, bornée par la largeur que le texte y occupe.
+    textFitByContent = new Map();
+    nodes.forEach(el => {
+      const t = fitTextKey(el.textContent); if (!t) return;
+      let box = el; while (box.parentElement && getComputedStyle(box).display === 'inline') box = box.parentElement;
+      const r = Number(el.dataset.ptFit) || 1, w = box.clientWidth || 0, prev = textFitByContent.get(t);
+      textFitByContent.set(t, prev ? {r: Math.min(prev.r, r), w: Math.min(prev.w, w)} : {r, w});
+    });
+  }
+  let textFitByContent = new Map();
+  const fitTextKey = t => String(t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  function canvasTextScale(ctx, text, size, weight) {
+    const scale = currentTextScale(), f = textFitByContent.get(fitTextKey(text));
+    if (scale <= 1 || !f) return Math.min(1, scale);
+    ctx.save(); ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`; const w0 = ctx.measureText(String(text ?? '')).width; ctx.restore();
+    return Math.max(1, Math.min(f.r, f.w && w0 ? f.w / w0 : f.r));
+  }
+  // V29.14 : défauts de mise en page mesurés à la taille d'origine (débordement de cadre, textes qui se chevauchent ou sortent de
+  // la slide) ; seuls ceux qui apparaissent ou s'aggravent après agrandissement sont corrigés.
+  function textLayoutProbe(nodes) {
+    const leaves = nodes.filter(el => [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+    const sr = slide.getBoundingClientRect(), k = sr.width / 1600 || 1;
+    const over = el => Math.max(el.scrollWidth - el.clientWidth, el.scrollHeight - el.clientHeight);
+    const boxes = () => new Map([...slide.querySelectorAll('*')].filter(el => !el.closest('svg') && el.clientWidth > 0).map(el => [el, over(el)]).filter(([, o]) => o > 1));
+    // Texte SVG : une barre, une pastille ou un trait (formes du dessin) compte aussi comme obstacle.
+    const shapes = [...slide.querySelectorAll('svg rect, svg path, svg circle, svg ellipse, svg line, svg polygon')].map((el, i) => { const r = el.getBoundingClientRect(); return {i, l:r.left, t:r.top, r:r.right, b:r.bottom}; });
+    const rects = () => leaves.map(el => { const r = el.getBoundingClientRect(); return {el, l:r.left - k, t:r.top - k, r:r.right + k, b:r.bottom + k}; }).filter(r => r.r > r.l && r.b > r.t);
+    const hits = () => { const rs = rects(), out = new Map();
+      rs.forEach(a => { if (a.el.closest('svg')) shapes.forEach(c => { if (a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b) out.set(`${a.el.dataset.ptKey}|s${c.i}`, [a.el]); }); });
+      rs.forEach((a, i) => { if (a.l < sr.left - 2 * k || a.r > sr.right + 2 * k || a.t < sr.top - 2 * k || a.b > sr.bottom + 2 * k) out.set(a.el.dataset.ptKey + '|out', [a.el]);
+        for (let j = i + 1; j < rs.length; j++) { const c = rs[j]; if (a.el.contains(c.el) || c.el.contains(a.el)) continue;
+          if (a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b) out.set(`${a.el.dataset.ptKey}|${c.el.dataset.ptKey}`, [a.el, c.el]); } });
+      return out; };
+    nodes.forEach((el, i) => { el.dataset.ptKey = String(i); });
+    return {boxes0:boxes(), hits0:new Set(hits().keys()), boxes, hits};
+  }
+  // Correction : le texte du cadre fautif (ou les deux textes qui se chevauchent) est réduit pas à pas,
+  // jamais sous sa taille d'origine ; puis les éléments de même rôle (balise, classe, classe du parent) s'alignent sur le plus petit.
+  function fitScaledText(nodes, probe, setRatio) {
+    const ratio = el => Number(el.dataset.ptFit) || 1;
+    for (let i = 0; i < 40; i++) {
+      const bad = [...probe.boxes()].filter(([el, o]) => o > (probe.boxes0.get(el) || 0) + 1).map(([el]) => el);
+      const roots = bad.filter(b => !bad.some(o => o !== b && b.contains(o)));
+      [...probe.hits()].forEach(([key, els]) => { if (!probe.hits0.has(key)) roots.push(...els); });
+      const targets = new Set(roots.flatMap(b => nodes.filter(n => b.contains(n) && ratio(n) > 1)));
+      if (!targets.size) break;
+      targets.forEach(n => setRatio(n, Math.max(1, ratio(n) * 0.94)));
+    }
+    const key = n => `${n.tagName}.${n.className}|${n.parentElement?.className || ''}`, groups = new Map();
+    nodes.forEach(n => groups.set(key(n), Math.min(groups.get(key(n)) ?? Infinity, ratio(n))));
+    nodes.forEach(n => { if (groups.get(key(n)) < ratio(n)) setRatio(n, groups.get(key(n))); });
   }
   function resetTextScaleOnSlide() {
     if (!slide) return;
@@ -2454,7 +2505,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const currentType = tabType(activeTab);
     slide.className = `slide ${isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
     updateTextScaleToolbar();
-    if (!['map','socialZoning','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(currentType)) applyTextScaleToSlide();
+    if (!['map','socialZoning','nexityMap','nexityPodium'].includes(currentType)) applyTextScaleToSlide();
     if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
     if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
     frameSlide();
@@ -5024,9 +5075,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth; ctx.stroke(); }
   }
 
-  function ct(ctx, text, x, y, size = 14, weight = 400, color = EXPORT_TEXT, align = 'left', baseline = 'alphabetic') {
+  function ct(ctx, text, x, y, size = 14, weight = 400, color = EXPORT_TEXT, align = 'left', baseline = 'alphabetic', exact = false) {
     ctx.save();
-    size = Math.max(6, size * currentTextScale());
+    size = Math.max(6, size * (exact ? 1 : canvasTextScale(ctx, text, size, weight)));
     ctx.font = `${weight} ${size}px Arial, Helvetica, sans-serif`;
     ctx.fillStyle = color;
     ctx.textAlign = align;
@@ -5036,7 +5087,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   function cwrap(ctx, text, x, y, maxWidth, size = 13, weight = 400, color = EXPORT_TEXT, lineHeight = 1.25, maxLines = 4, align = 'left') {
-    const drawSize = Math.max(6, size * currentTextScale());
+    const k = currentTextScale() > 1 ? (textFitByContent.get(fitTextKey(text))?.r || 1) : currentTextScale(), drawSize = Math.max(6, size * k);
     const words = String(text ?? '').split(/\s+/).filter(Boolean);
     const lines = [];
     let line = '';
@@ -5055,7 +5106,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       out[out.length - 1] = `${last}…`;
     }
     ctx.restore();
-    out.forEach((ln, i) => ct(ctx, ln, x, y + i * drawSize * lineHeight, size, weight, color, align));
+    out.forEach((ln, i) => ct(ctx, ln, x, y + i * drawSize * lineHeight, drawSize, weight, color, align, 'alphabetic', true));
     return out.length * drawSize * lineHeight;
   }
 
@@ -5093,7 +5144,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       const labelW = w * 0.52;
       let size = 12.5;
       ctx.save();
-      while (size > 8) { ctx.font = `600 ${size * currentTextScale()}px Arial, Helvetica, sans-serif`; if (ctx.measureText(item.name).width <= labelW - 12) break; size -= 0.5; }
+      while (size > 8) { ctx.font = `600 ${size * canvasTextScale(ctx, item.name, size, 600)}px Arial, Helvetica, sans-serif`; if (ctx.measureText(item.name).width <= labelW - 12) break; size -= 0.5; }
       ctx.restore();
       ct(ctx, item.name, x + labelW - 8, yy, size, 600, EXPORT_TEXT, 'right', 'middle');
       const bx = x + labelW;
@@ -7025,8 +7076,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
   });
 
-  window.OBSRequirementsSlides.configure({getModel:()=>state.requirements,isActive:()=>tabType(activeTab)==='requirements',logo:GLOBAL_SLIDE_LOGO_DATA_URL,getSource:()=>dataObservatoireRequirements||state.requirementsSource||null,setSource(src){dataObservatoireRequirements=null;state.requirementsSource=src||null;},refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
-  window.OBSCarbonDistribution.configure({getModel:()=>state.carbonDistribution,isActive:()=>tabType(activeTab)==='carbonDistribution',logo:GLOBAL_SLIDE_LOGO_DATA_URL,refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
+  window.OBSRequirementsSlides.configure({liveSvg:()=>slide.querySelector('svg')?.outerHTML,getModel:()=>state.requirements,isActive:()=>tabType(activeTab)==='requirements',logo:GLOBAL_SLIDE_LOGO_DATA_URL,getSource:()=>dataObservatoireRequirements||state.requirementsSource||null,setSource(src){dataObservatoireRequirements=null;state.requirementsSource=src||null;},refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
+  window.OBSCarbonDistribution.configure({liveSvg:()=>slide.querySelector('svg')?.outerHTML,getModel:()=>state.carbonDistribution,isActive:()=>tabType(activeTab)==='carbonDistribution',logo:GLOBAL_SLIDE_LOGO_DATA_URL,refresh(withControls=true){const p=document.querySelector('.control-panel'),pos=p?.scrollTop||0;try{saveState()}catch(e){console.warn(e)}if(withControls)renderControls();renderSlide();requestAnimationFrame(()=>{if(p)p.scrollTop=pos})}});
   dataInitUI();
   dataInitSlideFilterToolbar();
 

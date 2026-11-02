@@ -237,7 +237,7 @@
     return out.join('') + '</svg>';
   }
   async function png() {
-    const url = URL.createObjectURL(new Blob([svg(bridge.getModel())], {type: 'image/svg+xml;charset=utf-8'}));
+    const url = URL.createObjectURL(new Blob([bridge.isActive?.() && bridge.liveSvg?.() || svg(bridge.getModel())], {type: 'image/svg+xml;charset=utf-8'}));
     try {
       const img = new Image();
       await new Promise((ok, no) => {img.onload = ok; img.onerror = no; img.src = url;});

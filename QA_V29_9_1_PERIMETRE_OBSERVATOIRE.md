@@ -120,3 +120,19 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 
 # V29.13.1 — Labels & performances
 - Rangées des deux cadres alignées : départ en haut, même pas (22 px) ; export PNG déjà aligné (même y et même hauteur de rangée).
+
+# V29.14 — Tailles de police sur toutes les slides
+- Curseurs « Textes globaux » / « Textes slide » (70–160 %) actifs sur toutes les slides, y compris Exigences et
+  Distribution carbone (SVG). Cartes Nexity : leur propre ajustement, inchangé.
+- Agrandissement contrôlé : un texte qui déborde de son cadre, en chevauche un autre (ou une barre / pastille SVG) ou
+  sort de la slide est réduit pas à pas, jamais sous sa taille d'origine ; seuls les défauts apparus avec
+  l'agrandissement sont corrigés (rien ne change à 100 %). Puis les éléments de même rôle prennent la même taille.
+- Corrigé : un enfant qui hérite de la police n'est plus agrandi deux fois.
+- Export PNG (traceur Canvas, une ligne par texte) : taille de l'aperçu, bornée par la largeur du texte dans l'aperçu ;
+  Exigences / Distribution carbone : le PNG reprend le SVG ajusté. Google Slides lit déjà l'aperçu.
+- Vérifié à 70, 100, 140 et 150 % (aperçu et PNG) : DPE, Équipements, Construction, Labels, Carbone, Maîtres
+  d'ouvrage, Exigences (5 vues), Carte. Défauts déjà présents à 100 % laissés tels quels (sous-titre « moy… » de
+  Construction, tuiles du bas du DPE).
+- Exigences : « Compteur général d’eau par bâtiment et par type d’usage » (Rénovation) et « Compteurs d’eau par bâtiment
+  et par type d’usage » (Neuf) = une seule exigence (comme l'Observatoire V6.39). Une base déjà importée doit être
+  réimportée pour en profiter.

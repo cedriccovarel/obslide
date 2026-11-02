@@ -105,6 +105,9 @@
     return y < 100 ? 2000 + y : y;
   }
   // Matrice → base compacte (dictionnaires) : légère à enregistrer et à recharger.
+  // V29.14 : intitulés différents d'une même exigence (Neuf / Rénovation) → un seul intitulé, comme dans l'Observatoire.
+  const SAME_REQUIREMENT = [[/compteur g[ée]n[ée]ral d['’`]eau par b[âa]timent et par type d['’`]usage/i, 'Compteurs d’eau par bâtiment et par type d’usage']];
+  const sameRequirement = v => SAME_REQUIREMENT.reduce((t, [re, label]) => t.replace(re, label), String(v ?? ''));
   function buildSource(matrix, name) {
     const h = headerRow(matrix), mp = h.mapping;
     if (h.index < 0 || (mp.requirement < 0 && mp.code < 0)) throw new Error('Colonne d’exigence introuvable. Attendu : « Exigence associée: Nom » ou « Code d’exigence ».');
@@ -116,7 +119,7 @@
     for (let i = h.index + 1; i < matrix.length; i++) {
       const row = matrix[i] || [];
       const key = get(row, 'evaluation') || get(row, 'operation');
-      const reqText = get(row, 'requirement') || get(row, 'code');
+      const reqText = sameRequirement(get(row, 'requirement') || get(row, 'code'));
       if (!key || !reqText || /^(total|sous-total|total général)$/i.test(key)) { if (row.some(v => String(v ?? '').trim())) ignored++; continue; }
       let e = evalIndex.get(key);
       const ref = get(row, 'referential');
@@ -589,7 +592,7 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${header(m, view, bridge?.logo)}${body}${footer(m, c)}</svg>`;
   }
   async function png() {
-    const url = URL.createObjectURL(new Blob([svg(bridge.getModel())], {type: 'image/svg+xml;charset=utf-8'}));
+    const url = URL.createObjectURL(new Blob([bridge.isActive?.() && bridge.liveSvg?.() || svg(bridge.getModel())], {type: 'image/svg+xml;charset=utf-8'}));
     try {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = url; });
@@ -732,5 +735,5 @@
     const raw = e.clipboardData?.getData('text/plain'); if (raw) { e.preventDefault(); importText(raw, 'Tableau collé'); }
   });
 
-  window.OBSRequirementsSlides = {defaults, VIEWS, parseObligations, obligationBadges, setObligations, configure: b => bridge = b, controls, toolbar, svg, png, compute, buildSource, textMatrix, readFile};
+  window.OBSRequirementsSlides = {defaults, VIEWS, parseObligations, obligationBadges, setObligations, configure: b => bridge = b, controls, toolbar, svg, png, compute, buildSource, sameRequirement, textMatrix, readFile};
 })();
