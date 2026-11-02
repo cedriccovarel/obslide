@@ -514,9 +514,7 @@
         out += text(fmt(r.count), x + gw - 18, ry + 25, 13, 'end', '#5f736b', 500);
       });
     });
-    out += box(LEFT, 852 - 12, 14, 14, NATURE_COLORS.N, 3) + text('Neuf', LEFT + 22, 852, 13, 'start', '#33524a', 600);
-    out += box(LEFT + 80, 852 - 12, 14, 14, NATURE_COLORS.R, 3) + text('Rénovation', LEFT + 102, 852, 13, 'start', '#33524a', 600);
-    out += text('% = part des dossiers du panel ayant retenu l’exigence · barre = nombre de dossiers, Neuf / Rénovation', LEFT + 210, 852, 13, 'start', '#5f736b', 500);
+    out += text('% = part des dossiers du panel ayant retenu l’exigence · barre = nombre de dossiers, Neuf / Rénovation', LEFT, 852, 13, 'start', '#5f736b', 500);
     return out;
   }
   function evolutionSvg(m, c) {

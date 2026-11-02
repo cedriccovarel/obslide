@@ -108,3 +108,6 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
   🧓 habitat sénior, 🌿 biosourcé. Profil : nom court dans une pastille à contour.
 - Couleur fixe par mention (identique d'une slide à l'autre). Au plus 4 pastilles par ligne, puis « +n » ; la légende
   les détaille toutes. Vérifié sur un export réel (3 389 dossiers).
+
+# V29.12.1 — Exigences par cible
+- Légende du bas : carrés de couleur Neuf / Rénovation retirés ; seule la phrase explicative reste, alignée à gauche.
