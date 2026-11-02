@@ -117,3 +117,6 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Intitulés sur une seule ligne : police réduite (mesurée, 17 → 11 px) au lieu d'un retour à la ligne ; export canvas idem (12,5 → 8 px).
 - Jauges raccourcies (150 px dans l'aperçu, 200 px max à l'export) ; plus de texte coupé par le centrage vertical de la zone.
 - Vérifié avec des intitulés fictifs longs (60 caractères) : aucun débordement (scrollWidth = clientWidth).
+
+# V29.13.1 — Labels & performances
+- Rangées des deux cadres alignées : départ en haut, même pas (22 px) ; export PNG déjà aligné (même y et même hauteur de rangée).

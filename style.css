@@ -1747,3 +1747,7 @@ body.auth-granted .preview-area{
 .labels-slide .bar-row, .labels-slide .right-card .bar-row { grid-template-columns: minmax(0, 1fr) 150px 48px 64px; gap: 14px; }
 .labels-slide .bar-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; }
 .labels-slide .right-card .bar-chart { gap: 22px; }
+/* V29.13.1 : rangées Labels et Performances alignées d'un cadre à l'autre (même départ, même pas). */
+.labels-slide .chart-zone, .labels-slide .right-card .chart-zone { align-items: flex-start; padding-top: 28px; }
+.labels-slide .bar-chart, .labels-slide .right-card .bar-chart { gap: 22px; }
+.labels-slide .bar-row { min-height: 26px; }
