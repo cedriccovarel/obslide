@@ -2590,13 +2590,19 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     return `<div class="card-tab"><span class="tab-icon">${icon}</span>${esc(title)}</div>`;
   }
 
-  function renderBars(items, orangeMatcher = null) {
-    const total = sum(items) || 1;
+  // nameWidth (px) : police de l'intitulé réduite, mesure à l'appui, pour tenir sur une ligne.
+  const barNameCtx = document.createElement('canvas').getContext('2d');
+  function barNameSize(name, width, max = 17, min = 11) {
+    let size = max;
+    for (; size > min; size -= 0.5) { barNameCtx.font = `${size}px Arial, Helvetica, sans-serif`; if (barNameCtx.measureText(name).width <= width) break; }
+    return size;
+  }
+  function renderBars(items, orangeMatcher = null, total = sum(items) || 1, nameWidth = 0) {
     return `<div class="bar-chart">${items.map(item => {
       const share = Math.max(0, num(item.value)) / total * 100;
       const orange = orangeMatcher && orangeMatcher(item.name);
       return `<div class="bar-row">
-        <div class="bar-name">${esc(item.name)}</div>
+        <div class="bar-name" title="${esc(item.name)}"${nameWidth ? ` style="font-size:${barNameSize(String(item.name), nameWidth)}px"` : ''}>${esc(item.name)}</div>
         <div class="bar-track"><div class="bar-fill ${orange ? 'orange' : ''}" style="width:${Math.min(100, share)}%"></div></div>
         <div class="bar-count">${frSmart(item.value)}</div>
         <div class="bar-percent">${fr(share,1)}%</div>
@@ -2604,20 +2610,23 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }).join('')}</div>`;
   }
 
+  // V29.13 : seules les 7 performances les plus observées tiennent sur une ligne chacune.
+  const topPerformances = () => [...state.labels.performances].sort((a,b) => num(b.value)-num(a.value)).slice(0,7);
+
   function renderLabelsSlide() {
     const labelItems = state.labels.labels;
-    const perfItems = state.labels.performances;
+    const perfItems = topPerformances();
     const topLabels = [...labelItems].sort((a,b) => num(b.value)-num(a.value)).slice(0,2).map(x => x.name).join(' et ');
     const topPerf = [...perfItems].sort((a,b) => num(b.value)-num(a.value)).slice(0,2).map(x => x.name).join(' et ');
     return `
       ${head(state.labels.title, state.labels.subtitle, 'Une opération peut cumuler plusieurs mentions de performance.')}
       <section class="card left-card">
         ${cardTab('1. LABELS', '✓')}
-        <div class="chart-zone">${renderBars(labelItems)}</div>
+        <div class="chart-zone">${renderBars(labelItems, null, sum(labelItems) || 1, 320)}</div>
       </section>
       <section class="card right-card">
         ${cardTab('2. PERFORMANCES', '◴')}
-        <div class="chart-zone">${renderBars(perfItems, n => /Bbio|Cep/i.test(n))}</div>
+        <div class="chart-zone">${renderBars(perfItems, n => /Bbio|Cep/i.test(n), sum(state.labels.performances) || 1, 390)}</div>
       </section>
       <div class="footer-note">
         <div class="round-icon">💡</div>
@@ -5074,17 +5083,21 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     ct(ctx, title, x + 80, tabY + 22, 15, 900, '#fff', 'left', 'middle');
   }
 
-  function cBars(ctx, items, x, y, w, h, orangeMatcher = null, maxRows = 12) {
+  function cBars(ctx, items, x, y, w, h, orangeMatcher = null, maxRows = 12, total = Math.max(1, sum(items.slice(0, maxRows)))) {
     const visible = items.slice(0, maxRows);
-    const total = Math.max(1, sum(visible));
     const rowH = Math.min(34, h / Math.max(1, visible.length));
     visible.forEach((item, i) => {
       const yy = y + i * rowH + rowH / 2;
       const share = Math.max(0, num(item.value)) / total;
-      const labelW = Math.min(250, w * 0.34);
-      cwrap(ctx, item.name, x + labelW - 8, yy - 4, labelW - 10, 11.5, 600, EXPORT_TEXT, 1.05, 2, 'right');
+      // V29.13 : intitulé sur une seule ligne, police réduite s'il est long, jauge plus courte.
+      const labelW = w * 0.52;
+      let size = 12.5;
+      ctx.save();
+      while (size > 8) { ctx.font = `600 ${size * currentTextScale()}px Arial, Helvetica, sans-serif`; if (ctx.measureText(item.name).width <= labelW - 12) break; size -= 0.5; }
+      ctx.restore();
+      ct(ctx, item.name, x + labelW - 8, yy, size, 600, EXPORT_TEXT, 'right', 'middle');
       const bx = x + labelW;
-      const bw = w - labelW - 110;
+      const bw = Math.min(200, w - labelW - 110);
       cr(ctx, bx, yy - 9, bw, 17, 4, '#edf2f0');
       const fill = orangeMatcher && orangeMatcher(item.name) ? EXPORT_ORANGE : '#178650';
       cr(ctx, bx, yy - 9, Math.max(2, bw * Math.min(1, share)), 17, 4, fill);
@@ -5633,7 +5646,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       cCard(ctx, 30, 198, 720, 548, 'LABELS', '◎');
       cBars(ctx, state.labels.labels, 55, 243, 670, 470, null, 7);
       cCard(ctx, 780, 198, 790, 548, 'PERFORMANCES', '↗');
-      cBars(ctx, state.labels.performances, 805, 243, 740, 470, name => /2031|2028/i.test(name), 12);
+      cBars(ctx, topPerformances(), 805, 243, 740, 470, name => /2031|2028/i.test(name), 7, Math.max(1, sum(state.labels.performances)));
       cr(ctx, 58, 775, 1484, 78, 14, '#fff', EXPORT_LINE, 1);
       ct(ctx, 'À RETENIR', 80, 802, 12, 900, EXPORT_GREEN);
       const topLabels = [...state.labels.labels].sort((a,b)=>num(b.value)-num(a.value)).slice(0,2).map(x=>x.name).join(' et ');

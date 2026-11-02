@@ -1742,3 +1742,8 @@ body.auth-granted .preview-area{
 .labels-slide .bar-fill { border-radius: 6px; }
 .labels-slide .bar-count { font-size: 20px; text-align: right; }
 .labels-slide .bar-percent { font-size: 15px; }
+
+/* V29.13 — Labels & performances : intitulés sur une ligne, jauges plus courtes. */
+.labels-slide .bar-row, .labels-slide .right-card .bar-row { grid-template-columns: minmax(0, 1fr) 150px 48px 64px; gap: 14px; }
+.labels-slide .bar-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; }
+.labels-slide .right-card .bar-chart { gap: 22px; }

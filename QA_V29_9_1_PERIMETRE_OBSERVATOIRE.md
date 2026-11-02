@@ -111,3 +111,9 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 
 # V29.12.1 — Exigences par cible
 - Légende du bas : carrés de couleur Neuf / Rénovation retirés ; seule la phrase explicative reste, alignée à gauche.
+
+# V29.13 — Labels & performances
+- Performances : seules les 7 plus observées (aperçu et export PNG) ; les % restent calculés sur toutes les performances.
+- Intitulés sur une seule ligne : police réduite (mesurée, 17 → 11 px) au lieu d'un retour à la ligne ; export canvas idem (12,5 → 8 px).
+- Jauges raccourcies (150 px dans l'aperçu, 200 px max à l'export) ; plus de texte coupé par le centrage vertical de la zone.
+- Vérifié avec des intitulés fictifs longs (60 caractères) : aucun débordement (scrollWidth = clientWidth).
