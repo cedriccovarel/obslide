@@ -1950,6 +1950,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const metric=model.sortBy==='dwellings'?'dwellings':'value', metricTotal=metric==='dwellings'?totalDw:total;
     const top=items.slice(0,10), top5=top.slice(0,5).reduce((s,i)=>s+i[metric],0);
     cHeader(ctx,model.title,model.subtitle,model.note);
+    if(kind==='mentionList'){cMentionListSlide(ctx,model,t,opts,items,top,total,totalDw,metric,metricTotal,top5);return;}
     const x0=55,w=1010; cr(ctx,x0,190,w,630,22,'#fff','#c3d2cf',1.2); cr(ctx,x0,190,w,54,22,'#eef4f1');
     const cols=[{key:'rank',label:'#',w:42},{key:'name',label:t.itemHeader||'LIBELLÉ',w:270},{key:'value',label:t.valueHeader||'OCCURRENCES',w:90}];
     if(opts.dwellings!==false)cols.push({key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:105});
@@ -1965,6 +1966,28 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     cr(ctx,1100,620,445,200,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,t.kpi3Title||'TOP 5',1130,660,12,900,EXPORT_GREEN);ct(ctx,frSmart(top5),1130,728,48,900,EXPORT_GREEN);ct(ctx,metric==='dwellings'?'logements':(t.kpi3Unit||''),1245,728,13,700,EXPORT_TEXT);cwrap(ctx,`${t.kpi3SubtitlePrefix||'Soit'} ${metricTotal>0?fr(top5/metricTotal*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix||'% du total'}`,1130,770,370,13,700,EXPORT_TEXT,1.15,2);
   }
 
+
+  // V29.15 — Mentions : chiffres clés en bandeau, tableau pleine largeur (même disposition que l'aperçu)
+  function cMentionListSlide(ctx,model,t,opts,items,top,total,totalDw,metric,metricTotal,top5) {
+    const kpis=[
+      [t.kpi1Title||'TOTAL',frSmart(total),'',t.kpi1Subtitle||''],
+      [t.kpi2Title||'ÉLÉMENTS DISTINCTS',frSmart(items.length),'',t.kpi2Subtitle||''],
+      [t.kpi3Title||'TOP 5',frSmart(top5),metric==='dwellings'?'logements':(t.kpi3Unit||''),`${t.kpi3SubtitlePrefix||'Soit'} ${metricTotal>0?fr(top5/metricTotal*100,1):fr(0,1)} ${t.kpi3SubtitleSuffix||'% du total'}`]
+    ];
+    const kw=(1490-44)/3;
+    kpis.forEach(([title,val,unit,sub],k)=>{const x=55+k*(kw+22);cr(ctx,x,190,kw,104,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,title,x+24,232,13,900,EXPORT_GREEN);if(sub)cwrap(ctx,sub,x+24,256,kw-200,13,700,EXPORT_TEXT,1.15,2);let right=x+kw-24;if(unit){ct(ctx,unit,right,256,13,700,EXPORT_TEXT,'right','alphabetic');ctx.save();ctx.font='700 13px Arial, Helvetica, sans-serif';right-=ctx.measureText(unit).width+8;ctx.restore();}ct(ctx,val,right,256,38,900,EXPORT_GREEN,'right','alphabetic');});
+    const x0=55,w=1490,y0=316,headH=48,rowY=y0+headH+4+20,rowH=41;
+    cr(ctx,x0,y0,w,504,22,'#fff','#c3d2cf',1.2); cr(ctx,x0,y0,w,headH,22,'#eef4f1');
+    const cols=[{key:'rank',label:'#',w:44},{key:'name',label:t.itemHeader||'LIBELLÉ',w:0},{key:'value',label:t.valueHeader||'OCCURRENCES',w:98}];
+    if(opts.dwellings!==false)cols.push({key:'dwellings',label:t.dwellingsHeader||'TOTAL LOGEMENTS',w:105});
+    if(opts.buildings!==false)cols.push({key:'buildings',label:t.buildingsHeader||'TOTAL BÂTIMENTS',w:100});
+    cols.push({key:'share',label:t.shareHeader||'PART OPÉRATIONS',w:170});
+    if(opts.shareDwellings!==false)cols.push({key:'shareDw',label:t.shareDwellingsHeader||'PART LOGEMENTS',w:170});
+    const inner=w-24, fixed=cols.reduce((a,c)=>a+c.w,0); cols.find(c=>c.key==='name').w=Math.max(190,inner-fixed);
+    let xx=x0+12; cols.forEach(c=>{c.x=xx;c.dw=c.w;xx+=c.dw;cwrap(ctx,c.label,c.x+(c.key==='rank'?c.dw/2:5),y0+headH/2-2,c.dw-10,10,900,EXPORT_TEXT,1.08,2,c.key==='rank'?'center':'left');});
+    top.forEach((item,i)=>{const y=rowY+i*rowH;ctx.strokeStyle='#e3ebe8';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x0+12,y+rowH/2);ctx.lineTo(x0+w-12,y+rowH/2);ctx.stroke();const pct=total>0?item.value/total*100:0,pctDw=totalDw>0?item.dwellings/totalDw*100:0;cols.forEach(c=>{if(c.key==='rank')ct(ctx,String(i+1),c.x+c.dw/2,y,11,800,EXPORT_MUTED,'center','middle');else if(c.key==='name'){ctx.save();ctx.font='800 13px Arial, Helvetica, sans-serif';const oneLine=ctx.measureText(item.name).width<=c.dw-10;ctx.restore();cwrap(ctx,item.name,c.x+5,oneLine?y+4:y-4,c.dw-10,13,800,EXPORT_TEXT,1.12,2);}else if(c.key==='value')ct(ctx,frSmart(item.value),c.x+c.dw/2,y,13,900,EXPORT_TEXT,'center','middle');else if(c.key==='dwellings')ct(ctx,frSmart(item.dwellings),c.x+c.dw/2,y,13,900,EXPORT_TEXT,'center','middle');else if(c.key==='buildings')ct(ctx,frSmart(item.buildings),c.x+c.dw/2,y,13,900,EXPORT_TEXT,'center','middle');else{const val=c.key==='share'?pct:pctDw;ct(ctx,`${fr(val,1)} %`,c.x+5,y,11,850,EXPORT_MUTED,'left','middle');cr(ctx,c.x+57,y-3.5,c.dw-67,7,3.5,'#e7efec');cr(ctx,c.x+57,y-3.5,(c.dw-67)*Math.max(0,Math.min(100,val))/100,7,3.5,EXPORT_GREEN);}});});
+    if(items.length>10)ct(ctx,`+ ${items.length-10} ${t.hiddenLabel || 'élément(s) non affiché(s)'}`,x0+28,y0+504-20,13,800,EXPORT_GREEN,'left','middle');
+  }
 
   function cMoaListSlide(ctx) {
     const model=state.moaList, t=model.texts||{}, cols=model.columns||{};

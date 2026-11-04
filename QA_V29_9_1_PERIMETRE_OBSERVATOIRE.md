@@ -136,3 +136,10 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Exigences : « Compteur général d’eau par bâtiment et par type d’usage » (Rénovation) et « Compteurs d’eau par bâtiment
   et par type d’usage » (Neuf) = une seule exigence (comme l'Observatoire V6.39). Une base déjà importée doit être
   réimportée pour en profiter.
+
+## V29.15 — Slide Mentions : chiffres clés en haut, tableau élargi
+
+- Les 3 encarts (Total, Mentions distinctes, Top 5) passent en bandeau compact au-dessus du tableau (104 px de haut).
+- Le tableau occupe toute la largeur de la slide (1490 px) : la colonne Mention gagne ~780 px ; l'intitulé n'est plus tronqué par « … » et passe sur 2 lignes si besoin.
+- Même disposition dans l'export PNG (canvas `cMentionListSlide`). Les slides Maîtres d'ouvrage et Performances ne changent pas.
+- Vérifié : aperçu et PNG avec 12 mentions, dont un intitulé de 130 caractères (2 lignes, rien de coupé), ligne « + 2 mention(s) non affichée(s) » visible.
