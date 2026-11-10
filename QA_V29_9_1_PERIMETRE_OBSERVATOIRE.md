@@ -151,3 +151,14 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Correction : un seul libellé sans « Niveau » (`dataPerfName`, `dataLevelLabel`), une seule clé par niveau (`dataTagKey`), aussi pour
   le clic qui liste les opérations. « Voir Mentions » (renvoi vers la colonne Mentions) n'est plus compté comme une performance.
 - Vérifié sur l'export réel du 30/09 : IC Construction 2025 = 812, IC Énergie 2025 = 645, Cep RE 2020 - 5 % = 313… une ligne chacun.
+
+## V29.17 — Slide « Communes des opérations »
+
+- Nouvelle slide (catalogue + ajoutée une fois après le zonage) : liste complète des communes avec le nombre de projets, en
+  colonnes (2 à 6 selon le nombre), classement par nombre de projets ou alphabétique, KPI (communes, projets localisés, 1re commune).
+- Données : colonne Ville des lignes reçues de l'Observatoire (complétée par TotalRecoll dans l'Observatoire), même regroupement que
+  l'Observatoire V6.62 (graphies, Cedex, St/Ste fusionnés ; homonymes de départements différents séparés). Projets sans commune et,
+  en données anonymisées, communes de moins de 5 projets : comptés en note, non nommés.
+- Plus de « Lignes par slide » (120 par défaut) : pagination (dupliquer la slide, choisir la page). Collage manuel « Ville ⇥ Nombre ⇥ Département ».
+- Vérifié : 130 communes fictives → page 1 = 120 lignes en 6 colonnes, page 2 = 10 ; aucune erreur JS ; export PNG par html2canvas,
+  PPTX / Google Slides par la lecture du DOM (générique).

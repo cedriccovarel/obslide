@@ -452,6 +452,18 @@ const MAP_GEOJSON_URLS = [
       paste: '',
       search: ''
     },
+    // V29.17 : liste complète des communes des opérations (nombre de projets par commune), depuis l'Observatoire ou un collage.
+    cityList: {
+      title: 'COMMUNES DES OPÉRATIONS',
+      subtitle: 'Nombre de projets par commune — liste complète',
+      sortBy: 'count',
+      perPage: 120,
+      page: 1,
+      items: [],
+      missing: 0,
+      merged: 0,
+      importPaste: ''
+    },
     socialZoning: {
       title: 'ZONAGE DES LOGEMENTS SOCIAUX',
       subtitle: 'Répartition des opérations selon le zonage officiel 1 / 2 / 3 à partir des communes',
@@ -486,6 +498,7 @@ const MAP_GEOJSON_URLS = [
     {type:'carbonDistribution', label:'Distribution carbone · jauges'},
     {type:'requirements', label:'Exigences'},
     {type:'socialZoning', label:'Zonage logement social 1 / 2 / 3'},
+    {type:'cityList', label:'Communes des opérations'},
     {type:'stakeholderSplit', label:'Répartition bailleurs / promoteurs'},
     {type:'moaList', label:'Maîtres d’ouvrage'},
     {type:'performanceList', label:'Performances'},
@@ -532,6 +545,7 @@ const MAP_GEOJSON_URLS = [
   if (!state.map || typeof state.map !== 'object') state.map = clone(defaults.map);
   if (!['department','region'].includes(state.map.level)) state.map.level = 'department';
   if (state.map.regionZoom !== 'all' && !REGIONS.some(region => !region.overseas && region.name === state.map.regionZoom)) state.map.regionZoom = 'all';
+  state.cityList = deepMerge(clone(defaults.cityList), state.cityList && typeof state.cityList === 'object' ? state.cityList : {});
   if (!state.socialZoning || typeof state.socialZoning !== 'object') state.socialZoning = clone(defaults.socialZoning);
   state.socialZoning = deepMerge(clone(defaults.socialZoning), state.socialZoning || {});
   if (!['national','region','department'].includes(state.socialZoning.scope)) state.socialZoning.scope = 'national';
@@ -581,6 +595,11 @@ const MAP_GEOJSON_URLS = [
       state.presentation.nexityPodiumAdded = true;
     }
     if (typeOf(order[insertAt]) === 'nexityPodium') insertAt += 1;
+    // V29.17 : slide « Communes des opérations » ajoutée une seule fois, après le zonage (supprimable ensuite).
+    if (!state.presentation.cityListAdded) {
+      state.presentation.cityListAdded = true;
+      if (!order.some(id => typeOf(id) === 'cityList')) { const at = order.findIndex(id => typeOf(id) === 'socialZoning'); order.splice(at >= 0 ? at + 1 : insertAt, 0, 'cityList'); }
+    }
     // V29.9 : migration des anciennes présentations exécutée une seule fois. Auparavant elle tournait à
     // chaque ouverture et réinsérait les slides supprimées ou absentes d'une sauvegarde chargée.
     if (state.presentation.listSlidesAdded) return;
@@ -1914,6 +1933,42 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     })).filter(item=>item.name).sort((a,b)=>(b[metric]-a[metric]) || (b.value-a.value) || a.name.localeCompare(b.name,'fr'));
   }
 
+  // V29.17 : communes des opérations — liste complète en colonnes (lecture de haut en bas), taille adaptée au nombre de lignes ;
+  // au-delà de « lignes par slide », pagination (dupliquer la slide et choisir la page suivante).
+  function cityListModel(){ const m=state.cityList; m.items=Array.isArray(m.items)?m.items:[]; return m; }
+  function cityListPages(m=cityListModel()){ const per=Math.max(10,Math.min(240,Math.round(num(m.perPage)||120))); return {per,pages:Math.max(1,Math.ceil(m.items.length/per))}; }
+  function cityListSorted(m=cityListModel()){ const items=m.items.map(x=>({name:String(x.name||''),department:String(x.department||''),value:Math.max(0,num(x.value))})).filter(x=>x.name);
+    return m.sortBy==='alpha'?items.sort((a,b)=>a.name.localeCompare(b.name,'fr')||String(a.department).localeCompare(String(b.department))):items.sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name,'fr')); }
+  function renderCityListSlide(){
+    const m=cityListModel(), all=cityListSorted(m), {per,pages}=cityListPages(m), page=Math.max(1,Math.min(pages,Math.round(num(m.page)||1)));
+    const items=all.slice((page-1)*per,page*per), n=items.length, total=all.reduce((a,x)=>a+x.value,0);
+    const cols=n<=12?2:n<=30?3:n<=56?4:n<=90?5:6, rows=Math.max(1,Math.ceil(n/cols)), rowH=Math.min(46,560/rows), font=Math.max(9,Math.min(17,rowH*.44));
+    const kpi=(label,value,sub)=>`<div class="city-kpi card"><span>${esc(label)}</span><b>${frSmart(value)}</b>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
+    const notes=[m.missing?`${frSmart(m.missing)} projet${m.missing>1?'s':''} sans commune renseignée (non listé${m.missing>1?'s':''})`:'',m.merged?`${frSmart(m.merged)} projet${m.merged>1?'s':''} dans des communes de moins de 5 projets, non nommées (données anonymisées)`:'',pages>1?`Page ${page} / ${pages} — la suite sur la slide suivante (dupliquer cette slide et choisir la page ${page<pages?page+1:1})`:''].filter(Boolean);
+    return `${head(m.title,m.subtitle,'',m.sortBy==='alpha'?'Classement alphabétique':'Classement par nombre de projets')}
+      <div class="city-kpis">${kpi('COMMUNES',all.length,'communes avec au moins un projet')}${kpi('PROJETS LOCALISÉS',total,'projets dont la commune est connue')}${kpi('1RE COMMUNE',all.slice().sort((a,b)=>b.value-a.value)[0]?.value||0,all.slice().sort((a,b)=>b.value-a.value)[0]?`${all.slice().sort((a,b)=>b.value-a.value)[0].name}${all.slice().sort((a,b)=>b.value-a.value)[0].department?` (${all.slice().sort((a,b)=>b.value-a.value)[0].department})`:''}`:'')}</div>
+      <div class="city-list card" style="--city-cols:${cols};--city-rows:${rows};--city-row-h:${rowH.toFixed(1)}px;--city-font:${font.toFixed(1)}px">
+        ${n?items.map((x,i)=>`<div class="city-row"><i>${(page-1)*per+i+1}</i><b title="${esc(x.name)}">${esc(x.name)}${x.department?` <small>(${esc(x.department)})</small>`:''}</b><strong>${frSmart(x.value)}</strong></div>`).join(''):'<div class="city-empty">Aucune commune : connecte les données de l’Observatoire (bouton Données) ou colle une liste dans le panneau de droite.</div>'}
+      </div>
+      ${notes.length?`<div class="city-notes">${notes.map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}`;
+  }
+  function renderCityListControls(){
+    const m=cityListModel(), {pages}=cityListPages(m);
+    return `<div class="control-section"><h3>Textes</h3>${field('Titre','cityList.title','text')}${field('Sous-titre','cityList.subtitle','text')}</div>
+      <div class="control-section"><h3>Liste</h3>${selectField('Classement','cityList.sortBy',[{value:'count',label:'Nombre de projets (décroissant)'},{value:'alpha',label:'Alphabétique'}])}
+        ${field('Lignes par slide (10 à 240)','cityList.perPage','number',{step:'1',min:10,max:240})}
+        ${selectField('Page affichée','cityList.page',Array.from({length:pages},(_,i)=>({value:i+1,label:`Page ${i+1} / ${pages}`})))}
+        <p class="help">${frSmart(m.items.length)} commune${m.items.length>1?'s':''}${dataRuntime.connected?' · calculées depuis les données connectées (colonne Ville, complétée par TotalRecoll dans l’Observatoire)':''}. Au-delà d’une page, duplique la slide et choisis la page suivante.</p></div>
+      <div class="control-section"><h3>Coller une liste</h3><p class="help">Une ligne par commune : <strong>Ville</strong> ⇥ <strong>Nombre de projets</strong> ⇥ <strong>Département</strong> (facultatif).</p>
+        <div class="field"><textarea rows="7" data-city-import-paste="1" placeholder="Lille\t12\t59&#10;Roubaix\t5\t59">${esc(m.importPaste||'')}</textarea></div>
+        <div class="map-control-actions"><button type="button" class="btn btn-primary btn-small" data-city-import="replace">Importer / remplacer</button></div></div>`;
+  }
+  function importCityPaste(){
+    const m=cityListModel(), map=new Map();
+    String(m.importPaste||'').split(/\r?\n/).map(l=>l.split(/\t|;/).map(x=>x.trim())).filter(c=>c[0]&&Number.isFinite(num(c[1]))&&num(c[1])>0).forEach(([name,v,dep])=>{const k=`${dataNorm(name)}|${dep||''}`;const x=map.get(k)||{name:dataPrettyCity(name),department:dep||'',value:0};x.value+=num(v);map.set(k,x);});
+    if(!map.size){toast('Aucune ligne « Ville ⇥ Nombre » reconnue.');return;}
+    m.items=[...map.values()];m.missing=0;m.merged=0;m.page=1;saveState();renderControls();renderSlide();toast(`${map.size} commune${map.size>1?'s':''} importée${map.size>1?'s':''}.`);
+  }
   function renderRankedListSlide(kind) {
     const model = state[kind], t = model.texts || {}, cols=model.columns||{};
     const items = rankedItemsForDisplay(kind);
@@ -2456,6 +2511,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
     if (tabType(activeTab) === 'performanceList') controls.innerHTML = renderRankedListControls('performanceList', 'Performance');
     if (tabType(activeTab) === 'mentionList') controls.innerHTML = renderRankedListControls('mentionList', 'Mention');
+    if (tabType(activeTab) === 'cityList') controls.innerHTML = renderCityListControls();
     if (tabType(activeTab) === 'map') {
       controls.innerHTML = renderMapControls();
       requestAnimationFrame(applyMapSearchFilter);
@@ -2496,6 +2552,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'moaList') slide.innerHTML = renderMoaListSlide();
     if (tabType(activeTab) === 'performanceList') slide.innerHTML = renderRankedListSlide('performanceList');
     if (tabType(activeTab) === 'mentionList') slide.innerHTML = renderRankedListSlide('mentionList');
+    if (tabType(activeTab) === 'cityList') slide.innerHTML = renderCityListSlide();
     if (tabType(activeTab) === 'tunnel') slide.innerHTML = renderTunnelSlide();
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
@@ -2520,6 +2577,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       moaList: 'moa-list-slide',
       performanceList: 'moa-list-slide performance-list-slide',
       mentionList: 'moa-list-slide mention-list-slide',
+      cityList: 'city-list-slide',
       tunnel: 'tunnel-slide',
       evolution: 'evolution-slide',
       heatingMatrix: 'transition-matrix-slide',
@@ -4665,6 +4723,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       saveState(); renderSlide();
       return;
     }
+    if (t.dataset.cityImportPaste !== undefined) { state.cityList.importPaste = t.value; saveState(); return; }
     if (t.dataset.moaImportPaste !== undefined) {
       state.moaList.importPaste = t.value;
       saveState();
@@ -4831,6 +4890,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   controls.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.cityImport !== undefined) { importCityPaste(); return; }
     if (t.dataset.moaImport !== undefined) {
       importMoaExcelPaste(t.dataset.moaImport === 'append' ? 'append' : 'replace');
       return;
@@ -5060,6 +5120,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     moaList: 'maitres-ouvrage',
     performanceList: 'performances',
     mentionList: 'mentions',
+    cityList: 'communes-operations',
     tunnel: 'tunnel-certification',
     evolution: 'evolution-operations',
     heatingMatrix: 'transition-vecteurs-chauffage',
@@ -5947,7 +6008,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (type === 'carbonDistribution') return window.OBSCarbonDistribution.png();
     if (type === 'requirements') return window.OBSRequirementsSlides.png();
     if (type === 'map') return mapSlidePngBlob();
-    if (type === 'socialZoning') return html2CanvasSlidePngBlob();
+    if (type === 'socialZoning' || type === 'cityList') return html2CanvasSlidePngBlob();
     if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList','performanceList','mentionList'].includes(type)) {
       return legacyCanvasSlidePngBlob();
     }
@@ -6777,7 +6838,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       try{
         dataSnapshotManual();
         dataRuntime.connected=true;dataRuntime.mode='observatoire';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';
-        dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};
+        dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};dataRuntime.anonymized=!!d.anonymized;
         // Les opérations reçues sont déjà celles du périmètre : il est recalé sur leurs codes (pseudonymes compris).
         dataLaunchScope={...(dataLaunchScope||{}),summary:d.summary||dataLaunchScope?.summary||'',operationCodes:ops.map(o=>String(o.code||'')).filter(Boolean)};
         dataLaunchScope._codeSet=new Set(dataLaunchScope.operationCodes.map(v=>dataNorm(v)));
@@ -6887,7 +6948,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
   function dataGoogleCsvUrl(input,tab){const url=String(input||'').trim();if(!url)return'';if(/\.csv($|\?)/i.test(url)||url.includes('output=csv'))return url;const m=url.match(/\/spreadsheets\/d\/([^/]+)/);if(!m)return url;return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab||'OPERATIONS')}`;}
   function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const mentions=['BEE+','BBCA','Option TFPB'];const statusLabels={notStarted:'Non démarrée',complete:'Dossier complet',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,rawStatus:statusLabels[status]||status,mentions:mentions[i%mentions.length],performance:i%2?'IC Construction 2028':'Cep RE2020 -5%',sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
-  const DATA_CONNECTED_TYPES=['tunnel','map','socialZoning','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
+  const DATA_CONNECTED_TYPES=['tunnel','map','socialZoning','cityList','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
   function dataFilteredOperations(){return [...dataRuntime.operations];}
@@ -6901,6 +6962,17 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     let mapped=0;const unmapped=[];
     (ops||[]).forEach(o=>{const code=dataDepartment(o.department);if(code&&DEPARTMENTS.some(d=>d.code===code))mapped++;else unmapped.push(o);});
     return {mapped,unmapped,total:(ops||[]).length};
+  }
+  // V29.17 : communes (même regroupement que l'Observatoire V6.62) : graphies fusionnées (« LILLE », « Lille Cedex », « St »),
+  // homonymes de départements différents séparés ; mode anonymisé : communes de moins de 5 projets regroupées.
+  function dataPrettyCity(v){const s=String(v??'').trim().replace(/\s+/g,' ');if(!s||s!==s.toUpperCase()||!/[A-ZÀ-Ý]/.test(s))return s;return s.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()).replace(/\b(Sur|Sous|Les|Lès|Le|La|De|Du|Des|En|Et|Aux|Au)\b(?!$)/g,(m,w,i)=>i?w.toLowerCase():w).replace(/([\s-])D'/g,"$1d'");}
+  function dataCityKey(o){const c=dataNorm(o?.city).replace(/\bcedex\b.*$/,'').replace(/[-']/g,' ').replace(/\bst\b/g,'saint').replace(/\bste\b/g,'sainte').replace(/\s+/g,' ').trim();return c?`${c}|${dataDepartment(o?.department)||''}`:'';}
+  function dataAggregateCities(ops,anonymized=false){
+    const m=new Map();let missing=0;
+    (ops||[]).forEach(o=>{const k=dataCityKey(o);if(!k){missing++;return;}if(!m.has(k))m.set(k,{dep:dataDepartment(o.department)||'',value:0,spell:new Map()});const g=m.get(k);g.value++;const sp=String(o.city).trim().replace(/\s+/g,' ');g.spell.set(sp,(g.spell.get(sp)||0)+1);});
+    let items=[...m.values()].map(g=>({name:dataPrettyCity([...g.spell.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0][0]),department:g.dep,value:g.value}));
+    let merged=0;if(anonymized){const small=items.filter(x=>x.value<5);merged=small.reduce((s,x)=>s+x.value,0);items=items.filter(x=>x.value>=5);}
+    return {items:items.sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name,'fr')),missing,merged};
   }
   function dataAggregateMoa(ops){const map=new Map();ops.forEach(o=>{const name=o.moa||'Non précisé';const key=dataNorm(name);if(!map.has(key))map.set(key,{name,value:0,dwellings:0,buildings:0});const x=map.get(key);x.value+=1;x.dwellings+=dataNumber(o.dwellings);x.buildings+=dataNumber(o.buildings);});return [...map.values()];}
   function dataAggregateNamed(ops,getter){const m=new Map();ops.forEach(o=>{const v=String(getter(o)||'').trim();if(!v)return;const k=dataNorm(v);if(!m.has(k))m.set(k,{name:v,value:0});m.get(k).value++;});const total=Math.max(1,ops.length);return [...m.values()].sort((a,b)=>b.value-a.value).map(x=>({...x,pct:x.value/total*100}));}
@@ -6982,6 +7054,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if(type==='tunnel'){const a=dataAggregateTunnel(ops);(model.statuses||[]).forEach(s=>{if(a.counts[s.key]!==undefined)s.value=a.counts[s.key];});model.cancelled=a.cancelled;model.sold=a.sold;}
     else if(type==='map'){const coverage=dataMapCoverage(ops);model.values=dataAggregateMap(ops);model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;model.dataConnectedCount=coverage.total;}
     else if(type==='socialZoning'){model.dataConnectedCount=ops.length; if(!model.zoneFilter) model.zoneFilter='all'; if(!model.scope) model.scope='national';}
+    else if(type==='cityList'){const c=dataAggregateCities(ops,dataRuntime.anonymized);model.items=c.items;model.missing=c.missing;model.merged=c.merged;model.page=1;}
     else if(type==='moaList')model.items=dataAggregateMoa(ops);
     else if(type==='stakeholderSplit')model.items=dataAggregateNamed(ops,o=>o.moaType||'Non précisé').map(x=>({name:x.name,value:x.value}));
     else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}

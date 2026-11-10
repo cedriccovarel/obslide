@@ -1765,3 +1765,20 @@ body.auth-granted .preview-area{
 .mention-list-slide .moa-table-row{height:41px}
 .mention-list-slide .moa-table-card-ranked-rich .moa-table-row>b{white-space:normal;overflow:hidden;text-overflow:clip;line-height:1.12;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .mention-list-slide .moa-more{height:34px}
+
+/* V29.17 — Communes des opérations : liste complète en colonnes */
+.city-list-slide{background:#fff}
+.city-list-slide .s-head{z-index:3}
+.city-kpis{position:absolute;left:55px;right:55px;top:178px;height:82px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.city-kpi{padding:12px 22px;border-color:#0c5a41!important;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:16px;align-items:center}
+.city-kpi span{grid-column:1 / 3;font-size:12px;font-weight:900;color:#0b5d43;letter-spacing:.02em}
+.city-kpi b{font-size:34px;line-height:1.05;color:#06402B}
+.city-kpi small{font-size:12.5px;font-weight:700;color:#294d47;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.city-list{position:absolute;left:55px;right:55px;top:278px;height:582px;padding:11px 18px;display:grid;grid-auto-flow:column;grid-template-columns:repeat(var(--city-cols),minmax(0,1fr));grid-template-rows:repeat(var(--city-rows),var(--city-row-h));column-gap:26px;overflow:hidden}
+.city-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;border-bottom:1px solid #e3ebe8;font-size:var(--city-font);color:#173c3d;min-width:0}
+.city-row i{font-style:normal;font-size:.78em;font-weight:800;color:#8a9c97;min-width:1.9em;text-align:right}
+.city-row b{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-row b small{font-weight:600;color:#687d79;font-size:.82em}
+.city-row strong{font-weight:900;color:#06402B}
+.city-empty{grid-column:1 / -1;align-self:center;text-align:center;font-size:18px;color:#687d79}
+.city-notes{position:absolute;left:55px;right:55px;top:866px;display:flex;gap:22px;font-size:12px;font-weight:700;color:#58716b}
