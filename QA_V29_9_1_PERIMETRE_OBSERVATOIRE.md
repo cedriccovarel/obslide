@@ -143,3 +143,11 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Le tableau occupe toute la largeur de la slide (1490 px) : la colonne Mention gagne ~780 px ; l'intitulé n'est plus tronqué par « … » et passe sur 2 lignes si besoin.
 - Même disposition dans l'export PNG (canvas `cMentionListSlide`). Les slides Maîtres d'ouvrage et Performances ne changent pas.
 - Vérifié : aperçu et PNG avec 12 mentions, dont un intitulé de 130 caractères (2 lignes, rien de coupé), ligne « + 2 mention(s) non affichée(s) » visible.
+
+## V29.16 — Labels & performances : performances en double
+
+- Cause : chaque niveau RE2020 était compté deux fois, sous « Niveau IC Énergie 2025 » (cellule « Opération: Performance ») et
+  « IC Énergie IC Énergie 2025 » (colonne « Niveau IC Énergie » dont la valeur reprend déjà l'intitulé).
+- Correction : un seul libellé sans « Niveau » (`dataPerfName`, `dataLevelLabel`), une seule clé par niveau (`dataTagKey`), aussi pour
+  le clic qui liste les opérations. « Voir Mentions » (renvoi vers la colonne Mentions) n'est plus compté comme une performance.
+- Vérifié sur l'export réel du 30/09 : IC Construction 2025 = 812, IC Énergie 2025 = 645, Cep RE 2020 - 5 % = 313… une ligne chacun.
