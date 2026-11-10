@@ -162,3 +162,19 @@ Base : Obslide V29.9. Les slides et exports existants ne changent pas.
 - Plus de « Lignes par slide » (120 par défaut) : pagination (dupliquer la slide, choisir la page). Collage manuel « Ville ⇥ Nombre ⇥ Département ».
 - Vérifié : 130 communes fictives → page 1 = 120 lignes en 6 colonnes, page 2 = 10 ; aucune erreur JS ; export PNG par html2canvas,
   PPTX / Google Slides par la lecture du DOM (générique).
+
+## V29.18 — Carte des communes (échelle du département)
+- Nouvelle slide « Carte des communes (département) » (type `communeMap`), ajoutée une fois après « Communes des opérations ».
+- Fond : contours officiels des communes du département (geo.api.gouv.fr, Etalab / IGN), chargés à l'ouverture, gardés en mémoire
+  pour la session (aucun stockage) ; seul le code du département est envoyé.
+- Couleur par nombre de projets (1 / 2–4 / 5–9 / 10–19 / 20+), communes les plus représentées nommées sans chevauchement
+  (nombre réglable 0–40), classement des 14 premières, légende, notes (communes non reconnues, autres départements,
+  communes anonymisées < 5 projets, projets sans commune).
+- Département : automatique (le plus représenté) ou choisi ; dupliquer la slide pour un autre département.
+- Données : opérations connectées (`dataAggregateCommunes` : regroupement des Communes des opérations + code INSEE / code postal
+  majoritaires ; département déduit du code postal ou de l'INSEE s'il manque), sinon liste collée de la slide Communes des opérations.
+- Rapprochement : INSEE (arrondissements Paris / Lyon / Marseille → commune), nom (+ code postal si homonymes), code postal unique.
+- Export PNG 4K / classeur : capture de la slide (attend la fin du chargement des contours). Classeur PDF : Zonage et Communes
+  des opérations passent aussi par la capture (aucun traceur Canvas pour ces slides).
+- Vérifié (Chrome, communes réelles du Nord et du Pas-de-Calais, nombres fictifs) : 647 contours du Nord, 11 communes colorées,
+  « Commune inconnue » signalée, bascule 59 → 62, export PNG 3840×2160, aucune erreur.
