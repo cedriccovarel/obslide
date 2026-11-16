@@ -528,6 +528,9 @@ const MAP_GEOJSON_URLS = [
   defaults.nexityMap = clone(window.OBSNexityMap.defaults);
   defaults.nexityPodium = clone(window.OBSNexityPodium.defaults);
   defaults.carbonDistribution = clone(window.OBSCarbonDistribution.defaults);
+  // V29.19 : slides d'analyse (analytics-slides.js) — abandon, clients / familles de MOA, certifications, panier, taille, tertiaire.
+  const ANALYTICS_TYPES = (window.OBSAnalytics?.TYPES || []).map(t => t.type);
+  (window.OBSAnalytics?.TYPES || []).forEach(t => { defaults[t.type] = clone(window.OBSAnalytics.defaults[t.type]); TEMPLATE_CATALOG.splice(TEMPLATE_CATALOG.length - 1, 0, {type:t.type, label:t.label}); });
   defaults.requirements = clone(window.OBSRequirementsSlides.defaults);
   defaults.presentation.order.splice(defaults.presentation.order.indexOf('map') + 1, 0, 'nexityMap', 'nexityPodium');
 
@@ -558,6 +561,7 @@ const MAP_GEOJSON_URLS = [
   if (state.map.regionZoom !== 'all' && !REGIONS.some(region => !region.overseas && region.name === state.map.regionZoom)) state.map.regionZoom = 'all';
   state.cityList = deepMerge(clone(defaults.cityList), state.cityList && typeof state.cityList === 'object' ? state.cityList : {});
   state.communeMap = deepMerge(clone(defaults.communeMap), state.communeMap && typeof state.communeMap === 'object' ? state.communeMap : {});
+  ANALYTICS_TYPES.forEach(t => { state[t] = deepMerge(clone(defaults[t]), state[t] && typeof state[t] === 'object' ? state[t] : {}); });
   if (!state.socialZoning || typeof state.socialZoning !== 'object') state.socialZoning = clone(defaults.socialZoning);
   state.socialZoning = deepMerge(clone(defaults.socialZoning), state.socialZoning || {});
   if (!['national','region','department'].includes(state.socialZoning.scope)) state.socialZoning.scope = 'national';
@@ -613,6 +617,12 @@ const MAP_GEOJSON_URLS = [
       if (!order.some(id => typeOf(id) === 'cityList')) { const at = order.findIndex(id => typeOf(id) === 'socialZoning'); order.splice(at >= 0 ? at + 1 : insertAt, 0, 'cityList'); }
     }
     // V29.18 : carte des communes ajoutée une seule fois, après la liste des communes (supprimable ensuite).
+    // V29.19 : slides d'analyse ajoutées une seule fois, après « Évolution des opérations » (supprimables ensuite).
+    if (!state.presentation.analyticsSlidesAdded) {
+      state.presentation.analyticsSlidesAdded = true;
+      let at = order.findIndex(id => typeOf(id) === 'evolution'); at = at >= 0 ? at + 1 : order.length;
+      ANALYTICS_TYPES.forEach(t => { if (!order.some(id => typeOf(id) === t)) order.splice(at++, 0, t); });
+    }
     if (!state.presentation.communeMapAdded) {
       state.presentation.communeMapAdded = true;
       if (!order.some(id => typeOf(id) === 'communeMap')) { const at = order.findIndex(id => typeOf(id) === 'cityList'); order.splice(at >= 0 ? at + 1 : insertAt, 0, 'communeMap'); }
@@ -2650,6 +2660,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'mentionList') controls.innerHTML = renderRankedListControls('mentionList', 'Mention');
     if (tabType(activeTab) === 'cityList') controls.innerHTML = renderCityListControls();
     if (tabType(activeTab) === 'communeMap') controls.innerHTML = renderCommuneMapControls();
+    if (ANALYTICS_TYPES.includes(tabType(activeTab))) controls.innerHTML = window.OBSAnalytics.controls(tabType(activeTab), state[tabType(activeTab)], {field, selectField, toggleField, esc, frSmart});
     if (tabType(activeTab) === 'map') {
       controls.innerHTML = renderMapControls();
       requestAnimationFrame(applyMapSearchFilter);
@@ -2692,6 +2703,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'mentionList') slide.innerHTML = renderRankedListSlide('mentionList');
     if (tabType(activeTab) === 'cityList') slide.innerHTML = renderCityListSlide();
     if (tabType(activeTab) === 'communeMap') slide.innerHTML = renderCommuneMapSlide();
+    if (ANALYTICS_TYPES.includes(tabType(activeTab))) slide.innerHTML = window.OBSAnalytics.html(tabType(activeTab), state[tabType(activeTab)], {esc, frSmart, fr, head});
     if (tabType(activeTab) === 'tunnel') slide.innerHTML = renderTunnelSlide();
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
@@ -2718,6 +2730,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       mentionList: 'moa-list-slide mention-list-slide',
       cityList: 'city-list-slide',
       communeMap: 'map-slide commune-map-slide',
+      ...Object.fromEntries(ANALYTICS_TYPES.map(t => [t, 'analytics-slide'])),
       tunnel: 'tunnel-slide',
       evolution: 'evolution-slide',
       heatingMatrix: 'transition-matrix-slide',
@@ -4865,6 +4878,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       return;
     }
     if (t.dataset.cityImportPaste !== undefined) { state.cityList.importPaste = t.value; saveState(); return; }
+    if (t.dataset.analyticsFile !== undefined) {
+      const type = t.dataset.analyticsFile, file = t.files?.[0]; if (!file || !state[type]) return;
+      window.OBSAnalytics.importBasket(file, state[type], {dataNumber}).then(n => { saveState(); renderControls(); renderSlide(); toast(n ? `${n} opération${n > 1 ? 's' : ''} avec un montant.` : 'Aucun montant reconnu dans ce fichier.'); })
+        .catch(e => toast(e.message || 'Fichier illisible.'));
+      return;
+    }
     if (t.dataset.moaImportPaste !== undefined) {
       state.moaList.importPaste = t.value;
       saveState();
@@ -5263,6 +5282,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     mentionList: 'mentions',
     cityList: 'communes-operations',
     communeMap: 'carte-communes',
+    ...Object.fromEntries((window.OBSAnalytics?.TYPES || []).map(t => [t.type, t.slug])),
     tunnel: 'tunnel-certification',
     evolution: 'evolution-operations',
     heatingMatrix: 'transition-vecteurs-chauffage',
@@ -6151,7 +6171,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (type === 'requirements') return window.OBSRequirementsSlides.png();
     if (type === 'map') return mapSlidePngBlob();
     if (type === 'communeMap') { await communeMapReady(); return html2CanvasSlidePngBlob(); }
-    if (type === 'socialZoning' || type === 'cityList') return html2CanvasSlidePngBlob();
+    if (type === 'socialZoning' || type === 'cityList' || ANALYTICS_TYPES.includes(type)) return html2CanvasSlidePngBlob();
     if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList','performanceList','mentionList'].includes(type)) {
       return legacyCanvasSlidePngBlob();
     }
@@ -6558,7 +6578,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
     // V29.18 : slides dessinées dans le DOM (pas de traceur Canvas) : capture de la slide.
     if (tabType(activeTab) === 'communeMap') await communeMapReady();
-    if (['socialZoning','cityList','communeMap'].includes(tabType(activeTab))) return pngBlobToJpegDescriptor(await html2CanvasSlidePngBlob());
+    if (['socialZoning','cityList','communeMap',...ANALYTICS_TYPES].includes(tabType(activeTab))) return pngBlobToJpegDescriptor(await html2CanvasSlidePngBlob());
     return legacyCanvasSlideJpegDescriptor(1600, 900, 0.92);
   }
 
@@ -7094,7 +7114,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
   function dataGoogleCsvUrl(input,tab){const url=String(input||'').trim();if(!url)return'';if(/\.csv($|\?)/i.test(url)||url.includes('output=csv'))return url;const m=url.match(/\/spreadsheets\/d\/([^/]+)/);if(!m)return url;return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab||'OPERATIONS')}`;}
   function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const mentions=['BEE+','BBCA','Option TFPB'];const statusLabels={notStarted:'Non démarrée',complete:'Dossier complet',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,rawStatus:statusLabels[status]||status,mentions:mentions[i%mentions.length],performance:i%2?'IC Construction 2028':'Cep RE2020 -5%',sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
-  const DATA_CONNECTED_TYPES=['tunnel','map','socialZoning','cityList','communeMap','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
+  const DATA_CONNECTED_TYPES=[...ANALYTICS_TYPES.filter(t=>t!=='basket'),'tunnel','map','socialZoning','cityList','communeMap','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
   function dataFilteredOperations(){return [...dataRuntime.operations];}
@@ -7213,6 +7233,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     else if(type==='cityList'){const c=dataAggregateCities(ops,dataRuntime.anonymized);model.items=c.items;model.missing=c.missing;model.merged=c.merged;model.page=1;}
     else if(type==='communeMap'){const c=dataAggregateCommunes(ops,dataRuntime.anonymized);model.items=c.items;model.missing=c.missing;model.merged=c.merged;}
     else if(type==='moaList')model.items=dataAggregateMoa(ops);
+    else if(ANALYTICS_TYPES.includes(type))window.OBSAnalytics.aggregate(type,ops,model,{dataNumber,tags:dataAggregateTags});
     else if(type==='stakeholderSplit')model.items=dataAggregateNamed(ops,o=>o.moaType||'Non précisé').map(x=>({name:x.name,value:x.value}));
     else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
     else if(type==='performanceList'){model.items=dataAggregateTags(ops,'performance');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
