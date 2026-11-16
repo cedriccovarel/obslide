@@ -969,10 +969,34 @@ const MAP_GEOJSON_URLS = [
     return target;
   }
 
+  // V29.19.2 : le stockage du navigateur est partagé par tous les sites de cedriccovarel.github.io (Observatoire, Obslide,
+  // TotalRecoll…). Les résultats calculés des slides d'analyse (liste de tous les clients, séries par année, centiles) sont
+  // recalculés à chaque arrivée des données : ils ne sont plus enregistrés. Seuls les réglages le sont (titres, cases,
+  // séries masquées). Le panier moyen garde ses moyennes (elles viennent d'un fichier importé, pas des données connectées).
+  const ANALYTICS_COMPUTED = ['families','clients','years','yearTotals','referentials','stats','items','surfaceColumns','total','cancelled','undetermined','typologyColumn','dataConnectedCount'];
+  function slimAnalyticsModel(m, type) {
+    if (!m || typeof m !== 'object' || type === 'basket') return m;
+    const out = { ...m };
+    ANALYTICS_COMPUTED.forEach(k => { delete out[k]; });
+    if (out.series && typeof out.series === 'object') out.series = Object.fromEntries(Object.entries(out.series).map(([k, list]) => [k, (Array.isArray(list) ? list : []).filter(s => s && s.name).map(s => ({ name: s.name, show: s.show !== false }))]));
+    return out;
+  }
+  function slimStateForStorage(st) {
+    if (!ANALYTICS_TYPES.length) return st;
+    const out = { ...st };
+    ANALYTICS_TYPES.forEach(t => { if (out[t]) out[t] = slimAnalyticsModel(out[t], t); });
+    if (st.presentation?.instanceData) {
+      out.presentation = { ...st.presentation, instanceData: Object.fromEntries(Object.entries(st.presentation.instanceData).map(([id, m]) => {
+        const type = st.presentation.instances?.[id] || id;
+        return [id, ANALYTICS_TYPES.includes(type) ? slimAnalyticsModel(m, type) : m];
+      })) };
+    }
+    return out;
+  }
   function saveState() {
     saveTabData(activeTab);
     ensureInstanceData();
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(slimStateForStorage(state))); }
     catch (err) { console.warn('Stockage navigateur plein', err); toast('Stockage du navigateur plein : utilise « Sauvegarder » pour conserver le projet (fichier JSON).'); }
     const status = document.getElementById('saveStatus');
     if (status) {
@@ -6968,7 +6992,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   // correspondantes. Elles restent en mémoire : rien n'est enregistré dans le navigateur ni ailleurs.
   let dataObservatoireRequirements=null;
   function dataObservatoireHandoffToken(){try{return new URLSearchParams(location.search).get('newosbScope')||'';}catch{return '';}}
-  const DATA_DIRECT_READ_HELP='Le pont de l’Observatoire ne transmet ses données qu’à l’Observatoire : Obslide ne peut pas les lire directement. Ouvre Obslide depuis le bouton « Générateur de rapports » de l’Observatoire (onglet de l’Observatoire laissé ouvert). Les données déjà affichées sont conservées.';
+  const DATA_DIRECT_READ_HELP='Le pont de l’Observatoire ne transmet ses données qu’à l’Observatoire : Obslide ne peut pas les lire directement. Ouvre Obslide depuis le bouton « Générateur de rapports » de l’Observatoire (onglet de l’Observatoire laissé ouvert). Si c’est déjà le cas, le stockage du navigateur était plein : il vient d’être allégé, ferme cet onglet et rouvre le générateur depuis l’Observatoire. Les données déjà affichées sont conservées.';
   function dataRequestObservatoireData(){
     const token=dataObservatoireHandoffToken();
     let opener=null;try{opener=window.opener;}catch{}
@@ -7375,6 +7399,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   renderControls();
   renderSlide();
   requestAnimationFrame(fitPreviewSlide);
+  // V29.19.2 : réécrit tout de suite la sauvegarde allégée (libère le stockage partagé avec l'Observatoire).
+  try { saveState(); } catch {}
   // Reconnexion automatique à la dernière source enregistrée à chaque ouverture.
   // Ouvert depuis l'Observatoire : ses données sont demandées ; sinon, reconnexion à la source mémorisée.
   if (!dataRequestObservatoireData()) {

@@ -35,3 +35,14 @@ Obslide appelait le pont directement dans trois cas, désormais traités :
 - Obslide rouvert avec un jeton mais sans fenêtre Observatoire → message clair, pas d'appel au pont ;
 - réponse « lecture directe désactivée » → message clair, les données déjà affichées sont conservées (avant : effacées).
 Attente de l'Observatoire portée de 4 s à 14 s (20 essais), pour un Observatoire lent ou en arrière-plan.
+
+# V29.19.2 — cause réelle : stockage du navigateur plein
+Obslide s'ouvrait sans `?newosbScope=…` : l'Observatoire enregistre le périmètre (codes des opérations filtrées) dans
+localStorage juste avant d'ouvrir Obslide ; si l'écriture échoue (stockage plein), il ouvre Obslide sans jeton, et Obslide
+ne peut plus recevoir les données. Le stockage est partagé par tous les sites de cedriccovarel.github.io. Depuis la V29.19,
+Obslide y enregistrait aussi les résultats calculés des slides d'analyse (tous les clients, séries par année, centiles),
+en double (slide + copie par onglet).
+- La sauvegarde n'écrit plus ces résultats (slimStateForStorage) : seuls les réglages restent (titres, cases, séries
+  affichées / masquées). Ils sont recalculés à chaque arrivée des données. Le panier moyen garde ses moyennes.
+- La sauvegarde allégée est réécrite dès l'ouverture d'Obslide (libère la place tout de suite).
+- Testé : données reçues, slide « Clients et familles de MOA » remplie, sauvegarde sans « clients » / « families ».
