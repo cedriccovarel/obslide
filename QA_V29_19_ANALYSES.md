@@ -25,3 +25,13 @@ P10 à P90 par interpolation linéaire. Les valeurs vides ou nulles ne comptent 
 - Test unitaire (données fictives) : calculs des 6 slides, import CSV Salesforce brut (en-tête en ligne 3, pied « Total »),
   aucun `undefined` / `NaN` dans le rendu.
 - Rendu Chrome avec les données de démonstration : 6 slides affichées, aucune erreur console.
+
+# V29.19.1 — pont Observatoire
+Erreur signalée : « Lecture directe desactivee : les donnees ne sont transmises qu'a l'Observatoire… » (réponse du pont
+Code_Operations.gs quand Obslide appelle l'URL /exec lui-même). La remise des données par l'Observatoire (jeton
+newosbScope + postMessage) fonctionne (testée : ouverture directe et ouverture about:blank puis redirection, comme l'Observatoire).
+Obslide appelait le pont directement dans trois cas, désormais traités :
+- « Connecter / actualiser » alors que les données viennent de l'Observatoire → redemandées à l'Observatoire ;
+- Obslide rouvert avec un jeton mais sans fenêtre Observatoire → message clair, pas d'appel au pont ;
+- réponse « lecture directe désactivée » → message clair, les données déjà affichées sont conservées (avant : effacées).
+Attente de l'Observatoire portée de 4 s à 14 s (20 essais), pour un Observatoire lent ou en arrière-plan.
