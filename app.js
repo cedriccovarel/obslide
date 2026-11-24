@@ -531,6 +531,18 @@ const MAP_GEOJSON_URLS = [
   // V29.19 : slides d'analyse (analytics-slides.js) — abandon, clients / familles de MOA, certifications, panier, taille, tertiaire.
   const ANALYTICS_TYPES = (window.OBSAnalytics?.TYPES || []).map(t => t.type);
   (window.OBSAnalytics?.TYPES || []).forEach(t => { defaults[t.type] = clone(window.OBSAnalytics.defaults[t.type]); TEMPLATE_CATALOG.splice(TEMPLATE_CATALOG.length - 1, 0, {type:t.type, label:t.label}); });
+  const bilan = window.OBSBilan;
+  bilan.TEMPLATES.forEach(template => TEMPLATE_CATALOG.splice(TEMPLATE_CATALOG.length - 1, 0, template));
+  bilan.TYPES.forEach(type => {
+    defaults[type] = { ...defaults[type], ...clone(bilan.defaults[type]) };
+  });
+  defaults.bilanWorkbook = null;
+
+  function activeBilanSlide() {
+    const type = tabType(activeTab);
+    return bilan.usesWorkbook(type, state[type]);
+  }
+
   defaults.requirements = clone(window.OBSRequirementsSlides.defaults);
   defaults.presentation.order.splice(defaults.presentation.order.indexOf('map') + 1, 0, 'nexityMap', 'nexityPodium');
 
@@ -2360,7 +2372,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   function dataRenderSlideFilterToolbar(){
     if(!slideFilterToolbar)return;
-    const connectedFilterBar=dataRenderSlideFilterBar();
+    const connectedFilterBar = activeBilanSlide()
+      ? '<div class="slide-filter-scope"><strong>Source de la slide : bilan Excel</strong> · Périmètre du classeur importé</div>'
+      : dataRenderSlideFilterBar();
     slideFilterToolbar.innerHTML=connectedFilterBar||'';
     slideFilterToolbar.classList.toggle('is-empty',!connectedFilterBar);
   }
@@ -2696,6 +2710,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'nexityPodium') controls.innerHTML = window.OBSNexityPodium.controls(state.nexityPodium);
     if (tabType(activeTab) === 'carbonDistribution') controls.innerHTML = window.OBSCarbonDistribution.controls(state.carbonDistribution);
     if (tabType(activeTab) === 'requirements') controls.innerHTML = window.OBSRequirementsSlides.controls(state.requirements);
+    const type = tabType(activeTab);
+    if (bilan.TYPES.includes(type)) {
+      const bilanControls = bilan.controls(type, state[type], state.bilanWorkbook, { field, selectField, toggleField, esc });
+      if (activeBilanSlide()) controls.innerHTML = bilanControls;
+      else controls.insertAdjacentHTML('afterbegin', bilanControls);
+    }
     const commonControls = renderCommonTabControls();
     if (commonControls) controls.insertAdjacentHTML('afterbegin', commonControls);
   }
@@ -2732,6 +2752,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
+    const fromBilan = activeBilanSlide();
+    if (fromBilan) slide.innerHTML = bilan.html(tabType(activeTab), state[tabType(activeTab)], state.bilanWorkbook, { esc, head });
     dataRenderSlideFilterToolbar();
     // V29.10 : la couverture n'a ni logo ni mention « Confidentiel » (le bandeau porte déjà le logo).
     if (!['cover','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(true);
@@ -2761,7 +2783,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       ecsMatrix: 'transition-matrix-slide'
     };
     const currentType = tabType(activeTab);
-    slide.className = `slide ${isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
+    slide.className = `slide ${fromBilan ? 'bilan-slide' : isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
     updateTextScaleToolbar();
     if (!['map','socialZoning','nexityMap','nexityPodium','communeMap'].includes(currentType)) applyTextScaleToSlide();
     if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
@@ -4882,6 +4904,17 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         saveState(); renderSlide(); return;
       }
     }
+    const bilanPath = t.dataset.bind || t.dataset.toggleBind;
+    if (bilanPath?.startsWith(`${tabType(activeTab)}.bilan.`)) {
+      const value = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Math.max(1, Math.trunc(num(t.value))) : t.value;
+      setByPath(state, bilanPath, value);
+      const model = state[tabType(activeTab)].bilan;
+      if (t.tagName === 'SELECT' && model.page && /\.(view|family|measure|limit|detail|series)$/.test(bilanPath)) model.page = 1;
+      saveState();
+      if (t.tagName === 'SELECT' || bilanPath.endsWith('.enabled')) renderControls();
+      renderSlide();
+      return;
+    }
     if (t.dataset.toggleBind) {
       setByPath(state, t.dataset.toggleBind, !!t.checked);
       saveState(); renderSlide();
@@ -5234,6 +5267,72 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     loadProjectFromFile(file);
   });
 
+  function appendBilanDeck() {
+    saveTabData(activeTab);
+    const { order, instances, instanceData, tabNames } = state.presentation;
+    const batch = Date.now();
+    let firstTab;
+    for (const [type, label] of bilan.DECK) {
+      const existing = order.find(id => id.startsWith(`${type}-bilan-`));
+      if (existing) {
+        firstTab ||= existing;
+        continue;
+      }
+      const id = `${type}-bilan-${batch}`;
+      const model = clone(defaults[type]);
+      model.bilan.enabled = true;
+      if (dataRuntime.connected && DATA_CONNECTED_TYPES.includes(type)) dataApplyToModel(type, model, dataRuntime.operations);
+      instances[id] = type;
+      instanceData[id] = model;
+      tabNames[id] = label;
+      order.push(id);
+      firstTab ||= id;
+    }
+    if (order.includes(firstTab)) {
+      renderTabsNav();
+      activateTab(firstTab);
+    }
+  }
+
+  const bilanDialog = document.getElementById('bilanImportDialog');
+  const bilanForm = document.getElementById('bilanImportForm');
+  const bilanFile = document.getElementById('bilanImportFile');
+  const bilanStatus = document.getElementById('bilanImportStatus');
+  document.getElementById('bilanImportBtn').addEventListener('click', () => {
+    bilanForm.reset();
+    bilanStatus.textContent = state.bilanWorkbook ? `Bilan actuel : ${state.bilanWorkbook.name}` : '';
+    bilanDialog.showModal();
+  });
+  document.getElementById('bilanImportCancel').addEventListener('click', () => bilanDialog.close());
+  bilanForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const file = bilanFile.files[0];
+    if (!file || bilanForm.getAttribute('aria-busy') === 'true') return;
+    const addSlides = new FormData(bilanForm).has('addSlides');
+    bilanForm.setAttribute('aria-busy', 'true');
+    const controls = [...bilanForm.elements];
+    controls.forEach(control => { control.disabled = true; });
+    const preventCancel = event => event.preventDefault();
+    bilanDialog.addEventListener('cancel', preventCancel);
+    bilanStatus.textContent = 'Lecture du bilan…';
+    try {
+      const imported = await bilan.importWorkbook(file);
+      state.bilanWorkbook = imported;
+      if (addSlides) appendBilanDeck();
+      saveState();
+      renderControls();
+      renderSlide();
+      bilanDialog.close();
+      toast(`Bilan Excel importé : ${Object.keys(imported.sheets).length} feuilles.`);
+    } catch (error) {
+      bilanStatus.textContent = error.message || 'Impossible de lire le bilan Excel.';
+    } finally {
+      bilanDialog.removeEventListener('cancel', preventCancel);
+      bilanForm.removeAttribute('aria-busy');
+      controls.forEach(control => { control.disabled = false; });
+    }
+  });
+
   if (resetBtn) resetBtn.addEventListener('click', () => {
     if (!confirm('Réinitialiser uniquement les données de cet onglet ?')) return;
     const currentType = tabType(activeTab);
@@ -5307,6 +5406,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     cityList: 'communes-operations',
     communeMap: 'carte-communes',
     ...Object.fromEntries((window.OBSAnalytics?.TYPES || []).map(t => [t.type, t.slug])),
+    ...Object.fromEntries(bilan.TEMPLATES.map(t => [t.type, t.slug])),
     tunnel: 'tunnel-certification',
     evolution: 'evolution-operations',
     heatingMatrix: 'transition-vecteurs-chauffage',
@@ -6195,7 +6295,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (type === 'requirements') return window.OBSRequirementsSlides.png();
     if (type === 'map') return mapSlidePngBlob();
     if (type === 'communeMap') { await communeMapReady(); return html2CanvasSlidePngBlob(); }
-    if (type === 'socialZoning' || type === 'cityList' || ANALYTICS_TYPES.includes(type)) return html2CanvasSlidePngBlob();
+    if (activeBilanSlide() || type === 'socialZoning' || type === 'cityList' || ANALYTICS_TYPES.includes(type)) return html2CanvasSlidePngBlob();
     if (isBlankTab(activeTab) || ['cover','tunnel','equipments','envelope','evolution','heatingMatrix','ecsMatrix','carbon','dpe','labels','stakeholderSplit','moaList','performanceList','mentionList'].includes(type)) {
       return legacyCanvasSlidePngBlob();
     }
@@ -6602,7 +6702,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
     // V29.18 : slides dessinées dans le DOM (pas de traceur Canvas) : capture de la slide.
     if (tabType(activeTab) === 'communeMap') await communeMapReady();
-    if (['socialZoning','cityList','communeMap',...ANALYTICS_TYPES].includes(tabType(activeTab))) return pngBlobToJpegDescriptor(await html2CanvasSlidePngBlob());
+    if (activeBilanSlide() || ['socialZoning','cityList','communeMap',...ANALYTICS_TYPES].includes(tabType(activeTab))) return pngBlobToJpegDescriptor(await html2CanvasSlidePngBlob());
     return legacyCanvasSlideJpegDescriptor(1600, 900, 0.92);
   }
 

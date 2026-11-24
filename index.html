@@ -7,7 +7,7 @@
   <title>Générateur de slides - Observatoire</title>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="style.css?v=29.19.0" />
+  <link rel="stylesheet" href="style.css?v=29.20.0" />
   <link rel="stylesheet" href="nexity-map.css?v=29.7.18" />
 </head>
 <body class="auth-locked">
@@ -42,6 +42,7 @@
       <p class="app-subtitle">Slides modulables · export PNG/SVG · Google Slides éditable</p>
     </div>
     <div class="header-actions">
+      <button id="bilanImportBtn" class="btn btn-secondary" type="button">Importer le bilan Excel</button>
       <button id="loadSaveBtn" class="btn btn-secondary" type="button">Charger</button>
       <button id="saveProjectBtn" class="btn btn-save" type="button">Sauvegarder</button>
       <button id="dataSourceBtn" class="btn btn-data-source" type="button" title="Connecter une source Google Sheets / Apps Script"><span id="dataSourceDot" class="data-source-dot"></span><span id="dataSourceLabel">Données</span></button>
@@ -59,6 +60,21 @@
       <input id="loadSaveInput" type="file" accept="application/json,.json" hidden />
     </div>
   </header>
+
+  <dialog id="bilanImportDialog" class="bilan-import-dialog" aria-labelledby="bilanImportTitle">
+    <form id="bilanImportForm">
+      <h2 id="bilanImportTitle">Importer le bilan Excel</h2>
+      <p>Choisis le classeur de synthèse de l’Observatoire. Les données sont lues dans ce navigateur et incluses dans les sauvegardes du projet.</p>
+      <label for="bilanImportFile">Classeur du bilan (.xlsx)</label>
+      <input id="bilanImportFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+      <label class="topic-toggle"><input type="checkbox" name="addSlides" checked> <span>Ajouter les sept diapositives du bilan</span></label>
+      <p id="bilanImportStatus" role="status" aria-live="polite"></p>
+      <div class="bilan-dialog-actions">
+        <button type="button" class="btn btn-secondary" id="bilanImportCancel">Fermer</button>
+        <button type="submit" class="btn btn-primary">Importer</button>
+      </div>
+    </form>
+  </dialog>
 
   <nav id="tabsNav" class="tabs" aria-label="Slides"></nav>
 
@@ -161,6 +177,7 @@
   <script src="obslide-pptx.js?v=1.1.0"></script>
   <script src="google-slides-export.js?v=29.8.0"></script>
   <script src="analytics-slides.js?v=29.19.0"></script>
-  <script src="app.js?v=29.19.2"></script>
+  <script src="bilan-slides.js?v=29.20.0"></script>
+  <script src="app.js?v=29.20.0"></script>
 </body>
 </html>

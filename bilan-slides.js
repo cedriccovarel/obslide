@@ -1,0 +1,389 @@
+/* Modèles de diapositives et import local du bilan consolidé. */
+(function () {
+  'use strict';
+
+  const FAMILIES = ['BEE+', 'BBCA', 'Biosourcé', 'Effinergie', 'IC Énergie', 'IC Construction', 'Cep', 'Cep,nr', 'Bbio'];
+  const SHEETS = [
+    ['Bilan général', ['Thématique', 'Indicateur', 'Valeur', 'Lecture']],
+    ['Annulations années', ['Année création', 'Contrats', 'Annulés', 'Taux']],
+    ['Annulations référentiels', ['Référentiel', 'Contrats', 'Annulés', 'Taux']],
+    ['Annulations croisées', ['Année', 'Référentiel', 'Contrats', 'Annulés', 'Taux']],
+    ['Familles MOA', ['Famille', 'Contrats', 'Soldés', 'En cours', 'Logements', 'Bâtiments', 'Part contrats']],
+    ['Clients', ['Rang', 'Groupe', 'Contrats', 'Soldés', 'En cours', 'Logements', 'Bâtiments', 'Part contrats']],
+    ['Clients x MOA', ['Groupe', 'Famille', 'Contrats', 'Soldés', 'En cours', 'Logements', 'Bâtiments']],
+    ['Top 25 clients', ['Groupe', 'Contrats', 'Soldés', 'En cours', 'Logements', 'Bâtiments']],
+    ['Taille par référentiel', ['Référentiel', 'Opérations', 'N logements', 'Total logements', 'Moy. logements', 'Médiane logements', 'N bâtiments', 'Total bâtiments', 'Moy. bâtiments', 'Médiane bâtiments', 'N surfaces', 'Total m²', 'Moy. m²', 'Médiane m²']],
+    ...['logements', 'bâtiments', 'surfaces'].map(name => ['Centiles ' + name, ['Centile']]),
+    ['Qualité tailles', ['Indicateur', 'Périmètre', 'Exploitables', 'Part']],
+    ['Synthèse certifications', ['Indicateur', 'Valeur']],
+    ...['Décisions annuelles', 'Créations annuelles', 'Parts annuelles'].map(name => [name, ['Année', 'Contrats', ...FAMILIES]]),
+    ...FAMILIES.map(name => [name, ['Niveau / mention', 'Portefeuille', 'Soldés datés']]),
+    ['Mentions AB et AC', ['Colonne', 'Libellé exact', 'Portefeuille', 'Soldés datés']],
+    ['Couverture', ['Champ', 'Renseignés', 'Part portefeuille']]
+  ];
+  const TEMPLATES = [
+    { type: 'bilanSummary', label: 'Bilan général de l’Observatoire', slug: 'bilan-general' },
+    { type: 'bilanQuality', label: 'Qualité et couverture des données', slug: 'qualite-couverture' }
+  ];
+  const VARIANTS = ['abandonRate', 'moaVolume', 'certEvolution', 'labels', 'opSize'];
+  const TYPES = [...TEMPLATES.map(t => t.type), ...VARIANTS];
+  const TITLES = {
+    bilanSummary: 'BILAN GÉNÉRAL DE L’OBSERVATOIRE',
+    bilanQuality: 'QUALITÉ ET COUVERTURE DES DONNÉES',
+    abandonRate: 'ANNULATIONS DE CONTRATS',
+    moaVolume: 'PORTEFEUILLE CLIENTS ET FAMILLES DE MOA',
+    certEvolution: 'ÉVOLUTION DES CERTIFICATIONS',
+    labels: 'LABELS ET NIVEAUX RENSEIGNÉS',
+    opSize: 'TAILLE DES OPÉRATIONS'
+  };
+  const DECK = [
+    ['bilanSummary', 'Bilan général'],
+    ['abandonRate', 'Bilan · Annulations'],
+    ['moaVolume', 'Bilan · Portefeuille'],
+    ['certEvolution', 'Bilan · Certifications'],
+    ['labels', 'Bilan · Labels et niveaux'],
+    ['opSize', 'Bilan · Taille des opérations'],
+    ['bilanQuality', 'Bilan · Qualité des données']
+  ];
+  const defaults = {
+    bilanSummary: { bilan: { activity: true, portfolio: true, certification: true, size: true } },
+    bilanQuality: { bilan: { view: 'size' } },
+    abandonRate: { bilan: { enabled: false, view: 'year', unit: 'rate' } },
+    moaVolume: { bilan: { enabled: false, view: 'family', measure: 'contracts', status: false, limit: '10', page: 1, family: '' } },
+    certEvolution: { bilan: { enabled: false, basis: 'creation', series: 'labels', unit: 'count', detail: '', page: 1, seriesVisible: {} } },
+    labels: { bilan: { enabled: false, family: FAMILIES[0], population: 'compare', view: 'bars', page: 1 } },
+    opSize: { bilan: { enabled: false, measure: 'logements', view: 'curve' } }
+  };
+  const palette = ['#07543d', '#3778a5', '#a45b24', '#7160a1', '#278576', '#ad4a59'];
+  const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+  const number = value => value == null || value === '' ? null : Number(value);
+  const fmt = value => Number.isFinite(number(value)) ? nf.format(number(value)) : '—';
+  const percent = value => Number.isFinite(number(value)) ? nf.format(number(value) * 100) + ' %' : '—';
+  const total = (rows, index) => rows.reduce((sum, row) => sum + (number(row[index]) || 0), 0);
+  const numeric = value => /^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(value);
+  const text = value => String(value ?? '').trim();
+
+  async function importWorkbook(file) {
+    const workbook = await window.OBSNexityXlsx.open(file);
+    const sheets = {};
+    for (const [name, expected] of SHEETS) {
+      const index = workbook.sheets.findIndex(sheet => sheet.name === name);
+      if (index < 0) throw new Error(`Feuille manquante : « ${name} ».`);
+      const { matrix, formulasWithoutValue } = await workbook.readSheet(index);
+      const [first, ...entries] = matrix.filter(row => row?.some(cell => text(cell)));
+      if (!first || !entries.length || expected.some((value, col) => text(first[col]) !== value)) {
+        throw new Error(`En-têtes ou données illisibles dans « ${name} ».`);
+      }
+      if (formulasWithoutValue) throw new Error(`Enregistre les résultats des formules dans « ${name} » depuis Excel avant l’import.`);
+      const header = Array.from(first, text);
+      const textColumns = name === 'Bilan général' || ['Annulations croisées', 'Mentions AB et AC', 'Clients x MOA', 'Synthèse certifications', 'Clients'].includes(name) ? 2 : 1;
+      const rows = entries.map(row => Array.from(header, (_, col) => {
+        const value = text(row[col]);
+        if (!value) return null;
+        if (name === 'Clients' && col === 0) return Number(value);
+        return col >= textColumns && numeric(value) ? Number(value) : value;
+      }));
+      if (name === 'Synthèse certifications') for (const row of rows) if (numeric(text(row[1]))) row[1] = Number(row[1]);
+      sheets[name] = { header, rows };
+    }
+    return { name: file.name, sheets };
+  }
+
+  const rows = (book, name) => book?.sheets?.[name]?.rows || [];
+  const header = (book, name) => book?.sheets?.[name]?.header || [];
+  const usesWorkbook = (type, model) => TYPES.includes(type) && (!VARIANTS.includes(type) || model?.bilan?.enabled);
+  const config = (type, model) => ({ ...defaults[type].bilan, ...model?.bilan });
+  const choice = (value, label) => ({ value, label });
+  const choices = entries => entries.map(entry => Array.isArray(entry) ? choice(...entry) : choice(entry, entry));
+  const seriesOptions = choices([['contracts', 'Volume de contrats'], ['labels', 'Labels'], ['levels', 'Niveaux énergie et carbone'], ['detail', 'Détail par famille']]);
+
+  function controls(type, model, book, h) {
+    const { esc, field, selectField, toggleField } = h;
+    const c = config(type, model);
+    const p = key => `${type}.bilan.${key}`;
+    const select = (label, key, values) => selectField(label, p(key), choices(values));
+    const toggle = (label, key) => toggleField(label, p(key));
+    let content = VARIANTS.includes(type) ? toggle('Utiliser le bilan Excel', 'enabled') : '';
+    if (!usesWorkbook(type, model)) return `<div class="control-section"><h3>Source de la diapositive</h3>${content}</div>`;
+    content += book ? `<p class="help">Classeur : ${esc(book.name)}</p>` : '<p class="help">Utilise « Importer le bilan Excel » pour charger les données.</p>';
+    content += field('Titre du bilan sur cette slide', p('title'), 'text');
+    const page = () => field('Page du tableau', p('page'), 'number', { min: 1, step: 1 });
+    if (type === 'bilanSummary') content += toggle('Activité et annulations', 'activity') + toggle('Portefeuille', 'portfolio') + toggle('Certifications', 'certification') + toggle('Taille des opérations', 'size');
+    if (type === 'bilanQuality') content += select('Indicateurs', 'view', [['size', 'Taille des opérations'], ['coverage', 'Labels et performances']]);
+    if (type === 'abandonRate') content += select('Présentation des annulations', 'view', [['year', 'Courbe annuelle'], ['reference', 'Barres par référentiel'], ['matrix', 'Matrice année × référentiel']]) + select('Valeur mise en avant', 'unit', [['rate', 'Taux'], ['count', 'Effectif']]);
+    if (type === 'moaVolume') {
+      content += select('Présentation du portefeuille', 'view', [['family', 'Familles de MOA'], ['top', 'Classement des groupes clients'], ['cross', 'Groupes × familles']]);
+      content += select('Mesure', 'measure', [['contracts', 'Contrats'], ['dwellings', 'Logements'], ['buildings', 'Bâtiments']]) + toggle('Afficher Soldés / En cours', 'status');
+      if (c.view === 'top') content += select('Groupes affichés', 'limit', [['10', 'Top 10'], ['25', 'Top 25']]) + page();
+      if (c.view === 'cross') content += select('Famille de MOA', 'family', [['', 'Toutes les familles'], ...rows(book, 'Familles MOA').map(r => r[0])]) + page();
+    }
+    if (type === 'certEvolution') {
+      content += select('Axe temporel', 'basis', [['creation', 'Année de création'], ['decision', 'Année de décision']]);
+      content += selectField('Séries', p('series'), seriesOptions);
+      if (c.series !== 'contracts') content += select('Valeur', 'unit', [['count', 'Nombre de contrats'], ['share', 'Part annuelle']]);
+      if (c.series === 'detail') content += select('Famille', 'detail', [['', FAMILIES[0]], ...FAMILIES.slice(1)]) + page();
+      if (['labels', 'levels'].includes(c.series)) {
+        const start = c.series === 'labels' ? 0 : 4;
+        content += FAMILIES.slice(start, c.series === 'labels' ? 4 : 9).map((name, i) =>
+          toggle(name, `seriesVisible.s${start + i}`)).join('');
+      }
+    }
+    if (type === 'labels') {
+      content += select('Famille ou colonne', 'family', [...FAMILIES, ['ab', 'Mentions AB · libellés exacts'], ['ac', 'Performances AC · libellés exacts']]);
+      content += select('Périmètre', 'population', [['compare', 'Comparer les deux'], ['portfolio', 'Portefeuille'], ['sold', 'Soldés datés']]);
+      if (!['ab', 'ac'].includes(c.family)) content += select('Présentation des niveaux', 'view', [['bars', 'Barres'], ['table', 'Tableau']]);
+      content += page();
+    }
+    if (type === 'opSize') {
+      content += select('Mesure de taille', 'measure', [['logements', 'Logements'], ['bâtiments', 'Bâtiments'], ['surfaces', 'Surfaces tertiaires (m²)']]);
+      content += select('Présentation des centiles', 'view', [['curve', 'Courbe de centiles'], ['stats', 'Moyennes et effectifs par référentiel'], ['centiles', 'Tableau détaillé des centiles']]);
+    }
+    return `<div class="control-section"><h3>Bilan Excel</h3>${content}</div>`;
+  }
+
+  function table(h, headers, values, caption = '') {
+    const { esc } = h;
+    return `<table class="bilan-table">${caption ? `<caption>${esc(caption)}</caption>` : ''}
+      <thead><tr>${headers.map(label => `<th scope="col">${esc(label)}</th>`).join('')}</tr></thead>
+      <tbody>${values.map(row => `<tr>${row.map((value, index) => {
+        const tag = index === 0 ? 'th' : 'td';
+        return `<${tag}${index === 0 ? ' scope="row"' : ''}>${esc(value)}</${tag}>`;
+      }).join('')}</tr>`).join('')}</tbody></table>`;
+  }
+
+  function paginate(items, requested, size) {
+    const pages = Math.max(1, Math.ceil(items.length / size));
+    const page = Math.max(1, Math.min(pages, Math.trunc(Number(requested)) || 1));
+    return { items: items.slice((page - 1) * size, page * size), page, pages, first: (page - 1) * size };
+  }
+  const pageNote = page => page.pages > 1 ? ` · Page ${page.page} / ${page.pages}` : '';
+  const band = (h, entries) => `<div class="bilan-band">${entries.map(([label, value]) =>
+    `<div><strong>${h.esc(value)}</strong><span>${h.esc(label)}</span></div>`).join('')}</div>`;
+  const legend = (h, entries) => `<div class="bilan-legend">${entries.map((label, i) =>
+    `<span><i style="background:${palette[i % palette.length]}"></i>${h.esc(label)}</span>`).join('')}</div>`;
+
+  function line(h, categories, series, format = fmt) {
+    const { esc } = h;
+    if (!categories.length || !series.length) return '<p class="bilan-empty">Sélectionne au moins une série.</p>';
+    const W = 1400, H = 430, left = 84, right = 35, top = 24, bottom = 55;
+    const max = Math.max(0, ...series.flatMap(s => s.values.map(v => number(v) || 0))) || 1;
+    const x = i => left + (W - left - right) * (categories.length === 1 ? .5 : i / (categories.length - 1));
+    const y = v => H - bottom - (H - top - bottom) * v / max;
+    const ticks = [0, .25, .5, .75, 1].map(ratio => ratio * max);
+    return `<svg class="bilan-chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Graphique d’évolution">
+      ${ticks.map(value => `<line x1="${left}" x2="${W - right}" y1="${y(value)}" y2="${y(value)}" stroke="#dbe6df"/><text x="${left - 12}" y="${y(value) + 6}" text-anchor="end">${esc(format(value))}</text>`).join('')}
+      ${categories.map((label, i) => `<text x="${x(i)}" y="${H - 20}" text-anchor="middle">${esc(label)}</text>`).join('')}
+      ${series.map((s, i) => {
+        const color = palette[i % palette.length];
+        const points = s.values.map((v, j) => number(v) == null ? null : [x(j), y(number(v)), v, j]);
+        let path = '';
+        points.forEach((point, j) => {
+          if (point) path += `${points[j - 1] ? 'L' : 'M'}${point[0]},${point[1]} `;
+        });
+        return `<path d="${path}" fill="none" stroke="${color}" stroke-width="4"/>${points.filter(Boolean).map(([cx, cy, value, j]) =>
+          `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}"><title>${esc(`${s.name} · ${categories[j]} · ${format(value)}`)}</title></circle>`).join('')}`;
+      }).join('')}</svg>${legend(h, series.map(s => s.name))}`;
+  }
+
+  function bars(h, items, series, format = fmt) {
+    const max = Math.max(0, ...items.flatMap(item => item.values.map(v => number(v) || 0))) || 1;
+    return `${series.length > 1 ? legend(h, series) : ''}<div class="bilan-bars">${items.map(item =>
+      `<div class="bilan-bar-row"><strong>${h.esc(item.label)}</strong><div>${item.values.map((value, i) =>
+        `<div class="bilan-bar"><div><i style="width:${100 * Math.max(0, number(value) || 0) / max}%;background:${palette[i]}"></i></div><b>${h.esc(format(value))}</b></div>`).join('')}</div>${item.note ? `<small>${h.esc(item.note)}</small>` : ''}</div>`).join('')}</div>`;
+  }
+
+  function summary(book, c, h) {
+    const data = rows(book, 'Bilan général');
+    const groups = [
+      ['activity', 'Activité et annulations', ['Activité', 'Annulations']],
+      ['portfolio', 'Portefeuille', ['Portefeuille']],
+      ['certification', 'Certifications', ['Certification', 'Labels']],
+      ['size', 'Taille des opérations', ['Taille']]
+    ];
+    const cards = groups.filter(([key]) => c[key]).map(([, label, themes]) => {
+      const indicators = data.filter(r => themes.includes(r[0]));
+      return `<section class="bilan-summary-card"><h2>${label}</h2><dl>${indicators.map(([, name, value]) =>
+        `<div><dt>${h.esc(name)}</dt><dd>${h.esc(/taux|^part /i.test(name) ? percent(value) : fmt(value))}</dd></div>`).join('')}</dl></section>`;
+    });
+    return {
+      subtitle: 'Chiffres clés de l’activité, du portefeuille et des opérations',
+      body: cards.length ? `<div class="bilan-summary">${cards.join('')}</div>` : '<p class="bilan-empty">Sélectionne au moins un bloc dans les paramètres.</p>',
+      note: 'Source : base OPERATIONS. Les périmètres sont propres à chaque indicateur. Les cohortes récentes ont moins de recul.'
+    };
+  }
+
+  function quality(book, c, h) {
+    if (c.view === 'coverage') {
+      const cert = rows(book, 'Synthèse certifications');
+      const value = name => cert.find(r => r[0] === name)?.[1];
+      const population = value('Contrats soldés ou en cours');
+      return {
+        subtitle: 'Champs de certification renseignés dans le portefeuille',
+        body: band(h, ['Contrats soldés ou en cours', 'Contrats soldés avec décision datée', 'Soldés sans date', 'En cours avec date de décision']
+          .map(name => [name, fmt(value(name))])) + table(h, ['Champ', 'Renseignés', 'Contrats du portefeuille', 'Part portefeuille'],
+          rows(book, 'Couverture').map(([name, n, share]) => [name, fmt(n), fmt(population), percent(share)])),
+        note: 'Champ renseigné ≠ label délivré. Les champs dédiés sont incomplets historiquement.'
+      };
+    }
+    const size = rows(book, 'Qualité tailles');
+    const identifiers = size.find(r => r[0] === 'Identifiants opérations');
+    const missing = identifiers ? number(identifiers[1]) - number(identifiers[2]) : null;
+    return {
+      subtitle: 'Effectifs exploitables pour les statistiques de taille',
+      body: band(h, [['Opérations présumées distinctes', fmt(identifiers?.[1])], ['Opérations sans identifiant', fmt(missing)]]) +
+        table(h, ['Indicateur', 'Périmètre', 'Exploitables', 'Part'], size.map(([name, n, good, share]) => [name, fmt(n), fmt(good), percent(share)])),
+      note: 'Les zéros sont exclus des statistiques de taille. L’unicité physique reste à confirmer pour les opérations sans identifiant.'
+    };
+  }
+
+  function cancellations(book, c, h) {
+    const annual = rows(book, 'Annulations années');
+    const refs = rows(book, 'Annulations référentiels');
+    const n = total(annual, 1), cancelled = total(annual, 2);
+    const rate = c.unit !== 'count', format = rate ? percent : fmt;
+    const metric = rate ? 'Taux d’annulation' : 'Contrats annulés';
+    let body = band(h, [['Taux global', percent(cancelled / n)], ['Contrats annulés', fmt(cancelled)], ['Contrats tous statuts', fmt(n)]]);
+    if (c.view === 'matrix') {
+      const cross = new Map(rows(book, 'Annulations croisées').map(row => [JSON.stringify(row.slice(0, 2)), row]));
+      const cells = annual.map(([year]) => [year, ...refs.map(([ref]) => {
+        const row = cross.get(JSON.stringify([year, ref]));
+        return row ? `${format(row[rate ? 4 : 3])} · ${fmt(row[3])}/${fmt(row[2])}` : '—';
+      })]);
+      body += table(h, ['Année', ...refs.map(r => r[0].replace(/^BEE /, ''))], cells);
+    } else if (c.view === 'reference') {
+      body += bars(h, refs.map(([label, count, done, share]) => ({
+        label, values: [rate ? share : done], note: `${fmt(done)} / ${fmt(count)} contrats`
+      })), [metric], format);
+    } else {
+      const points = annual.filter(r => /^\d{4}$/.test(r[0]));
+      body += line(h, points.map(r => r[0]), [{ name: metric, values: points.map(r => r[rate ? 3 : 2]) }], format);
+    }
+    const unknown = annual.find(r => r[0] === 'N.R.');
+    return {
+      subtitle: metric + ' · tous contrats uniques',
+      body,
+      note: 'Statut C. Les cohortes récentes ont moins de recul.' + (unknown ? ` Année non renseignée : ${fmt(unknown[2])} sur ${fmt(unknown[1])} contrats.` : '')
+    };
+  }
+
+  function portfolio(book, c, h) {
+    const families = rows(book, 'Familles MOA');
+    const clients = rows(book, 'Clients');
+    const n = total(clients, 2);
+    const concentration = total(rows(book, 'Top 25 clients').slice(0, 10), 1) / n;
+    const measure = { contracts: 2, dwellings: 5, buildings: 6 }[c.measure] ?? 2;
+    const unit = {2: 'Contrats', 5: 'Logements', 6: 'Bâtiments'}[measure];
+    const values = c.view === 'family' ? families.map(r => [null, r[0], ...r.slice(1)])
+      : c.view === 'cross' ? rows(book, 'Clients x MOA').filter(r => !c.family || r[1] === c.family)
+      : clients;
+    const sorted = [...values].sort((a, b) => (number(b[measure]) || 0) - (number(a[measure]) || 0));
+    const top = c.view === 'top' ? sorted.slice(0, c.limit === '25' ? 25 : 10) : sorted;
+    const page = paginate(top, c.page, c.view === 'family' ? 11 : 10);
+    const headers = [c.view === 'family' ? 'Famille de MOA' : 'Groupe client'];
+    if (c.view === 'cross') headers.push('Famille de MOA');
+    headers.push(unit);
+    if (c.status) headers.push('Contrats soldés', 'Contrats en cours');
+    headers.push(`Part ${unit.toLowerCase()}`);
+    const denominator = total(clients, measure);
+    const result = page.items.map(r => {
+      const cells = c.view === 'cross' ? [r[0], r[1]] : [r[1]];
+      return [...cells, fmt(r[measure]), ...(c.status ? [fmt(r[3]), fmt(r[4])] : []), percent(denominator ? r[measure] / denominator : null)];
+    });
+    return {
+      subtitle: 'Contrats soldés ou en cours · ' + (c.view === 'cross' ? 'Groupes × familles' : c.view === 'top' ? `Top ${c.limit} par ${unit.toLowerCase()}` : 'Familles de maîtres d’ouvrage'),
+      body: band(h, [['Contrats du portefeuille', fmt(n)], ['Groupes clients', fmt(clients.length)], ['Part des 10 premiers groupes en contrats', percent(concentration)]]) +
+        (c.view === 'family' && !c.status ? bars(h, page.items.map(r => ({
+          label: r[1], values: [r[measure]], note: percent(denominator ? r[measure] / denominator : null)
+        })), [unit]) : table(h, headers, result)),
+      note: 'Parts calculées sur le portefeuille complet.' + pageNote(page)
+    };
+  }
+
+  function evolution(book, c, h) {
+    const decision = c.basis === 'decision';
+    const sheet = decision ? 'Décisions annuelles' : 'Créations annuelles';
+    const annual = rows(book, sheet);
+    const dated = annual.filter(r => /^\d{4}$/.test(r[0]));
+    const share = c.unit === 'share' && c.series !== 'contracts';
+    const denominator = new Map(annual.map(r => [r[0], r[1]]));
+    const valueFor = (value, year) => share ? (denominator.get(year) && number(value) != null ? number(value) / denominator.get(year) : null) : value;
+    const categories = dated.map(r => r[0]);
+    let series, extra = '';
+    if (c.series === 'detail') {
+      const family = c.detail || FAMILIES[0];
+      const columns = header(book, family);
+      const indices = categories.map(year => columns.indexOf(`${decision ? 'Décision' : 'Création'} ${year}`));
+      const detail = rows(book, family);
+      const page = paginate(detail, c.page, 6);
+      series = page.items.map(r => ({ name: r[0], values: indices.map((i, j) => i < 0 ? null : valueFor(r[i], categories[j])) }));
+      extra = pageNote(page);
+    } else {
+      const source = share && !decision ? new Map(rows(book, 'Parts annuelles').map(r => [r[0], r])) : null;
+      const columns = c.series === 'contracts' ? [1] : (c.series === 'levels' ? [6, 7, 8, 9, 10] : [2, 3, 4, 5])
+        .filter(col => c.seriesVisible?.[`s${col - 2}`] !== false);
+      series = columns.map(col => ({ name: header(book, sheet)[col], values: dated.map(r =>
+        source ? source.get(r[0])?.[col] : valueFor(r[col], r[0])) }));
+    }
+    const population = decision ? 'Contrats soldés avec décision datée' : 'Contrats du portefeuille';
+    const missing = annual.find(r => r[0] === 'N.R.');
+    return {
+      subtitle: `${population} · année de ${decision ? 'décision' : 'création'} · ${share ? 'part annuelle' : 'effectifs'}`,
+      body: band(h, [[population, fmt(total(annual, 1))]]) + line(h, categories, series, share ? percent : fmt),
+      note: (decision ? 'Date de décision AG, puis AI si AG est vide. ' : '') +
+        (missing ? `${fmt(missing[1])} contrats sans année de création. ` : '') +
+        '2026 potentiellement incomplète. Champ renseigné ≠ label délivré.' + extra
+    };
+  }
+
+  function labels(book, c, h) {
+    const exact = ['ab', 'ac'].includes(c.family);
+    const values = exact ? rows(book, 'Mentions AB et AC').filter(r => r[0] === c.family.toUpperCase()).map(r => r.slice(1))
+      : rows(book, c.family);
+    const columns = c.population === 'compare' ? [1, 2] : c.population === 'sold' ? [2] : [1];
+    const headers = columns.map(index => index === 1 ? 'Portefeuille' : 'Soldés datés');
+    const useBars = !exact && c.view === 'bars';
+    const page = paginate(values, c.page, useBars ? 7 : 12);
+    return {
+      subtitle: (exact ? `Colonne ${c.family.toUpperCase()} · libellés exacts` : `${c.family} · répartition des niveaux`),
+      body: useBars ? bars(h, page.items.map(r => ({ label: r[0], values: columns.map(i => r[i]) })), headers)
+        : table(h, ['Niveau / mention', ...headers], page.items.map(r => [r[0], ...columns.map(i => fmt(r[i]))])),
+      note: 'Effectifs par contrat et par libellé. Plusieurs mentions peuvent coexister. Champ renseigné ≠ label délivré.' + pageNote(page)
+    };
+  }
+
+  function size(book, c, h) {
+    const sheet = 'Centiles ' + c.measure;
+    const centiles = rows(book, sheet);
+    const names = header(book, sheet).slice(1).map(name => name.replace(/^BEE /, ''));
+    const selected = c.measure === 'logements' ? 2 : c.measure === 'bâtiments' ? 6 : 10;
+    const all = rows(book, 'Taille par référentiel');
+    const relevant = all.filter(r => number(r[selected]) > 0 && (selected !== 10 || /Tertiaire/.test(r[0])));
+    const unit = c.measure === 'surfaces' ? 'Surfaces tertiaires (m²)' : c.measure[0].toUpperCase() + c.measure.slice(1);
+    let body;
+    if (c.view === 'stats') {
+      body = table(h, ['Référentiel', 'Opérations', 'Effectif exploitable', 'Total', 'Moyenne', 'Médiane'],
+        relevant.map(r => [r[0], fmt(r[1]), ...r.slice(selected, selected + 4).map(fmt)]));
+    } else if (c.view === 'centiles') {
+      body = table(h, ['Centile', ...names], centiles.map(r => [r[0], ...r.slice(1).map(fmt)]));
+    } else {
+      const points = centiles.filter(r => /^P\d+$/.test(r[0]));
+      body = line(h, points.map(r => r[0]), names.map((name, i) => ({ name, values: points.map(r => r[i + 1]) })));
+    }
+    return {
+      subtitle: `${unit} · comparaison par référentiel`, body,
+      note: 'Les statistiques utilisent les valeurs strictement positives. P50 correspond à la médiane.'
+    };
+  }
+
+  const renders = { bilanSummary: summary, bilanQuality: quality, abandonRate: cancellations, moaVolume: portfolio, certEvolution: evolution, labels, opSize: size };
+  function html(type, model, book, h) {
+    const c = config(type, model);
+    const title = c.title?.trim() || TITLES[type];
+    const display = book?.sheets ? renders[type](book, c, h)
+      : { subtitle: 'Données du bilan consolidé', body: '<p class="bilan-empty">Importe le bilan Excel pour afficher cette diapositive.</p>' };
+    return h.head(title, display.subtitle) + `<div class="bilan-content">${display.body}
+      ${display.note ? `<p class="bilan-note">${h.esc(display.note)}</p>` : ''}</div>`;
+  }
+
+  window.OBSBilan = { TEMPLATES, TYPES, DECK, defaults, usesWorkbook, importWorkbook, controls, html };
+})();
