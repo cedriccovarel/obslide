@@ -2462,7 +2462,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const defaultName = TEMPLATE_CATALOG.find(item => item.type === type)?.label || type;
     const customName = state.presentation.tabNames?.[activeTab] || '';
     const model = state[type] || {};
-    const titleFields = Object.prototype.hasOwnProperty.call(model,'title')
+    const titleFields = !activeBilanSlide() && Object.prototype.hasOwnProperty.call(model,'title')
       ? `${field('Titre de la slide', `${type}.title`, 'text')}${Object.prototype.hasOwnProperty.call(model,'subtitle') ? field('Sous-titre', `${type}.subtitle`, 'text') : ''}` : '';
     return `<div class="control-section common-slide-controls"><h3>Nom & textes</h3>
       <div class="field"><label>Nom de l’onglet</label><input type="text" data-tab-name="1" value="${esc(customName)}" placeholder="${esc(defaultName)}"></div>
@@ -2790,7 +2790,18 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (currentType === 'communeMap') requestAnimationFrame(renderCommuneMap);
     if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
     frameSlide();
+    if (fromBilan) fitBilanHeader();
     if (typeof schedulePreviewFit === 'function') schedulePreviewFit();
+  }
+
+  function fitBilanHeader() {
+    const content = slide.querySelector('.bilan-content');
+    const titleHeight = slide.querySelector('.s-title')?.offsetHeight || 0;
+    content.style.setProperty('--bilan-content-top', `${Math.max(149, 51 + titleHeight)}px`);
+    const status = controls.querySelector('[data-bilan-fit-status]');
+    if (status) status.textContent = content.scrollHeight > content.clientHeight + 2
+      ? 'Le texte et les données dépassent de la diapositive. Réduis le texte ou choisis une présentation plus compacte.'
+      : '';
   }
 
   // V29.10 : marge de 1 cm (V29.11) en haut de chaque slide (sauf la couverture) pour l'export Google Slides. Le contenu est
@@ -4904,12 +4915,16 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         saveState(); renderSlide(); return;
       }
     }
+    if (t.dataset.bilanText) {
+      editBilanText(t.dataset.bilanText, t.value);
+      return;
+    }
     const bilanPath = t.dataset.bind || t.dataset.toggleBind;
     if (bilanPath?.startsWith(`${tabType(activeTab)}.bilan.`)) {
       const value = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Math.max(1, Math.trunc(num(t.value))) : t.value;
       setByPath(state, bilanPath, value);
       const model = state[tabType(activeTab)].bilan;
-      if (t.tagName === 'SELECT' && model.page && /\.(view|family|measure|limit|detail|series)$/.test(bilanPath)) model.page = 1;
+      if (t.tagName === 'SELECT' && model.page && /\.(view|family|measure|limit|detail|series|layout)$/.test(bilanPath)) model.page = 1;
       saveState();
       if (t.tagName === 'SELECT' || bilanPath.endsWith('.enabled')) renderControls();
       renderSlide();
@@ -5104,9 +5119,25 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
   });
 
+  function editBilanText(key, value) {
+    if (!activeBilanSlide()) return;
+    const model = state[tabType(activeTab)].bilan;
+    if (key === 'title') model.title = value;
+    else if (Object.hasOwn(model.copy, key)) model.copy[key] = value;
+    saveState();
+    renderSlide();
+  }
+
   controls.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.bilanReset) {
+      const key = t.dataset.bilanReset;
+      editBilanText(key, null);
+      renderControls();
+      controls.querySelector(`[data-bilan-text="${key}"]`)?.focus();
+      return;
+    }
     if (t.dataset.cityImport !== undefined) { importCityPaste(); return; }
     if (t.dataset.moaImport !== undefined) {
       importMoaExcelPaste(t.dataset.moaImport === 'append' ? 'append' : 'replace');

@@ -46,14 +46,16 @@
     ['bilanQuality', 'Bilan · Qualité des données']
   ];
   const defaults = {
-    bilanSummary: { bilan: { activity: true, portfolio: true, certification: true, size: true } },
-    bilanQuality: { bilan: { view: 'size' } },
-    abandonRate: { bilan: { enabled: false, view: 'year', unit: 'rate' } },
-    moaVolume: { bilan: { enabled: false, view: 'family', measure: 'contracts', status: false, limit: '10', page: 1, family: '' } },
-    certEvolution: { bilan: { enabled: false, basis: 'creation', series: 'labels', unit: 'count', detail: '', page: 1, seriesVisible: {} } },
-    labels: { bilan: { enabled: false, family: FAMILIES[0], population: 'compare', view: 'bars', page: 1 } },
+    bilanSummary: { bilan: { layout: 'highlights', activity: true, portfolio: true, certification: true, size: true } },
+    bilanQuality: { bilan: { view: 'size', layout: 'bars' } },
+    abandonRate: { bilan: { enabled: false, view: 'year', unit: 'rate', years: 'auto' } },
+    moaVolume: { bilan: { enabled: false, view: 'family', layout: 'auto', measure: 'contracts', status: false, limit: '10', page: 1, family: '' } },
+    certEvolution: { bilan: { enabled: false, basis: 'creation', layout: 'curve', years: 'auto', series: 'labels', unit: 'count', detail: '', page: 1, seriesVisible: {} } },
+    labels: { bilan: { enabled: false, family: FAMILIES[0], population: 'compare', view: 'bars', layout: 'auto', page: 1 } },
     opSize: { bilan: { enabled: false, measure: 'logements', view: 'curve' } }
   };
+  const textDefaults = { subtitle: null, heading: null, introduction: null, note: null };
+  const DATE_OPTIONS = [['auto', 'Première année avec une valeur non nulle'], ['all', 'Toutes les années']];
   const palette = ['#07543d', '#3778a5', '#a45b24', '#7160a1', '#278576', '#ad4a59'];
   const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
   const number = value => value == null || value === '' ? null : Number(value);
@@ -92,7 +94,18 @@
   const rows = (book, name) => book?.sheets?.[name]?.rows || [];
   const header = (book, name) => book?.sheets?.[name]?.header || [];
   const usesWorkbook = (type, model) => TYPES.includes(type) && (!VARIANTS.includes(type) || model?.bilan?.enabled);
-  const config = (type, model) => ({ ...defaults[type].bilan, ...model?.bilan });
+  Object.values(defaults).forEach(model => {
+    model.bilan.copy = { ...textDefaults };
+    model.bilan.textAlign = 'left';
+    model.bilan.textTreatment = 'simple';
+    model.bilan.textPosition = 'above';
+  });
+
+  const config = (type, model) => ({
+    ...defaults[type].bilan,
+    ...model?.bilan,
+    copy: { ...textDefaults, ...model?.bilan?.copy }
+  });
   const choice = (value, label) => ({ value, label });
   const choices = entries => entries.map(entry => Array.isArray(entry) ? choice(...entry) : choice(entry, entry));
   const seriesOptions = choices([['contracts', 'Volume de contrats'], ['labels', 'Labels'], ['levels', 'Niveaux énergie et carbone'], ['detail', 'Détail par famille']]);
@@ -106,18 +119,33 @@
     let content = VARIANTS.includes(type) ? toggle('Utiliser le bilan Excel', 'enabled') : '';
     if (!usesWorkbook(type, model)) return `<div class="control-section"><h3>Source de la diapositive</h3>${content}</div>`;
     content += book ? `<p class="help">Classeur : ${esc(book.name)}</p>` : '<p class="help">Utilise « Importer le bilan Excel » pour charger les données.</p>';
-    content += field('Titre du bilan sur cette slide', p('title'), 'text');
     const page = () => field('Page du tableau', p('page'), 'number', { min: 1, step: 1 });
-    if (type === 'bilanSummary') content += toggle('Activité et annulations', 'activity') + toggle('Portefeuille', 'portfolio') + toggle('Certifications', 'certification') + toggle('Taille des opérations', 'size');
-    if (type === 'bilanQuality') content += select('Indicateurs', 'view', [['size', 'Taille des opérations'], ['coverage', 'Labels et performances']]);
-    if (type === 'abandonRate') content += select('Présentation des annulations', 'view', [['year', 'Courbe annuelle'], ['reference', 'Barres par référentiel'], ['matrix', 'Matrice année × référentiel']]) + select('Valeur mise en avant', 'unit', [['rate', 'Taux'], ['count', 'Effectif']]);
+    if (type === 'bilanSummary') {
+      content += select('Présentation', 'layout', [['highlights', 'Chiffres clés mis en avant'], ['cards', 'Cartes par thème'], ['table', 'Tableaux de synthèse']]);
+      content += toggle('Activité et annulations', 'activity') + toggle('Portefeuille', 'portfolio') + toggle('Certifications', 'certification') + toggle('Taille des opérations', 'size');
+    }
+    if (type === 'bilanQuality') {
+      content += select('Présentation', 'layout', [['bars', 'Barres de couverture'], ['table', 'Tableau des effectifs'], ['gaps', 'Écarts à surveiller']]);
+      content += select('Indicateurs', 'view', [['size', 'Taille des opérations'], ['coverage', 'Labels et performances']]);
+    }
+    if (type === 'abandonRate') {
+      content += select('Présentation des annulations', 'view', [['year', 'Courbe annuelle'], ['reference', 'Barres par référentiel'], ['matrix', 'Matrice année × référentiel']]);
+      content += select('Valeur mise en avant', 'unit', [['rate', 'Taux'], ['count', 'Effectif']]);
+      if (c.view === 'year') content += select('Début du graphique', 'years', DATE_OPTIONS);
+    }
     if (type === 'moaVolume') {
       content += select('Présentation du portefeuille', 'view', [['family', 'Familles de MOA'], ['top', 'Classement des groupes clients'], ['cross', 'Groupes × familles']]);
       content += select('Mesure', 'measure', [['contracts', 'Contrats'], ['dwellings', 'Logements'], ['buildings', 'Bâtiments']]) + toggle('Afficher Soldés / En cours', 'status');
-      if (c.view === 'top') content += select('Groupes affichés', 'limit', [['10', 'Top 10'], ['25', 'Top 25']]) + page();
-      if (c.view === 'cross') content += select('Famille de MOA', 'family', [['', 'Toutes les familles'], ...rows(book, 'Familles MOA').map(r => r[0])]) + page();
+      content += select('Présentation', 'layout', layoutOptions(c.layout, portfolioLayout(c), [
+        ['bars', 'Barres de classement'], ['table', 'Tableau détaillé'], ['cards', 'Cartes de classement']
+      ]));
+      if (c.view === 'top') content += select('Groupes affichés', 'limit', [['10', 'Top 10'], ['25', 'Top 25']]);
+      if (c.view === 'cross') content += select('Famille de MOA', 'family', [['', 'Toutes les familles'], ...rows(book, 'Familles MOA').map(r => r[0])]);
+      if (c.view !== 'family' || portfolioLayout(c) === 'cards') content += page();
     }
     if (type === 'certEvolution') {
+      content += select('Présentation', 'layout', [['curve', 'Courbes'], ['columns', 'Barres verticales'], ['table', 'Tableau par année']]);
+      if (c.layout !== 'table') content += select('Début du graphique', 'years', DATE_OPTIONS);
       content += select('Axe temporel', 'basis', [['creation', 'Année de création'], ['decision', 'Année de décision']]);
       content += selectField('Séries', p('series'), seriesOptions);
       if (c.series !== 'contracts') content += select('Valeur', 'unit', [['count', 'Nombre de contrats'], ['share', 'Part annuelle']]);
@@ -131,14 +159,40 @@
     if (type === 'labels') {
       content += select('Famille ou colonne', 'family', [...FAMILIES, ['ab', 'Mentions AB · libellés exacts'], ['ac', 'Performances AC · libellés exacts']]);
       content += select('Périmètre', 'population', [['compare', 'Comparer les deux'], ['portfolio', 'Portefeuille'], ['sold', 'Soldés datés']]);
-      if (!['ab', 'ac'].includes(c.family)) content += select('Présentation des niveaux', 'view', [['bars', 'Barres'], ['table', 'Tableau']]);
+      content += select('Présentation', 'layout', layoutOptions(c.layout, labelLayout(c), [
+        ['bars', 'Barres comparées'], ['table', 'Tableau des niveaux'], ['cards', 'Cartes par niveau']
+      ]));
       content += page();
     }
     if (type === 'opSize') {
       content += select('Mesure de taille', 'measure', [['logements', 'Logements'], ['bâtiments', 'Bâtiments'], ['surfaces', 'Surfaces tertiaires (m²)']]);
       content += select('Présentation des centiles', 'view', [['curve', 'Courbe de centiles'], ['stats', 'Moyennes et effectifs par référentiel'], ['centiles', 'Tableau détaillé des centiles']]);
     }
-    return `<div class="control-section"><h3>Bilan Excel</h3>${content}</div>`;
+    return `<div class="control-section"><h3>Bilan Excel</h3>${content}</div>` + textControls(type, c, book, h);
+  }
+
+  function textControls(type, c, book, h) {
+    const { esc, selectField } = h;
+    const display = book?.sheets ? renders[type](book, c, h) : {};
+    const fields = [
+      ['title', 'Titre', c.title, TITLES[type], 2],
+      ['subtitle', 'Sous-titre', c.copy.subtitle, display.subtitle, 2],
+      ['heading', 'Titre du graphique ou du tableau', c.copy.heading, '', 1],
+      ['introduction', 'Message à mettre en avant', c.copy.introduction, '', 3],
+      ['note', 'Note de lecture et source', c.copy.note, display.note, 3]
+    ];
+    return `<div class="control-section bilan-text-controls"><h3>Textes sur la diapositive</h3>
+      <p class="help">Les champs acceptent les retours à la ligne. Un champ vidé est masqué. « Par défaut » rétablit le texte d’origine.</p>
+      ${fields.map(([key, label, value, fallback, lines]) => {
+        const id = `bilan-text-${key}`;
+        return `<div class="field"><div class="bilan-field-heading"><label for="${id}">${label}</label><button class="btn btn-secondary btn-small" type="button" data-bilan-reset="${key}" aria-label="Rétablir ${label.toLowerCase()}">Par défaut</button></div>
+          <textarea id="${id}" data-bilan-text="${key}" rows="${lines}">${esc(value ?? fallback ?? '')}</textarea></div>`;
+      }).join('')}
+      ${selectField('Style du message', `${type}.bilan.textTreatment`, choices([['simple', 'Texte simple'], ['callout', 'Encadré']]))}
+      ${selectField('Alignement des textes ajoutés', `${type}.bilan.textAlign`, choices([['left', 'À gauche'], ['center', 'Centré'], ['right', 'À droite']]))}
+      ${selectField('Position du message', `${type}.bilan.textPosition`, choices([['above', 'Au-dessus des données'], ['below', 'Sous les données']]))}
+      <p class="help bilan-fit-status" data-bilan-fit-status role="status"></p>
+    </div>`;
   }
 
   function table(h, headers, values, caption = '') {
@@ -162,35 +216,80 @@
   const legend = (h, entries) => `<div class="bilan-legend">${entries.map((label, i) =>
     `<span><i style="background:${palette[i % palette.length]}"></i>${h.esc(label)}</span>`).join('')}</div>`;
 
-  function line(h, categories, series, format = fmt) {
+  function annualGraph(categories, series, years) {
+    if (years === 'all' || !series.length) return { categories, series };
+    const start = categories.findIndex((_, index) => series.some(s => {
+      const value = number(s.values[index]);
+      return Number.isFinite(value) && value !== 0;
+    }));
+    if (start < 0) return { categories: [], series };
+    return { categories: categories.slice(start), series: series.map(s => ({ ...s, values: s.values.slice(start) })) };
+  }
+
+  function line(h, categories, series, format = fmt, options = {}) {
     const { esc } = h;
-    if (!categories.length || !series.length) return '<p class="bilan-empty">Sélectionne au moins une série.</p>';
-    const W = 1400, H = 430, left = 84, right = 35, top = 24, bottom = 55;
-    const max = Math.max(0, ...series.flatMap(s => s.values.map(v => number(v) || 0))) || 1;
-    const x = i => left + (W - left - right) * (categories.length === 1 ? .5 : i / (categories.length - 1));
+    if (!series.length) return '<p class="bilan-empty">Sélectionne au moins une série.</p>';
+    if (!categories.length) return legend(h, series.map(s => s.name)) +
+      '<p class="bilan-empty">Aucune valeur non nulle pour les séries affichées.</p>';
+    const W = 1400, H = 430, left = 88, right = 35, top = 28, bottom = 55;
+    const highest = Math.max(0, ...series.flatMap(s => s.values.map(v => number(v) || 0)));
+    const targetStep = (highest || (format === percent ? .04 : 4)) / 4;
+    const stepBase = 10 ** Math.floor(Math.log10(targetStep));
+    const roundedStep = ([1, 2, 2.5, 5, 10].find(n => n * stepBase >= targetStep) || 10) * stepBase;
+    const step = !options.percentiles && format === fmt ? Math.ceil(roundedStep) : roundedStep;
+    const max = step * 4;
+    const plotWidth = W - left - right;
+    const slot = plotWidth / categories.length;
+    const x = i => options.columns ? left + slot * (i + .5) : left + plotWidth * (
+      options.percentiles ? Number(categories[i].slice(1)) / 100 : categories.length === 1 ? .5 : i / (categories.length - 1)
+    );
     const y = v => H - bottom - (H - top - bottom) * v / max;
-    const ticks = [0, .25, .5, .75, 1].map(ratio => ratio * max);
-    return `<svg class="bilan-chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Graphique d’évolution">
+    const ticks = Array.from({length: 5}, (_, i) => i * step);
+    const barWidth = slot * .72 / series.length;
+    const labels = series.length === 1 && !options.percentiles && categories.length <= 15;
+    return `${legend(h, series.map(s => s.name))}<svg class="bilan-chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${options.percentiles ? 'Courbes des centiles' : 'Graphique par année'}">
       ${ticks.map(value => `<line x1="${left}" x2="${W - right}" y1="${y(value)}" y2="${y(value)}" stroke="#dbe6df"/><text x="${left - 12}" y="${y(value) + 6}" text-anchor="end">${esc(format(value))}</text>`).join('')}
-      ${categories.map((label, i) => `<text x="${x(i)}" y="${H - 20}" text-anchor="middle">${esc(label)}</text>`).join('')}
+      ${categories.map((label, i) => options.percentiles && !['P1', 'P10', 'P25', 'P50', 'P75', 'P90', 'P99'].includes(label) ? '' : `<text x="${x(i)}" y="${H - 20}" text-anchor="middle">${esc(label)}</text>`).join('')}
       ${series.map((s, i) => {
         const color = palette[i % palette.length];
         const points = s.values.map((v, j) => number(v) == null ? null : [x(j), y(number(v)), v, j]);
+        const tooltip = (value, j) => esc(`${s.name} · ${categories[j]} · ${format(value)}`);
+        const dataLabels = labels ? points.filter(Boolean).map(([cx, topY, value]) =>
+          `<text class="bilan-chart-value" x="${cx}" y="${topY - 11}" text-anchor="middle">${esc(format(value))}</text>`
+        ).join('') : '';
+        if (options.columns) return points.filter(Boolean).map(([cx, topY, value, j]) =>
+          `<rect x="${cx + (i - series.length / 2) * barWidth}" y="${topY}" width="${barWidth * .92}" height="${y(0) - topY}" fill="${color}"><title>${tooltip(value, j)}</title></rect>`
+        ).join('') + dataLabels;
         let path = '';
         points.forEach((point, j) => {
           if (point) path += `${points[j - 1] ? 'L' : 'M'}${point[0]},${point[1]} `;
         });
         return `<path d="${path}" fill="none" stroke="${color}" stroke-width="4"/>${points.filter(Boolean).map(([cx, cy, value, j]) =>
-          `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}"><title>${esc(`${s.name} · ${categories[j]} · ${format(value)}`)}</title></circle>`).join('')}`;
-      }).join('')}</svg>${legend(h, series.map(s => s.name))}`;
+          `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}"><title>${tooltip(value, j)}</title></circle>`).join('')}${dataLabels}`;
+      }).join('')}</svg>`;
   }
 
-  function bars(h, items, series, format = fmt) {
-    const max = Math.max(0, ...items.flatMap(item => item.values.map(v => number(v) || 0))) || 1;
+  function bars(h, items, series, format = fmt, scale) {
+    if (!items.length) return '<p class="bilan-empty">Aucune donnée pour cette sélection.</p>';
+    const max = scale || Math.max(0, ...items.flatMap(item => item.values.map(v => number(v) || 0))) || 1;
     return `${series.length > 1 ? legend(h, series) : ''}<div class="bilan-bars">${items.map(item =>
       `<div class="bilan-bar-row"><strong>${h.esc(item.label)}</strong><div>${item.values.map((value, i) =>
         `<div class="bilan-bar"><div><i style="width:${100 * Math.max(0, number(value) || 0) / max}%;background:${palette[i]}"></i></div><b>${h.esc(format(value))}</b></div>`).join('')}</div>${item.note ? `<small>${h.esc(item.note)}</small>` : ''}</div>`).join('')}</div>`;
   }
+
+  function rankCards(h, items) {
+    if (!items.length) return '<p class="bilan-empty">Aucune donnée pour cette sélection.</p>';
+    return `<div class="bilan-rank-cards">${items.map(({ label, values, note }) =>
+      `<section><h3>${h.esc(label)}</h3><dl>${values.map(([name, value]) =>
+        `<div><dt>${h.esc(name)}</dt><dd>${h.esc(value)}</dd></div>`).join('')}</dl>${note ? `<p>${h.esc(note)}</p>` : ''}</section>`).join('')}</div>`;
+  }
+
+  function layoutOptions(current, resolved, options) {
+    return current === 'auto' ? options.map(([value, label]) => [value === resolved ? 'auto' : value, label]) : options;
+  }
+
+  const portfolioLayout = c => c.layout === 'auto' ? (c.view === 'family' && !c.status ? 'bars' : 'table') : c.layout;
+  const labelLayout = c => c.layout === 'auto' ? (['ab', 'ac'].includes(c.family) ? 'table' : c.view) : c.layout;
 
   function summary(book, c, h) {
     const data = rows(book, 'Bilan général');
@@ -200,39 +299,69 @@
       ['certification', 'Certifications', ['Certification', 'Labels']],
       ['size', 'Taille des opérations', ['Taille']]
     ];
-    const cards = groups.filter(([key]) => c[key]).map(([, label, themes]) => {
-      const indicators = data.filter(r => themes.includes(r[0]));
-      return `<section class="bilan-summary-card"><h2>${label}</h2><dl>${indicators.map(([, name, value]) =>
-        `<div><dt>${h.esc(name)}</dt><dd>${h.esc(/taux|^part /i.test(name) ? percent(value) : fmt(value))}</dd></div>`).join('')}</dl></section>`;
-    });
+    const selected = groups.filter(([key]) => c[key]).map(([, heading, themes]) => ({
+      heading,
+      indicators: data.filter(row => themes.includes(row[0])).map(([, name, value]) =>
+        [name, /taux|^part /i.test(name) ? percent(value) : fmt(value)]
+      )
+    }));
+    const featured = [
+      ['Taux global', 'Taux d’annulation'],
+      ['Groupes clients', 'Groupes clients'],
+      ['Soldés avec décision datée', 'Soldés avec décision datée'],
+      ['Opérations présumées distinctes', 'Opérations analysées pour les tailles']
+    ];
+    const highlights = selected.flatMap(group => featured.flatMap(([key, label]) => {
+      const match = group.indicators.find(([name]) => name === key);
+      return match ? [[label, match[1]]] : [];
+    }));
+    const useTables = c.layout !== 'cards';
+    const cards = selected.map(({heading, indicators}) => {
+      const details = c.layout === 'highlights' ? indicators.filter(([name]) => !featured.some(([key]) => key === name)) : indicators;
+      return useTables ? table(h, [heading, 'Valeur'], details)
+        : `<section class="bilan-summary-card"><h2>${heading}</h2><dl>${details.map(([name, value]) =>
+          `<div><dt>${h.esc(name)}</dt><dd>${h.esc(value)}</dd></div>`).join('')}</dl></section>`;
+    }).join('');
     return {
-      subtitle: 'Chiffres clés de l’activité, du portefeuille et des opérations',
-      body: cards.length ? `<div class="bilan-summary">${cards.join('')}</div>` : '<p class="bilan-empty">Sélectionne au moins un bloc dans les paramètres.</p>',
+      subtitle: 'Activité, portefeuille, certifications et taille des opérations',
+      body: cards ? (c.layout === 'highlights' ? band(h, highlights) : '') + `<div class="bilan-summary">${cards}</div>`
+        : '<p class="bilan-empty">Sélectionne au moins un bloc dans les paramètres.</p>',
       note: 'Source : base OPERATIONS. Les périmètres sont propres à chaque indicateur. Les cohortes récentes ont moins de recul.'
     };
   }
 
   function quality(book, c, h) {
-    if (c.view === 'coverage') {
-      const cert = rows(book, 'Synthèse certifications');
-      const value = name => cert.find(r => r[0] === name)?.[1];
-      const population = value('Contrats soldés ou en cours');
-      return {
-        subtitle: 'Champs de certification renseignés dans le portefeuille',
-        body: band(h, ['Contrats soldés ou en cours', 'Contrats soldés avec décision datée', 'Soldés sans date', 'En cours avec date de décision']
-          .map(name => [name, fmt(value(name))])) + table(h, ['Champ', 'Renseignés', 'Contrats du portefeuille', 'Part portefeuille'],
-          rows(book, 'Couverture').map(([name, n, share]) => [name, fmt(n), fmt(population), percent(share)])),
-        note: 'Champ renseigné ≠ label délivré. Les champs dédiés sont incomplets historiquement.'
-      };
-    }
-    const size = rows(book, 'Qualité tailles');
-    const identifiers = size.find(r => r[0] === 'Identifiants opérations');
+    const coverage = c.view === 'coverage';
+    const cert = rows(book, 'Synthèse certifications');
+    const value = name => cert.find(r => r[0] === name)?.[1];
+    const population = value('Contrats soldés ou en cours');
+    const indicators = coverage
+      ? rows(book, 'Couverture').map(([name, good, share]) => [name, population, good, share])
+      : rows(book, 'Qualité tailles');
+    const identifiers = indicators.find(r => r[0] === 'Identifiants opérations');
     const missing = identifiers ? number(identifiers[1]) - number(identifiers[2]) : null;
+    const headline = coverage
+      ? ['Contrats soldés ou en cours', 'Contrats soldés avec décision datée', 'Soldés sans date', 'En cours avec date de décision'].map(name => [name, fmt(value(name))])
+      : [['Opérations présumées distinctes', fmt(identifiers?.[1])], ['Opérations sans identifiant', fmt(missing)]];
+    let body;
+    if (c.layout === 'gaps') {
+      const gaps = indicators.filter(([, n, good]) => number(n) > number(good))
+        .sort((a, b) => a[3] - b[3]);
+      body = table(h, ['Indicateur', 'Non renseignés', 'Périmètre', 'Taux renseigné'],
+        gaps.map(([name, n, good, share]) => [name, fmt(n - good), fmt(n), percent(share)]));
+    } else if (c.layout === 'table') {
+      body = table(h, ['Indicateur', 'Périmètre', 'Renseignés ou exploitables', 'Part'],
+        indicators.map(([name, n, good, share]) => [name, fmt(n), fmt(good), percent(share)]));
+    } else {
+      body = bars(h, indicators.map(([label, n, good, share]) => ({
+        label, values: [share], note: `${fmt(good)} / ${fmt(n)}`
+      })), ['Part renseignée'], percent, 1);
+    }
     return {
-      subtitle: 'Effectifs exploitables pour les statistiques de taille',
-      body: band(h, [['Opérations présumées distinctes', fmt(identifiers?.[1])], ['Opérations sans identifiant', fmt(missing)]]) +
-        table(h, ['Indicateur', 'Périmètre', 'Exploitables', 'Part'], size.map(([name, n, good, share]) => [name, fmt(n), fmt(good), percent(share)])),
-      note: 'Les zéros sont exclus des statistiques de taille. L’unicité physique reste à confirmer pour les opérations sans identifiant.'
+      subtitle: coverage ? 'Champs de certification renseignés dans le portefeuille' : 'Effectifs exploitables pour les statistiques de taille',
+      body: band(h, headline) + body,
+      note: coverage ? 'Champ renseigné ≠ label délivré. Les champs dédiés sont incomplets historiquement.'
+        : 'Les zéros sont exclus des statistiques de taille. L’unicité physique reste à confirmer pour les opérations sans identifiant.'
     };
   }
 
@@ -247,7 +376,9 @@
       const cross = new Map(rows(book, 'Annulations croisées').map(row => [JSON.stringify(row.slice(0, 2)), row]));
       const cells = annual.map(([year]) => [year, ...refs.map(([ref]) => {
         const row = cross.get(JSON.stringify([year, ref]));
-        return row ? `${format(row[rate ? 4 : 3])} · ${fmt(row[3])}/${fmt(row[2])}` : '—';
+        if (!row) return '—';
+        const count = `${fmt(row[3])}/${fmt(row[2])}`;
+        return rate ? `${format(row[4])} · ${count}` : count;
       })]);
       body += table(h, ['Année', ...refs.map(r => r[0].replace(/^BEE /, ''))], cells);
     } else if (c.view === 'reference') {
@@ -256,7 +387,8 @@
       })), [metric], format);
     } else {
       const points = annual.filter(r => /^\d{4}$/.test(r[0]));
-      body += line(h, points.map(r => r[0]), [{ name: metric, values: points.map(r => r[rate ? 3 : 2]) }], format);
+      const graph = annualGraph(points.map(r => r[0]), [{ name: metric, values: points.map(r => r[rate ? 3 : 2]) }], c.years);
+      body += line(h, graph.categories, graph.series, format);
     }
     const unknown = annual.find(r => r[0] === 'N.R.');
     return {
@@ -278,23 +410,39 @@
       : clients;
     const sorted = [...values].sort((a, b) => (number(b[measure]) || 0) - (number(a[measure]) || 0));
     const top = c.view === 'top' ? sorted.slice(0, c.limit === '25' ? 25 : 10) : sorted;
-    const page = paginate(top, c.page, c.view === 'family' ? 11 : 10);
+    const layout = portfolioLayout(c);
+    const page = paginate(top, c.page, layout === 'cards' ? 6 : c.view === 'family' ? 11 : 10);
     const headers = [c.view === 'family' ? 'Famille de MOA' : 'Groupe client'];
     if (c.view === 'cross') headers.push('Famille de MOA');
     headers.push(unit);
     if (c.status) headers.push('Contrats soldés', 'Contrats en cours');
     headers.push(`Part ${unit.toLowerCase()}`);
     const denominator = total(clients, measure);
-    const result = page.items.map(r => {
-      const cells = c.view === 'cross' ? [r[0], r[1]] : [r[1]];
-      return [...cells, fmt(r[measure]), ...(c.status ? [fmt(r[3]), fmt(r[4])] : []), percent(denominator ? r[measure] / denominator : null)];
-    });
+    const itemName = row => c.view === 'cross' ? row[0] : row[1];
+    const share = row => percent(denominator ? row[measure] / denominator : null);
+    const counts = row => c.status ? [fmt(row[3]), fmt(row[4])] : [];
+    const details = row => [
+      ...(c.view === 'cross' ? [row[1]] : []),
+      share(row),
+      ...(c.status ? [`${fmt(row[3])} soldés · ${fmt(row[4])} en cours`] : [])
+    ].join(' · ');
+    let body;
+    if (layout === 'bars') {
+      body = bars(h, page.items.map(row => ({
+        label: itemName(row), values: [row[measure]], note: details(row)
+      })), [unit]);
+    } else if (layout === 'cards') {
+      body = rankCards(h, page.items.map(row => ({
+        label: itemName(row), values: [[unit, fmt(row[measure])]], note: details(row)
+      })));
+    } else {
+      body = table(h, headers, page.items.map(row =>
+        [itemName(row), ...(c.view === 'cross' ? [row[1]] : []), fmt(row[measure]), ...counts(row), share(row)]));
+    }
     return {
       subtitle: 'Contrats soldés ou en cours · ' + (c.view === 'cross' ? 'Groupes × familles' : c.view === 'top' ? `Top ${c.limit} par ${unit.toLowerCase()}` : 'Familles de maîtres d’ouvrage'),
       body: band(h, [['Contrats du portefeuille', fmt(n)], ['Groupes clients', fmt(clients.length)], ['Part des 10 premiers groupes en contrats', percent(concentration)]]) +
-        (c.view === 'family' && !c.status ? bars(h, page.items.map(r => ({
-          label: r[1], values: [r[measure]], note: percent(denominator ? r[measure] / denominator : null)
-        })), [unit]) : table(h, headers, result)),
+        body,
       note: 'Parts calculées sur le portefeuille complet.' + pageNote(page)
     };
   }
@@ -326,9 +474,14 @@
     }
     const population = decision ? 'Contrats soldés avec décision datée' : 'Contrats du portefeuille';
     const missing = annual.find(r => r[0] === 'N.R.');
+    const format = share ? percent : fmt;
+    const graph = annualGraph(categories, series, c.years);
+    const body = c.layout === 'table' && series.length
+      ? table(h, ['Année', ...series.map(s => s.name)], categories.map((year, i) => [year, ...series.map(s => format(s.values[i]))]))
+      : line(h, graph.categories, graph.series, format, { columns: c.layout === 'columns' });
     return {
       subtitle: `${population} · année de ${decision ? 'décision' : 'création'} · ${share ? 'part annuelle' : 'effectifs'}`,
-      body: band(h, [[population, fmt(total(annual, 1))]]) + line(h, categories, series, share ? percent : fmt),
+      body: band(h, [[population, fmt(total(annual, 1))]]) + body,
       note: (decision ? 'Date de décision AG, puis AI si AG est vide. ' : '') +
         (missing ? `${fmt(missing[1])} contrats sans année de création. ` : '') +
         '2026 potentiellement incomplète. Champ renseigné ≠ label délivré.' + extra
@@ -341,12 +494,18 @@
       : rows(book, c.family);
     const columns = c.population === 'compare' ? [1, 2] : c.population === 'sold' ? [2] : [1];
     const headers = columns.map(index => index === 1 ? 'Portefeuille' : 'Soldés datés');
-    const useBars = !exact && c.view === 'bars';
-    const page = paginate(values, c.page, useBars ? 7 : 12);
+    const layout = labelLayout(c);
+    const page = paginate(values, c.page, layout === 'cards' ? 6 : layout === 'bars' ? 7 : 12);
+    let body;
+    if (layout === 'bars') body = bars(h, page.items.map(row => ({ label: row[0], values: columns.map(i => row[i]) })), headers);
+    else if (layout === 'cards') body = rankCards(h, page.items.map(row => ({
+      label: row[0], values: columns.map((i, j) => [headers[j], fmt(row[i])])
+    })));
+    else body = table(h, ['Niveau / mention', ...headers], page.items.map(row => [row[0], ...columns.map(i => fmt(row[i]))]));
+    const subject = exact ? `Colonne ${c.family.toUpperCase()} · libellés exacts` : `${c.family} · répartition des niveaux`;
     return {
-      subtitle: (exact ? `Colonne ${c.family.toUpperCase()} · libellés exacts` : `${c.family} · répartition des niveaux`),
-      body: useBars ? bars(h, page.items.map(r => ({ label: r[0], values: columns.map(i => r[i]) })), headers)
-        : table(h, ['Niveau / mention', ...headers], page.items.map(r => [r[0], ...columns.map(i => fmt(r[i]))])),
+      subtitle: `${subject} · ${headers.join(' et ')}`,
+      body,
       note: 'Effectifs par contrat et par libellé. Plusieurs mentions peuvent coexister. Champ renseigné ≠ label délivré.' + pageNote(page)
     };
   }
@@ -367,7 +526,7 @@
       body = table(h, ['Centile', ...names], centiles.map(r => [r[0], ...r.slice(1).map(fmt)]));
     } else {
       const points = centiles.filter(r => /^P\d+$/.test(r[0]));
-      body = line(h, points.map(r => r[0]), names.map((name, i) => ({ name, values: points.map(r => r[i + 1]) })));
+      body = line(h, points.map(r => r[0]), names.map((name, i) => ({ name, values: points.map(r => r[i + 1]) })), fmt, { percentiles: true });
     }
     return {
       subtitle: `${unit} · comparaison par référentiel`, body,
@@ -378,11 +537,19 @@
   const renders = { bilanSummary: summary, bilanQuality: quality, abandonRate: cancellations, moaVolume: portfolio, certEvolution: evolution, labels, opSize: size };
   function html(type, model, book, h) {
     const c = config(type, model);
-    const title = c.title?.trim() || TITLES[type];
+    const title = c.title ?? TITLES[type];
     const display = book?.sheets ? renders[type](book, c, h)
       : { subtitle: 'Données du bilan consolidé', body: '<p class="bilan-empty">Importe le bilan Excel pour afficher cette diapositive.</p>' };
-    return h.head(title, display.subtitle) + `<div class="bilan-content">${display.body}
-      ${display.note ? `<p class="bilan-note">${h.esc(display.note)}</p>` : ''}</div>`;
+    const alignment = ['center', 'right'].includes(c.textAlign) ? c.textAlign : 'left';
+    const treatment = c.textTreatment === 'callout' ? 'bilan-intro-callout' : '';
+    const note = c.copy.note ?? display.note;
+    const message = c.copy.introduction?.trim() ? `<p class="bilan-intro ${treatment}">${h.esc(c.copy.introduction)}</p>` : '';
+    return h.head(title, c.copy.subtitle ?? display.subtitle) + `<div class="bilan-content bilan-text-${alignment}">
+      ${c.textPosition === 'below' ? '' : message}
+      ${c.copy.heading?.trim() ? `<h2 class="bilan-content-heading">${h.esc(c.copy.heading)}</h2>` : ''}
+      <div class="bilan-figure">${display.body}</div>
+      ${c.textPosition === 'below' ? message : ''}
+      ${note?.trim() ? `<p class="bilan-note">${h.esc(note)}</p>` : ''}</div>`;
   }
 
   window.OBSBilan = { TEMPLATES, TYPES, DECK, defaults, usesWorkbook, importWorkbook, controls, html };

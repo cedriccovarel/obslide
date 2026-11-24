@@ -1883,3 +1883,40 @@ body.auth-granted .preview-area{
 .bilan-bar > div { height: 12px; background: #eaf2ed; border-radius: 7px; }
 .bilan-bar i { display: block; height: 100%; border-radius: 7px; }
 .bilan-bar b { text-align: right; color: #06402b; }
+
+/* Textes personnalisables et présentations du bilan. */
+.bilan-field-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bilan-field-heading .btn { flex: 0 0 auto; padding: 2px 6px; }
+.bilan-text-controls textarea { width: 100%; resize: vertical; }
+.bilan-fit-status { color: #973f1b; }
+.bilan-fit-status:empty { display: none; }
+
+.bilan-slide .s-title-wrap { max-width: calc(100% - 330px); }
+.bilan-slide .s-title { max-width: 1020px; }
+.bilan-slide .s-title h1, .bilan-slide .s-title p { white-space: pre-line; overflow-wrap: anywhere; }
+.bilan-slide .s-title h1:empty, .bilan-slide .s-title p:empty { display: none; }
+.bilan-content { top: var(--bilan-content-top, 149px); gap: 10px; }
+.bilan-figure { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.bilan-figure:has(.bilan-chart) { flex: 1 1 auto; }
+.bilan-figure .bilan-chart { flex: 1 1 350px; min-height: 150px; }
+.bilan-figure .bilan-legend { padding: 3px 2px; }
+.bilan-content-heading, .bilan-intro, .bilan-note { white-space: pre-line; overflow-wrap: anywhere; }
+.bilan-content-heading { font-size: 23px; line-height: 1.12; color: #06402b; }
+.bilan-intro { color: #173c3d; font-size: 20px; line-height: 1.25; font-weight: 700; }
+.bilan-intro-callout { background: #edf5f0; border-left: 4px solid #278576; padding: 8px 14px; border-radius: 5px; }
+.bilan-text-center :is(.bilan-content-heading,.bilan-intro,.bilan-note) { text-align: center; }
+.bilan-text-right :is(.bilan-content-heading,.bilan-intro,.bilan-note) { text-align: right; }
+.bilan-summary { row-gap: 13px; align-items: start; }
+.bilan-summary .bilan-table th, .bilan-summary .bilan-table td { padding-block: 6px; }
+.bilan-band > div { border-top: 3px solid #278576; }
+.bilan-band strong { font-variant-numeric: tabular-nums; }
+.bilan-table { font-variant-numeric: tabular-nums; }
+.bilan-table thead th { vertical-align: bottom; }
+.bilan-table tbody td { vertical-align: middle; }
+.bilan-rank-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.bilan-rank-cards section { min-width: 0; padding: 14px 16px; border: 1px solid #c8dad1; border-radius: 12px; background: #f5f9f6; }
+.bilan-rank-cards h3 { color: #06402b; font-size: 18px; overflow-wrap: anywhere; }
+.bilan-rank-cards dl { display: grid; gap: 4px; margin: 8px 0 0; }
+.bilan-rank-cards dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bilan-rank-cards dd { margin: 0; color: #06402b; font-size: 25px; font-weight: 900; }
+.bilan-rank-cards p { margin-top: 6px; font-size: 13px; }
