@@ -99,6 +99,7 @@
     model.bilan.textAlign = 'left';
     model.bilan.textTreatment = 'simple';
     model.bilan.textPosition = 'above';
+    model.bilan.canvas = { positions: {}, labels: {}, boxes: [] };
   });
 
   const config = (type, model) => ({
@@ -214,7 +215,7 @@
   const band = (h, entries) => `<div class="bilan-band">${entries.map(([label, value]) =>
     `<div><strong>${h.esc(value)}</strong><span>${h.esc(label)}</span></div>`).join('')}</div>`;
   const legend = (h, entries) => `<div class="bilan-legend">${entries.map((label, i) =>
-    `<span><i style="background:${palette[i % palette.length]}"></i>${h.esc(label)}</span>`).join('')}</div>`;
+    `<span><i style="background:${palette[i % palette.length]}"></i><span class="bilan-legend-label">${h.esc(label)}</span></span>`).join('')}</div>`;
 
   function annualGraph(categories, series, years) {
     if (years === 'all' || !series.length) return { categories, series };
@@ -394,7 +395,8 @@
     return {
       subtitle: metric + ' · tous contrats uniques',
       body,
-      note: 'Statut C. Les cohortes récentes ont moins de recul.' + (unknown ? ` Année non renseignée : ${fmt(unknown[2])} sur ${fmt(unknown[1])} contrats.` : '')
+      note: 'Le taux compte les contrats marqués « annulés ». Les contrats créés récemment ont eu moins de temps pour être annulés.' +
+        (unknown ? ` Parmi les ${fmt(unknown[1])} contrats sans année de création renseignée, ${fmt(unknown[2])} ${unknown[2] === 1 ? 'a été annulé' : 'ont été annulés'}.` : '')
     };
   }
 

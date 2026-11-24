@@ -698,6 +698,20 @@ const MAP_GEOJSON_URLS = [
   const slideTextScaleRange = document.getElementById('slideTextScaleRange');
   const slideTextScaleValue = document.getElementById('slideTextScaleValue');
   const slideStage = document.getElementById('slideStage');
+  const bilanEditor = window.OBSBilanEditor.create({
+    slide,
+    stage: slideStage,
+    toolbar: document.getElementById('bilanEditor'),
+    handle: document.getElementById('bilanDragHandle'),
+    onSave: saveState,
+    onRender: renderSlide,
+    onLayout: fitBilanHeader,
+    onText: setBilanText
+  });
+  for (const button of [exportBtn, exportOfflineBtn, exportFallbackBtn, printPdfBtn, exportSvgBtn,
+    exportGoogleSlidesBtn, openCaptureBtn, presentationBtn, exportWorkbookBtn]) {
+    button?.addEventListener('click', bilanEditor.stop, { capture: true });
+  }
   const slideFilterToolbar = document.getElementById('slideFilterToolbar');
   const toastEl = document.getElementById('toast');
   const dataSourceBtn = document.getElementById('dataSourceBtn');
@@ -2784,12 +2798,14 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     };
     const currentType = tabType(activeTab);
     slide.className = `slide ${fromBilan ? 'bilan-slide' : isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
+    bilanEditor.prepare(activeTab, fromBilan ? state[currentType].bilan : null);
     updateTextScaleToolbar();
     if (!['map','socialZoning','nexityMap','nexityPodium','communeMap'].includes(currentType)) applyTextScaleToSlide();
     if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
     if (currentType === 'communeMap') requestAnimationFrame(renderCommuneMap);
     if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
     frameSlide();
+    bilanEditor.finish();
     if (fromBilan) fitBilanHeader();
     if (typeof schedulePreviewFit === 'function') schedulePreviewFit();
   }
@@ -2802,6 +2818,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (status) status.textContent = content.scrollHeight > content.clientHeight + 2
       ? 'Le texte et les données dépassent de la diapositive. Réduis le texte ou choisis une présentation plus compacte.'
       : '';
+    bilanEditor.updateHandle();
   }
 
   // V29.10 : marge de 1 cm (V29.11) en haut de chaque slide (sauf la couverture) pour l'export Google Slides. Le contenu est
@@ -5119,11 +5136,17 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
   });
 
-  function editBilanText(key, value) {
+  function setBilanText(key, value) {
     if (!activeBilanSlide()) return;
     const model = state[tabType(activeTab)].bilan;
     if (key === 'title') model.title = value;
     else if (Object.hasOwn(model.copy, key)) model.copy[key] = value;
+    const input = controls.querySelector(`[data-bilan-text="${key}"]`);
+    if (input && value !== null && input.value !== value) input.value = value;
+  }
+
+  function editBilanText(key, value) {
+    setBilanText(key, value);
     saveState();
     renderSlide();
   }
@@ -5392,6 +5415,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     slideStage.style.width = `${1600 * z}px`;
     slideStage.style.height = `${900 * z}px`;
     slide.style.transform = `scale(${z})`;
+    bilanEditor.updateHandle();
     if (zoomRange) zoomRange.value = String(safeValue);
     if (zoomValue) zoomValue.textContent = `${Math.round(safeValue)} %`;
   }

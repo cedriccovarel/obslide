@@ -1920,3 +1920,28 @@ body.auth-granted .preview-area{
 .bilan-rank-cards dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .bilan-rank-cards dd { margin: 0; color: #06402b; font-size: 25px; font-weight: 900; }
 .bilan-rank-cards p { margin-top: 6px; font-size: 13px; }
+
+/* Édition directe du bilan. Les poignées restent hors de la slide exportée. */
+.bilan-editor { padding: 8px 12px; color: #123b31; background: #f2f7f4; border: 1px solid #ccdfd5; border-radius: 8px; }
+.bilan-editor[hidden], .bilan-editor [hidden], .bilan-drag-handle[hidden] { display: none !important; }
+.bilan-editor-tools { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; }
+.bilan-editor-tools > p { flex-basis: 100%; margin: 0; font-size: 12px; }
+.bilan-editor-select, .bilan-editor-inspector label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.bilan-editor-select { min-width: 0; }
+.bilan-editor-select select { max-width: min(270px, 45vw); }
+.bilan-editor-inspector { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; }
+.bilan-editor-inspector input[type=number] { width: 60px; }
+.bilan-editor-inspector input[type=range] { width: 95px; }
+.bilan-editor-inspector output { min-width: 34px; color: #06402b; font-weight: 700; }
+
+.slide-stage { position: relative; }
+.bilan-drag-handle { position: absolute; z-index: 12; border: 1px solid #06402b; border-radius: 5px; background: #06402b; color: #fff; padding: 3px 7px; font: 700 11px Arial, sans-serif; cursor: grab; touch-action: none; white-space: nowrap; }
+.bilan-drag-handle.is-dragging { cursor: grabbing; }
+.bilan-slide [data-bilan-editable] { white-space: pre-line; overflow-wrap: anywhere; }
+.bilan-editing [data-bilan-block]:hover { outline: 1px dashed #5c997f; outline-offset: 2px; }
+.bilan-editing [data-bilan-selected] { outline: 2px solid #257b5c !important; outline-offset: 2px; }
+.bilan-editing [contenteditable] { cursor: text; }
+.bilan-editing .s-title :is(h1,p):empty { display: block; min-height: 1em; min-width: 12em; }
+.bilan-editing [contenteditable]:focus { outline: 1px solid #257b5c; outline-offset: 1px; }
+.bilan-free-text { position: absolute; z-index: 5; left: 108px; top: 160px; width: 430px; min-height: 1.25em; color: #06402b; font-size: 24px; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; }
+body.presentation-mode .bilan-editor, body.presentation-mode .bilan-drag-handle { display: none !important; }
