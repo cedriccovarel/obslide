@@ -538,6 +538,44 @@ const MAP_GEOJSON_URLS = [
   });
   defaults.bilanWorkbook = null;
 
+  const focused = window.OBSFocusedSlides;
+  const legacyGroups = {
+    cover: 'Présentation', blank: 'Présentation', bilanSummary: 'Bilan Excel et qualité', bilanQuality: 'Bilan Excel et qualité',
+    evolution: 'Activité et annulations', abandonRate: 'Activité et annulations', tunnel: 'Activité et annulations',
+    map: 'Territoires', socialZoning: 'Territoires', cityList: 'Territoires', communeMap: 'Territoires',
+    nexityMap: 'Nexity', nexityPodium: 'Nexity', carbonDistribution: 'Carbone', carbon: 'Carbone',
+    requirements: 'Certifications, labels et mentions', labels: 'Certifications, labels et mentions',
+    performanceList: 'Certifications, labels et mentions', mentionList: 'Certifications, labels et mentions',
+    certEvolution: 'Certifications, labels et mentions', moaVolume: 'Clients et familles de MOA', moaList: 'Clients et familles de MOA',
+    stakeholderSplit: 'Clients et familles de MOA', basket: 'Clients et familles de MOA', opSize: 'Taille des opérations',
+    tertiaryTypes: 'Taille des opérations', envelope: 'Construction et isolation', equipments: 'Équipements',
+    heatingMatrix: 'Équipements', ecsMatrix: 'Équipements', dpe: 'DPE'
+  };
+  TEMPLATE_CATALOG.forEach(item => { item.family = legacyGroups[item.type]; });
+  for (const item of focused.definitions) {
+    defaults[item.type] = clone(focused.defaults[item.type]);
+    TEMPLATE_CATALOG.push(item);
+  }
+  const catalogPresets = [
+    ['carbonLots', 'carbonDistribution', 'Contributions carbone par lot', { view: 'lots' }],
+    ['carbonStockGauge', 'carbonDistribution', 'Jauge de distribution · Stock C', { view: 'gauges', enabled: ['stock'] }],
+    ['carbonConstructionGauge', 'carbonDistribution', 'Jauge de distribution · IC carbone', { view: 'gauges', enabled: ['ic'] }],
+    ['carbonEnergyGauge', 'carbonDistribution', 'Jauge de distribution · IC Énergie', { view: 'gauges', enabled: ['energy'] }],
+    ['carbonEgesGauge', 'carbonDistribution', 'Jauge de distribution · EGES Total', { view: 'gauges', enabled: ['eges'] }],
+    ['mapRegions', 'map', 'Carte nationale · opérations par région', { level: 'region' }],
+    ['mapDepartments', 'map', 'Carte nationale · opérations par département', { level: 'department' }],
+    ['nexityDirectionsMap', 'nexityMap', 'Nexity · carte des projets par direction régionale', { focusView: 'directions' }],
+    ['nexityDgProjects', 'nexityMap', 'Nexity · projets par direction générale régionale', { focusView: 'dg' }],
+    ['requirementsTop', 'requirements', 'Exigences les plus récurrentes', { view: 'top' }],
+    ['requirementsTargets', 'requirements', 'Exigences par cible', { view: 'targets' }],
+    ['requirementsEvolution', 'requirements', 'Évolution annuelle des exigences', { view: 'evolution' }],
+    ['requirementsMentions', 'requirements', 'Exigences par mention visée', { view: 'mentions' }],
+    ...['Excellence', 'Performance', 'Standard'].map(level => [
+      'nexityBbca' + level, 'nexityPodium', 'Nexity · podium BBCA ' + level, { level: 'BBCA ' + level }
+    ])
+  ].map(([key, type, label, settings]) => ({ key, type, label, settings, family: legacyGroups[type] }));
+  TEMPLATE_CATALOG.push(...catalogPresets);
+
   function activeBilanSlide() {
     const type = tabType(activeTab);
     return bilan.usesWorkbook(type, state[type]);
@@ -778,6 +816,12 @@ const MAP_GEOJSON_URLS = [
   function slideTextScale(tabId = activeTab) { return Math.max(.7, Math.min(1.6, Number(state.presentation.textScaleByTab?.[tabId]) || 1)); }
   function currentTextScale(tabId = activeTab) { return globalTextScale() * slideTextScale(tabId); }
   function applyTextScaleToSlide() {
+    const type = tabType(activeTab);
+    if (focused.supported(type)) {
+      slide.innerHTML = renderFocused(type, state[type]);
+      frameSlide();
+      return;
+    }
     if (tabType(activeTab) === 'nexityMap') { slide.innerHTML = window.OBSNexityMap.svg(state.nexityMap); frameSlide(); return; }
     if (tabType(activeTab) === 'nexityPodium') { slide.innerHTML = window.OBSNexityPodium.svg(state.nexityPodium); frameSlide(); return; }
     if (!slide) return;
@@ -914,33 +958,120 @@ const MAP_GEOJSON_URLS = [
     renderControls();
     renderSlide();
   }
-  function addSlideOfType(type) {
-    saveTabData(activeTab);
-    let tabId = type;
+  function appendSlide(template) {
+    const { type, key, settings, label } = template;
+    let tabId = key || type;
     if (type === 'blank') {
       tabId = `blank-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
       blankModel(tabId);
-    } else if ((state.presentation.order || []).some(id => tabType(id) === type)) {
+    } else if (key || state.presentation.order.some(id => tabType(id) === type)) {
+      if (!key || state.presentation.order.includes(tabId)) tabId = `${tabId}-copy-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
       if (!state.presentation.instances) state.presentation.instances = {};
-      tabId = `${type}-copy-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
       state.presentation.instances[tabId] = type;
     }
     if (type !== 'blank') {
       if (!state.presentation.instanceData || typeof state.presentation.instanceData !== 'object') state.presentation.instanceData = {};
       state.presentation.instanceData[tabId] = deepMerge(clone(defaults[type]), clone(state[type] || defaults[type]));
+      if (settings) {
+        deepMerge(state.presentation.instanceData[tabId], { ...settings, title: label });
+        state.presentation.tabNames ||= {};
+        state.presentation.tabNames[tabId] = label;
+      }
     }
     if (state.presentation.textScaleByTab && state.presentation.textScaleByTab[activeTab] && !state.presentation.textScaleByTab[tabId]) state.presentation.textScaleByTab[tabId] = state.presentation.textScaleByTab[activeTab];
     state.presentation.order.push(tabId);
-    saveState();
+    return tabId;
+  }
+  function addCatalogSlides(templates) {
+    if (!templates.length) return;
+    saveTabData(activeTab);
+    const ids = templates.map(appendSlide);
     renderTabsNav();
-    activateTab(tabId);
+    activateTab(ids[0], { scroll: false });
+    saveState();
+  }
+  function addSlideOfType(type) {
+    const template = TEMPLATE_CATALOG.find(item => (item.key || item.type) === type);
+    if (template) addCatalogSlides([template]);
+  }
+  const catalogGroups = new Map();
+  for (const item of TEMPLATE_CATALOG) {
+    if (!catalogGroups.has(item.family)) catalogGroups.set(item.family, []);
+    catalogGroups.get(item.family).push(item);
   }
   function renderAddSlideMenu() {
     if (!addSlideSelect) return;
-    addSlideSelect.innerHTML = `<option value="">Ajouter slide ▾</option>` + TEMPLATE_CATALOG.map(item =>
-      `<option value="${esc(item.type)}">${esc(item.label)}</option>`
+    addSlideSelect.innerHTML = `<option value="">Ajouter slide ▾</option>` + [...catalogGroups].map(([family, items]) =>
+      `<optgroup label="${esc(family)}">${items.map(item => `<option value="${esc(item.key || item.type)}">${esc(item.label)}</option>`).join('')}</optgroup>`
     ).join('');
     addSlideSelect.value = '';
+  }
+
+  function initSlideCatalog() {
+    const dialog = document.getElementById('slideCatalog');
+    const results = dialog.querySelector('[data-catalog-results]');
+    const search = dialog.querySelector('input[type=search]');
+    const counter = dialog.querySelector('output');
+    const preview = dialog.querySelector('[data-catalog-preview]');
+    const add = dialog.querySelector('[data-catalog-add]');
+    const selected = new Set();
+    const keyOf = item => item.key || item.type;
+    const updateCount = () => {
+      counter.textContent = `${selected.size} sélectionnée${selected.size === 1 ? '' : 's'}`;
+      add.disabled = !selected.size;
+    };
+    function render() {
+      const query = dataNorm(search.value).trim().split(/\s+/);
+      results.innerHTML = [...catalogGroups].map(([family, templates]) => {
+        const visible = templates.filter(item => query.every(token => dataNorm([item.label, item.family, item.unit, ...(item.aliases || [])].join(' ')).includes(token)));
+        if (!visible.length) return '';
+        return `<fieldset><legend>${esc(family)}</legend><button type="button" class="btn btn-secondary btn-small" data-catalog-family="${esc(family)}">Sélectionner la famille</button>${visible.map(item =>
+          `<div class="catalog-row"><label><input type="checkbox" value="${esc(keyOf(item))}" ${selected.has(keyOf(item)) ? 'checked' : ''}> ${esc(item.label)}</label><button type="button" class="btn btn-secondary btn-small" data-catalog-peek="${esc(keyOf(item))}" aria-label="Aperçu : ${esc(item.label)}">Aperçu</button></div>`
+        ).join('')}</fieldset>`;
+      }).join('') || '<p>Aucune slide trouvée.</p>';
+      updateCount();
+    }
+    document.getElementById('slideCatalogBtn').addEventListener('click', () => {
+      selected.clear();
+      search.value = '';
+      preview.replaceChildren();
+      render();
+      dialog.showModal();
+      search.focus();
+    });
+    search.addEventListener('input', render);
+    results.addEventListener('change', event => {
+      const box = event.target.closest('input[type=checkbox]');
+      if (!box) return;
+      box.checked ? selected.add(box.value) : selected.delete(box.value);
+      updateCount();
+    });
+    dialog.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      if (button.hasAttribute('data-catalog-close')) dialog.close();
+      if (button.hasAttribute('data-catalog-clear')) { selected.clear(); render(); }
+      if (button.dataset.catalogFamily) {
+        catalogGroups.get(button.dataset.catalogFamily).forEach(item => selected.add(keyOf(item)));
+        render();
+        results.querySelector(`[data-catalog-family="${CSS.escape(button.dataset.catalogFamily)}"]`)?.focus();
+      }
+      if (button.dataset.catalogPeek) {
+        const item = TEMPLATE_CATALOG.find(template => keyOf(template) === button.dataset.catalogPeek);
+        if (focused.supported(item.type)) {
+          const model = clone(defaults[item.type]);
+          preview.innerHTML = renderFocused(item.type, model);
+        } else {
+          const existing = state.presentation.order.find(id => id === item.key || !item.key && tabType(id) === item.type);
+          if (existing) { dialog.close(); activateTab(existing, { scroll: false }); }
+          else preview.textContent = `${item.label} · Ajoutez cette slide pour la prévisualiser et régler sa source.`;
+        }
+      }
+      if (button === add) {
+        dialog.close();
+        addCatalogSlides(TEMPLATE_CATALOG.filter(item => selected.has(keyOf(item))));
+      }
+    });
   }
   function bindTabInteractions() {
     tabs.forEach(tab => {
@@ -2304,7 +2435,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     delete f.referential;delete f.nature;delete f.yearMin;delete f.yearMax;
     return f;
   }
-  function dataSlideFilterValues(key,ops=dataRuntime.operations){
+  function dataSlideFilterValues(key,ops=focused.supported(tabType(activeTab)) ? focusedDataRows() : dataRuntime.operations){
     if(key==='years')return [...new Set(ops.map(o=>String(o.year||'').trim()).filter(Boolean))].sort(dataNaturalSort);
     if(key==='referentials')return [...new Set(ops.map(o=>String(o.referential||'').trim()).filter(Boolean))].sort(dataNaturalSort);
     if(key==='moas')return [...new Set(ops.map(o=>String(o.moa||'').trim()).filter(Boolean))].sort(dataNaturalSort);
@@ -2330,6 +2461,18 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     });
   }
   function dataOpsForModel(model){return dataFilterOps(dataRuntime.operations,dataSlideFilter(model));}
+  let focusedSourceCache;
+  function focusedDataRows() {
+    const { operations, anonymized } = dataRuntime;
+    if (focusedSourceCache?.operations !== operations || focusedSourceCache.launch !== dataLaunchScope || focusedSourceCache.anonymized !== anonymized) {
+      focusedSourceCache = { operations, anonymized, launch: dataLaunchScope, rows: focused.rowsOf(dataApplyLaunchScope(operations), anonymized) };
+    }
+    return focusedSourceCache.rows;
+  }
+  function renderFocused(type, model) {
+    const rows = dataFilterOps(focusedDataRows(), dataSlideFilter(model));
+    return focused.svg(type, model, rows, { logo: GLOBAL_SLIDE_LOGO_DATA_URL, connected: dataRuntime.connected, textScale: currentTextScale() });
+  }
   function dataSlideFilterLabel(def,selection,totalOptions){
     if(selection===null||selection===undefined)return `${def.label} · Tous`;
     if(!selection.length)return `${def.label} · Aucun`;
@@ -2366,8 +2509,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         <div class="slide-filter-waiting"><b>FILTRES GOOGLE SHEET</b><span>${sourceConfigured?'Connexion aux données en cours…':'Connecte une source Google Sheet pour activer les filtres.'}</span></div>
       </div>`;
     }
-    const f=dataSlideFilter(model),count=dataOpsForModel(model).length;
-    const chips=DATA_SLIDE_FILTER_DEFS.map(def=>{
+    const isFocused = focused.supported(tabType(activeTab));
+    const f=dataSlideFilter(model),count=isFocused ? dataFilterOps(focusedDataRows(), f).length : dataOpsForModel(model).length;
+    const chips=DATA_SLIDE_FILTER_DEFS.map(filter=>{
+      const def = isFocused && filter.key === 'statuses' ? { ...filter, label: 'Statut du contrat' } : filter;
       const options=dataSlideFilterValues(def.key),selection=f[def.key];
       const active=Array.isArray(selection);
       const open=dataFilterUiState.openKey===def.key;
@@ -2378,7 +2523,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }).join('');
     return `<div class="slide-filter-bar" data-slide-filter-bar="1">
       ${launchScopeHtml}
-      <div class="slide-filter-count"><strong>${frSmart(count)}</strong><span>opération${count>1?'s':''}</span></div>
+      <div class="slide-filter-count"><strong>${frSmart(count)}</strong><span>${isFocused ? 'lignes source' : 'opération' + (count>1?'s':'')}</span></div>
       <div class="slide-filter-chips">${chips}</div>
       <button type="button" class="slide-filter-reset" data-slide-filter-reset-bar="1" title="Réinitialiser tous les filtres de cette slide">↺ Réinitialiser</button>
     </div>`;
@@ -2730,6 +2875,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       if (activeBilanSlide()) controls.innerHTML = bilanControls;
       else controls.insertAdjacentHTML('afterbegin', bilanControls);
     }
+    if (focused.supported(type)) controls.innerHTML = focused.controls(type, state[type], { field, selectField, toggleField }, focusedDataRows());
     const commonControls = renderCommonTabControls();
     if (commonControls) controls.insertAdjacentHTML('afterbegin', commonControls);
   }
@@ -2766,11 +2912,14 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'evolution') slide.innerHTML = renderEvolutionSlide();
     if (tabType(activeTab) === 'heatingMatrix') slide.innerHTML = renderTransitionMatrixSlide('heatingMatrix');
     if (tabType(activeTab) === 'ecsMatrix') slide.innerHTML = renderTransitionMatrixSlide('ecsMatrix');
+    const type = tabType(activeTab);
+    const isFocused = focused.supported(type);
+    if (isFocused) slide.innerHTML = renderFocused(type, state[type]);
     const fromBilan = activeBilanSlide();
     if (fromBilan) slide.innerHTML = bilan.html(tabType(activeTab), state[tabType(activeTab)], state.bilanWorkbook, { esc, head });
     dataRenderSlideFilterToolbar();
     // V29.10 : la couverture n'a ni logo ni mention « Confidentiel » (le bandeau porte déjà le logo).
-    if (!['cover','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(true);
+    if (!isFocused && !['cover','nexityMap','nexityPodium','carbonDistribution','requirements'].includes(tabType(activeTab))) slide.innerHTML += renderGlobalSlideBranding(true);
     const slideClasses = {
       cover: 'cover-slide',
       labels: 'labels-slide',
@@ -2800,7 +2949,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     slide.className = `slide ${fromBilan ? 'bilan-slide' : isBlankTab(activeTab) ? 'blank-slide' : (slideClasses[currentType] || '')}`;
     bilanEditor.prepare(activeTab, fromBilan ? state[currentType].bilan : null);
     updateTextScaleToolbar();
-    if (!['map','socialZoning','nexityMap','nexityPodium','communeMap'].includes(currentType)) applyTextScaleToSlide();
+    if (!isFocused && !['map','socialZoning','nexityMap','nexityPodium','communeMap'].includes(currentType)) applyTextScaleToSlide();
     if (currentType === 'map') requestAnimationFrame(renderDepartmentMap);
     if (currentType === 'communeMap') requestAnimationFrame(renderCommuneMap);
     if (currentType === 'socialZoning') requestAnimationFrame(renderSocialZoningMap);
@@ -4948,8 +5097,14 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       return;
     }
     if (t.dataset.toggleBind) {
-      setByPath(state, t.dataset.toggleBind, !!t.checked);
-      saveState(); renderSlide();
+      const path = t.dataset.toggleBind;
+      setByPath(state, path, !!t.checked);
+      saveState();
+      if (path.endsWith('.sizeDetails')) {
+        renderControls();
+        controls.querySelector(`[data-toggle-bind="${CSS.escape(path)}"]`)?.focus({ preventScroll: true });
+      }
+      renderSlide();
       return;
     }
     if (t.dataset.tunnelValue !== undefined) {
@@ -5310,6 +5465,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     });
   }
 
+  initSlideCatalog();
   saveProjectBtn.addEventListener('click', saveProjectToFile);
 
   loadSaveBtn.addEventListener('click', () => {
@@ -6348,6 +6504,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (type === 'nexityPodium') return window.OBSNexityPodium.png();
     if (type === 'carbonDistribution') return window.OBSCarbonDistribution.png();
     if (type === 'requirements') return window.OBSRequirementsSlides.png();
+    if (focused.supported(type)) return nativeSlidePngBlob();
     if (type === 'map') return mapSlidePngBlob();
     if (type === 'communeMap') { await communeMapReady(); return html2CanvasSlidePngBlob(); }
     if (activeBilanSlide() || type === 'socialZoning' || type === 'cityList' || ANALYTICS_TYPES.includes(type)) return html2CanvasSlidePngBlob();
@@ -6528,6 +6685,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
 
   async function buildSelfContainedSlideSvgMarkup() {
+    if (focused.supported(tabType(activeTab))) {
+      const shape = slide.querySelector('.focused-slide-svg');
+      const ratio = (900 - SLIDE_TOP_MARGIN) / 900;
+      const x = 800 * (1 - ratio);
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900"><rect width="1600" height="900" fill="white"/><g transform="translate(${x} ${SLIDE_TOP_MARGIN}) scale(${ratio})">${shape.innerHTML}</g></svg>`;
+    }
     if (tabType(activeTab) === 'nexityMap') return window.OBSNexityMap.svg(state.nexityMap);
     if (tabType(activeTab) === 'nexityPodium') return window.OBSNexityPodium.svg(state.nexityPodium);
     if (tabType(activeTab) === 'carbonDistribution') return window.OBSCarbonDistribution.svg(state.carbonDistribution);
@@ -7213,17 +7376,17 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const DATA_MANUAL_SNAPSHOT_KEY = 'prestaterre-v29-manual-snapshot';
   const DATA_FIELD_ALIASES = {
     regionalDirection:['direction régionale','direction regionale','direction regionale nexity','regionalDirection','directionRegionale','dr nexity'],
-    code:['code interne','code opération','code operation','code','id opération','id operation'],
+    code:['opération: code interne','code interne','code opération','code operation','code','id opération','id operation'],
     name:['nom opération','nom operation',"nom de l'opération (interne)","nom de l'opération",'nom du programme (client)','opération','operation'],
     department:['département zonage','département','departement','dept','code département','code departement'], postalCode:['code postal','cp','postal code'], city:['commune zonage','commune','ville','nom commune',"commune de l'opération","commune de l'operation","ville de l'opération","ville de l'operation"], insee:['code insee commune','code insee','insee'], socialZone:['zonage logement social 1/2/3','zonage logement social','zone123','zone 123','zonage 123'], longitude:['longitude commune','longitude'], latitude:['latitude commune','latitude'], address:['adresse opération','adresse operation','adresse'],
     referential:['référentiel: nom du référentiel','referentiel: nom du referentiel','référentiel','referentiel','referential'],
-    moa:["maître d'ouvrage: nom de la société","maitre d'ouvrage: nom de la societe","maître d'ouvrage: société principale: nom de la société","maitre d'ouvrage: societe principale: nom de la societe","maître d'ouvrage",'maitre ouvrage','moa'],
-    moaType:['type moa',"maître d'ouvrage: hiérarchie",'maitre d ouvrage: hierarchie'],
+    moa:["nom de la société: nom de la société","maître d'ouvrage: nom de la société","maitre d'ouvrage: nom de la societe","maître d'ouvrage: société principale: nom de la société","maitre d'ouvrage: societe principale: nom de la societe","maître d'ouvrage",'maitre ouvrage','moa'],
+    moaType:["nom de la société: secteur d'activité",'type moa',"maître d'ouvrage: hiérarchie",'maitre d ouvrage: hierarchie'],
     status:['évaluation: statut','evaluation: statut','avancement','statut tunnel','tunnel','étape certification','etape certification','affaire: étape','affaire: etape','étape','etape','contrat: statut','statut'],
     dwellings:['total logements','nombre de logements','logements'],
     buildings:['total bâtiments','total batiments','nombre de bâtiments','nombre de batiments','bâtiments','batiments'],
     year:['année','annee','year','année opération','annee operation'],
-    createdDate:['date de création','date de creation','évaluation: date de création','evaluation: date de creation','affaire: date de création','affaire: date de creation'],
+    createdDate:["date de création de l'affaire",'date de création','date de creation','évaluation: date de création','evaluation: date de creation','affaire: date de création','affaire: date de creation'],
     nature:['nature','rénovation','renovation','type opération','type operation','neuf / rénovation','neuf / renovation'],
     mentions:['mentions','mention'],
     performance:['performance','performance environnementale','performance renforcée','performance renforcee'],
@@ -7250,7 +7413,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   const dataRuntime={connected:false,mode:'manual',sourceUrl:'',sourceTab:'OPERATIONS',zone123Status:null,operations:[],filtered:[],manualSnapshot:null,selection:[],selectionTitle:'',selectionSub:'',filters:{}};
 
   function dataNorm(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' ').trim();}
-  function dataNumber(v){const n=Number(String(v??'').replace(/\s/g,'').replace(',','.').replace(/[^0-9.+-]/g,''));return Number.isFinite(n)?Math.max(0,n):0;}
+  function dataNumber(v){let s=String(v??'').replace(/\s/g,'').replace(/[^0-9.,+-]/g,'');const c=s.lastIndexOf(','),d=s.lastIndexOf('.');if(c>=0&&d>=0)s=c>d?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');else if(c>=0)s=(s.match(/,/g)||[]).length>1?s.replace(/,/g,''):s.replace(',','.');else if((s.match(/\./g)||[]).length>1)s=s.replace(/\./g,'');const n=Number(s);return Number.isFinite(n)?Math.max(0,n):0;} // V29.23.4 : « 1.234,5 », « 1,234.5 » et « 1 234,5 » lus correctement
   function dataResolveHeader(headers,aliases){const hh=headers.map(dataNorm);for(const alias of aliases){const a=dataNorm(alias);let i=hh.findIndex(h=>h===a);if(i>=0)return i;i=hh.findIndex(h=>h.includes(a));if(i>=0)return i;}return -1;}
   function dataDepartment(v){
     const raw=String(v??'').trim();
@@ -7294,7 +7457,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
   function dataGoogleCsvUrl(input,tab){const url=String(input||'').trim();if(!url)return'';if(/\.csv($|\?)/i.test(url)||url.includes('output=csv'))return url;const m=url.match(/\/spreadsheets\/d\/([^/]+)/);if(!m)return url;return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab||'OPERATIONS')}`;}
   function dataBuildDemo(){const moas=['ICF Habitat','Nexity','CDC Habitat','Action Logement','Vilogia','Partenord Habitat','Lille Métropole Habitat','SIA Habitat'];const refs=['BEE Logement Neuf','BEE Logement Rénovation','BEE Tertiaire Rénovation'];const deps=['59','62','75','92','69','33','44','13','31','67'];const mentions=['BEE+','BBCA','Option TFPB'];const statusLabels={notStarted:'Non démarrée',complete:'Dossier complet',analysis:'Analyse réalisée',visit:'Visite réalisée',compliant:'Évaluation conforme'};const out=[];for(let i=1;i<=96;i++){const mod=i%23;const status=mod<5?'notStarted':mod<10?'complete':mod<14?'analysis':mod<19?'visit':'compliant';out.push({code:`OPE-${String(3000+i).padStart(6,'0')}`,name:`Opération démonstration ${i}`,department:deps[i%deps.length],referential:refs[i%refs.length],moa:moas[i%moas.length],status,rawStatus:statusLabels[status]||status,mentions:mentions[i%mentions.length],performance:i%2?'IC Construction 2028':'Cep RE2020 -5%',sold:status==='compliant'&&i%3===0,dwellings:12+(i*17)%86,buildings:1+(i%5),year:2019+(i%8),nature:i%3===0?'Rénovation':'Neuf',heatingBefore:i%2?'Gaz':'Électricité',heatingAfter:i%4===0?'RCU':'Électricité',ecsBefore:i%3?'Gaz':'Électricité',ecsAfter:'Électricité',raw:{}});}return out;}
-  const DATA_CONNECTED_TYPES=[...ANALYTICS_TYPES.filter(t=>t!=='basket'),'tunnel','map','socialZoning','cityList','communeMap','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
+  const DATA_CONNECTED_TYPES=[...focused.definitions.map(item => item.type),...ANALYTICS_TYPES.filter(t=>t!=='basket'),'tunnel','map','socialZoning','cityList','communeMap','moaList','stakeholderSplit','performanceList','mentionList','labels','evolution','heatingMatrix','ecsMatrix','equipments','envelope','carbon','dpe'];
   function dataSnapshotManual(){if(dataRuntime.manualSnapshot)return;try{const saved=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');if(saved){dataRuntime.manualSnapshot=saved;return;}}catch{}dataRuntime.manualSnapshot={};DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataRuntime.manualSnapshot[type]=clone(state[type]);});dataRuntime.manualSnapshot.instances={};Object.entries(state.presentation.instanceData||{}).forEach(([id,d])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataRuntime.manualSnapshot.instances[id]=clone(d);});try{localStorage.setItem(DATA_MANUAL_SNAPSHOT_KEY,JSON.stringify(dataRuntime.manualSnapshot));}catch{}}
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
   function dataFilteredOperations(){return [...dataRuntime.operations];}
@@ -7405,7 +7568,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     model.statuses=wanted.map(([key,label])=>({key,label,value:Number(current.get(key)?.value)||0}));
   }
   function dataApplyToModel(type,model,baseOps=dataRuntime.operations){
-    if(!model)return;if(type==='tunnel')dataEnsureTunnelStatuses(model);const ops=dataFilterOps(baseOps||dataRuntime.operations,dataSlideFilter(model));
+    if(!model || focused.supported(type))return;if(type==='tunnel')dataEnsureTunnelStatuses(model);const ops=dataFilterOps(baseOps||dataRuntime.operations,dataSlideFilter(model));
     model.dataConnectedCount=ops.length;
     if(type==='tunnel'){const a=dataAggregateTunnel(ops);(model.statuses||[]).forEach(s=>{if(a.counts[s.key]!==undefined)s.value=a.counts[s.key];});model.cancelled=a.cancelled;model.sold=a.sold;}
     else if(type==='map'){const coverage=dataMapCoverage(ops);model.values=dataAggregateMap(ops);model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;model.dataConnectedCount=coverage.total;}
@@ -7442,10 +7605,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     // V29.19.1 : le pont de l'Observatoire refuse toute lecture directe (données réservées à l'Observatoire). Si les données
     // viennent de l'Observatoire, « Connecter / actualiser » les lui redemande au lieu d'appeler le pont.
     if(dataRuntime.mode==='observatoire'&&dataRuntime.connected&&!options.forceSource){ if(!dataRequestObservatoireData()) dataFeedback(DATA_DIRECT_READ_HELP,true); else dataFeedback('Données redemandées à l’Observatoire…'); return; }
-    const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';const silentAuto=!!options.auto;dataFeedback('Chargement de la source…');try{let ops=[];dataRuntime.zone123Status=null;if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok){const e=new Error(`HTTP ${res.status}`);e.httpStatus=res.status;e.sourceMode=mode;throw e;}const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');dataRuntime.zone123Status=json?.zone123Status||null;const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok){const e=new Error(`HTTP ${res.status}`);e.httpStatus=res.status;e.sourceMode=mode;throw e;}ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.sourceUrl=url;dataRuntime.sourceTab=tab;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);
+    const mode=document.getElementById('dataMode').value,url=document.getElementById('dataUrl').value.trim(),tab=document.getElementById('dataTab').value.trim()||'OPERATIONS';const silentAuto=!!options.auto;dataFeedback('Chargement de la source…');try{let ops=[];dataRuntime.zone123Status=null;if(mode==='demo')ops=dataBuildDemo();else if(mode==='appsScript'){if(!url)throw new Error('Colle l’URL /exec de ton Apps Script.');const res=await fetch(url,{cache:'no-store'});if(!res.ok){const e=new Error(`HTTP ${res.status}`);e.httpStatus=res.status;e.sourceMode=mode;throw e;}const json=await res.json();if(json&&json.ok===false)throw new Error(json.error||'Erreur Apps Script');dataRuntime.zone123Status=json?.zone123Status||null;const rows=Array.isArray(json)?json:(json.operations||json.data||[]);ops=dataRowsToOperations(rows);}else{if(!url)throw new Error('Colle l’URL du Google Sheet public.');const res=await fetch(dataGoogleCsvUrl(url,tab),{cache:'no-store'});if(!res.ok){const e=new Error(`HTTP ${res.status}`);e.httpStatus=res.status;e.sourceMode=mode;throw e;}ops=dataRowsToOperations(dataParseCSV(await res.text()));}if(!ops.length)throw new Error('Aucune opération reconnue dans la source. Vérifie les en-têtes.');dataSnapshotManual();dataRuntime.connected=true;dataRuntime.mode=mode;dataRuntime.anonymized=false;dataRuntime.sourceUrl=url;dataRuntime.sourceTab=tab;dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}localStorage.setItem(DATA_SOURCE_STORAGE_KEY,JSON.stringify({mode,url,tab}));dataPopulateFilters();dataSyncViews();dataFeedback(`${ops.length} opérations chargées. Les slides compatibles sont maintenant connectées.`);toast(`${ops.length} opérations connectées.`);}catch(err){console.error(err);
     if(/lecture directe d[eé]sactiv/i.test(String(err?.message||''))){ dataFeedback(DATA_DIRECT_READ_HELP,true); if(!silentAuto) toast('Ouvre Obslide depuis le bouton « Générateur de rapports » de l’Observatoire.'); return; }
     dataRuntime.connected=false;dataRuntime.operations=[];dataRuntime.filtered=[];dataUpdateBadge();dataUpdateFilterUI();if(Number(err&&err.httpStatus)===404){const kind=mode==='appsScript'?'déploiement Apps Script':'Google Sheet public';dataFeedback(`Source introuvable (HTTP 404) : le ${kind} mémorisé n’est plus accessible. Recolle l’URL active${mode==='appsScript'?' se terminant par /exec':''}, puis clique sur « Connecter / actualiser ». La cartographie et les imports locaux restent disponibles.`,true);if(!silentAuto)toast('Source de données introuvable : vérifie l’URL enregistrée.');return;}dataFeedback(`Erreur : ${err.message||err}`,true);}}
-  function dataDisconnect(){if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';dataRuntime.zone123Status=null;dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
+  function dataDisconnect(){dataRuntime.anonymized=false;if(dataRuntime.connected)dataRestoreManual();dataRuntime.connected=false;dataRuntime.mode='manual';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';dataRuntime.zone123Status=null;dataRuntime.operations=[];dataRuntime.filtered=[];localStorage.removeItem(DATA_SOURCE_STORAGE_KEY);dataUpdateBadge();dataUpdateFilterUI();renderControls();renderSlide();dataFeedback('Mode manuel restauré.');toast('Mode manuel restauré.');}
   function dataDepartmentName(code){return DEPARTMENTS.find(d=>d.code===code)?.name||code;}
   function dataOpenExplorer(title,ops,sub=''){dataRuntime.selection=[...ops];dataRuntime.selectionTitle=title;dataRuntime.selectionSub=sub;document.getElementById('dataExplorerTitle').textContent=title;document.getElementById('dataExplorerSub').textContent=sub||`${ops.length} opération${ops.length>1?'s':''}`;document.getElementById('dataExplorerSearch').value='';dataRenderExplorer();dataExplorer.classList.add('is-open');dataExplorer.setAttribute('aria-hidden','false');}
   function dataRenderExplorer(){const q=dataNorm(document.getElementById('dataExplorerSearch')?.value||'');const rows=dataRuntime.selection.filter(o=>!q||[o.code,o.name,o.moa,o.referential,o.department,o.nature].some(v=>dataNorm(v).includes(q)));const el=document.getElementById('dataExplorerList');if(!el)return;el.innerHTML=rows.length?rows.map(o=>`<article class="data-operation-card"><div class="data-op-main"><b>${esc(o.code)}</b><strong>${esc(o.name)}</strong><span>${esc(o.moa)} · ${esc(dataDepartmentName(o.department))} · ${esc(o.referential)}</span></div><div class="data-op-kpis"><span><b>${frSmart(o.dwellings)}</b> logements</span><span><b>${frSmart(o.buildings)}</b> bâtiments</span><span><b>${esc(o.year||'—')}</b> année</span></div><details><summary>Voir la fiche</summary><div class="data-op-detail"><span>Nature<b>${esc(o.nature||'—')}</b></span><span>Statut<b>${esc(o.status)}</b></span><span>Chauffage<b>${esc(o.heatingBefore||'—')} → ${esc(o.heatingAfter||'—')}</b></span><span>ECS<b>${esc(o.ecsBefore||'—')} → ${esc(o.ecsAfter||'—')}</b></span></div></details></article>`).join(''):'<div class="data-empty">Aucune opération correspondante.</div>';}
@@ -7457,6 +7620,53 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataOpenHelp(mode){const modal=document.getElementById('dataHelpModal'),title=document.getElementById('dataHelpTitle'),body=document.getElementById('dataHelpBody'),copy=document.getElementById('dataHelpCopy');if(!modal)return;modal.hidden=false;copy.hidden=false;if(mode==='gs'){title.textContent='Code Google Apps Script (.gs)';body.innerHTML=`<p class="data-help-intro">Copie ce code dans <b>Extensions → Apps Script → Code.gs</b>. Il lit les en-têtes en ligne 2 et les données à partir de la ligne 4.</p><pre class="data-help-code"></pre>`;body.querySelector('pre').textContent=DATA_HELP_GS;copy.textContent='Copier le code .gs';copy.dataset.copyKind='gs';}else if(mode==='columns'){title.textContent='Colonnes de l’onglet OPERATIONS';body.innerHTML=`<p class="data-help-intro">À coller directement dans la <b>ligne 2</b> de l’onglet <b>OPERATIONS</b>. Les données commencent ligne 4.</p><pre class="data-help-code data-help-columns"></pre>`;body.querySelector('pre').textContent=DATA_HELP_COLUMNS;copy.textContent='Copier les colonnes';copy.dataset.copyKind='columns';}else{title.textContent='Aide — connecter une source de données';copy.hidden=true;body.innerHTML=`<div class="data-help-steps"><h3>Connexion pas à pas</h3><ol><li><b>Prépare ton Google Sheet.</b><br>Crée ou utilise un onglet nommé <code>OPERATIONS</code>. Mets les intitulés de colonnes en ligne 2. La ligne 3 peut rester libre. Les opérations commencent ligne 4.</li><li><b>Ouvre Apps Script.</b><br>Dans Google Sheets : <b>Extensions → Apps Script</b>.</li><li><b>Ajoute le code.</b><br>Dans <code>Code.gs</code>, colle le code proposé par le bouton « Code .gs ». Enregistre.</li><li><b>Vérifie la lecture.</b><br>En haut d’Apps Script, choisis <code>verifierObservatoire</code>, clique sur <b>Exécuter</b>, puis vérifie dans le journal que l’onglet OPERATIONS est trouvé et que le nombre de lignes est cohérent.</li><li><b>Déploie l’API.</b><br>Clique sur <b>Déployer → Nouveau déploiement</b>, choisis <b>Application Web</b>, « Exécuter en tant que : Moi », puis donne l’accès le plus large autorisé. Clique sur <b>Déployer</b>.</li><li><b>Copie l’URL /exec.</b><br>Google fournit une URL se terminant par <code>/exec</code>. C’est l’adresse de ta source.</li><li><b>Connecte le générateur.</b><br>Dans ce générateur : <b>Données → Mode : Google Apps Script (JSON)</b>. Colle l’URL /exec puis clique sur <b>Connecter / actualiser</b>.</li><li><b>Contrôle que tout est à jour.</b><br>Le message doit indiquer le nombre d’opérations chargées. Modifie ensuite une valeur test dans le Sheet, puis clique à nouveau sur <b>Connecter / actualiser</b>. Si la slide change, la connexion est validée.</li><li><b>Ensuite, rien à redéployer pour les données.</b><br>Tu peux ajouter/corriger des opérations dans le Sheet. Le redéploiement Apps Script n’est nécessaire que si tu modifies le code <code>.gs</code> lui-même.</li></ol></div>`;}}
   async function dataHelpCopy(){const kind=document.getElementById('dataHelpCopy')?.dataset.copyKind;const text=kind==='columns'?DATA_HELP_COLUMNS:DATA_HELP_GS;try{await navigator.clipboard.writeText(text);toast(kind==='columns'?'Colonnes copiées.':'Code .gs copié.');}catch{toast('Copie impossible dans ce navigateur.');}}
   function dataInitUI(){dataRuntime.filters={};try{localStorage.removeItem(DATA_FILTERS_STORAGE_KEY);}catch{}const source=(()=>{try{return JSON.parse(localStorage.getItem(DATA_SOURCE_STORAGE_KEY)||'null');}catch{return null;}})();if(source){document.getElementById('dataMode').value=source.mode||'appsScript';document.getElementById('dataUrl').value=source.url||'';document.getElementById('dataTab').value=source.tab||'OPERATIONS';}dataUpdateBadge();dataUpdateFilterUI();}
+
+  async function importLocalOperations(file) {
+    if (!file) return;
+    dataFeedback('Lecture du fichier local…');
+    try {
+      let matrix;
+      if (/\.xlsx$/i.test(file.name)) {
+        const book = await window.OBSNexityXlsx.open(file);
+        const index = book.sheets.findIndex(sheet => dataNorm(sheet.name) === 'operations');
+        matrix = (await book.readSheet(index < 0 ? 0 : index)).matrix;
+      } else {
+        // V29.23.4 : un CSV enregistré par Excel (« CSV séparateur point-virgule ») est en Windows-1252 : décodage de secours.
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let text;
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+        catch (_) { text = new TextDecoder('windows-1252').decode(bytes); }
+        matrix = window.OBSNexityCore.parseText(text);
+      }
+      const header = matrix.findIndex(row => row.some(cell => ['numero du contrat','operation: code interne','code interne'].includes(dataNorm(cell))) &&
+        row.some(cell => dataNorm(cell) === 'referentiel' || dataNorm(cell) === 'referentiel: nom du referentiel'));
+      if (header < 0) throw new Error('En-têtes OPERATIONS introuvables (contrat ou opération et référentiel).');
+      const columns = matrix[header].map(cell => String(cell ?? '').trim());
+      const rows = matrix.slice(header + 1).filter(row => row.some(cell => String(cell ?? '').trim())).map(row =>
+        Object.fromEntries(columns.flatMap((name, i) => name ? [[name, row[i] ?? '']] : []))
+      );
+      const operations = dataRowsToOperations(rows);
+      if (!operations.length) throw new Error('Aucune ligne d’opération dans ce fichier.');
+      dataClearLaunchScope();
+      dataSnapshotManual();
+      Object.assign(dataRuntime, {
+        connected: true, mode: 'local', sourceUrl: '', sourceTab: 'OPERATIONS', zone123Status: null,
+        operations, filters: {}, anonymized: false
+      });
+      try { localStorage.removeItem(DATA_SOURCE_STORAGE_KEY); } catch (_) {}
+      dataSyncViews();
+      dataPopulateFilters();
+      dataFeedback(`${frSmart(rows.length)} lignes chargées depuis ${file.name}. Source disponible pour cette session.`);
+    } catch (error) {
+      dataFeedback(error.message || 'Impossible de lire le fichier local.', true);
+    }
+  }
+  document.getElementById('operationsFile').addEventListener('change', event => {
+    const input = event.currentTarget;
+    const [file] = input.files;
+    input.value = '';
+    void importLocalOperations(file);
+  });
 
   if(dataSourceBtn)dataSourceBtn.addEventListener('click',()=>{dataConnectModal.hidden=false;dataPopulateFilters();dataUpdateFilterUI();});
   document.querySelectorAll('[data-data-close="1"]').forEach(el=>el.addEventListener('click',()=>{dataConnectModal.hidden=true;}));

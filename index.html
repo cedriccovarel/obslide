@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#06402B" />
-  <title>Générateur de slides - Observatoire</title>
+  <title>OBSLIDE V29.23.4 · Générateur de slides</title>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="style.css?v=29.22.0" />
+  <link rel="stylesheet" href="style.css?v=29.23.3" />
   <link rel="stylesheet" href="nexity-map.css?v=29.7.18" />
 </head>
 <body class="auth-locked">
@@ -46,6 +46,7 @@
       <button id="loadSaveBtn" class="btn btn-secondary" type="button">Charger</button>
       <button id="saveProjectBtn" class="btn btn-save" type="button">Sauvegarder</button>
       <button id="dataSourceBtn" class="btn btn-data-source" type="button" title="Connecter une source Google Sheets / Apps Script"><span id="dataSourceDot" class="data-source-dot"></span><span id="dataSourceLabel">Données</span></button>
+      <button id="slideCatalogBtn" class="btn btn-secondary" type="button">Catalogue</button>
       <div class="add-slide-wrap">
         <select id="addSlideSelect" class="btn btn-secondary add-slide-select" aria-label="Ajouter une slide">
           <option value="">Ajouter slide ▾</option>
@@ -60,6 +61,22 @@
       <input id="loadSaveInput" type="file" accept="application/json,.json" hidden />
     </div>
   </header>
+
+  <dialog id="slideCatalog" class="bilan-import-dialog slide-catalog" aria-labelledby="slideCatalogTitle">
+    <h2 id="slideCatalogTitle">Catalogue des slides</h2>
+    <label for="slideCatalogSearch">Titre ou indicateur</label>
+    <input id="slideCatalogSearch" type="search" placeholder="Rechercher une slide">
+    <div class="catalog-grid">
+      <div data-catalog-results></div>
+      <div data-catalog-preview aria-live="polite"></div>
+    </div>
+    <div class="bilan-dialog-actions">
+      <output aria-live="polite"></output>
+      <button type="button" class="btn btn-secondary" data-catalog-clear>Tout désélectionner</button>
+      <button type="button" class="btn btn-secondary" data-catalog-close>Fermer</button>
+      <button type="button" class="btn btn-primary" data-catalog-add>Ajouter la sélection</button>
+    </div>
+  </dialog>
 
   <dialog id="bilanImportDialog" class="bilan-import-dialog" aria-labelledby="bilanImportTitle">
     <form id="bilanImportForm">
@@ -151,6 +168,8 @@
           <label>URL de la source</label><input id="dataUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec ou URL Google Sheet">
           <label>Nom de l’onglet Google Sheet</label><input id="dataTab" type="text" value="OPERATIONS">
           <div class="data-actions"><button id="dataConnectBtn" class="btn btn-primary" type="button">Connecter / actualiser</button><button id="dataDisconnectBtn" class="btn btn-secondary" type="button">Revenir au mode manuel</button></div><div class="data-resource-actions"><button id="dataShowGsBtn" class="btn btn-secondary btn-small" type="button">Code .gs</button><button id="dataCopyColumnsBtn" class="btn btn-secondary btn-small" type="button">Colonnes Excel</button><button id="dataHelpBtn" class="btn btn-secondary btn-small" type="button">Aide connexion</button></div>
+          <label for="operationsFile">Importer OPERATIONS depuis un fichier local</label>
+          <input id="operationsFile" type="file" accept=".csv,.tsv,.xlsx">
           <div id="dataFeedback" class="data-feedback">Aucune source connectée.</div>
         </div>
         <div class="data-filter-card data-filter-info-card">
@@ -184,17 +203,18 @@
   <script src="nexity-geography.js?v=29.7.16"></script>
   <script src="nexity-core.js?v=29.7.18"></script>
   <script src="nexity-xlsx.js?v=29.7.16"></script>
-  <script src="nexity-map.js?v=29.7.18"></script>
-  <script src="nexity-podium.js?v=29.7.18"></script>
+  <script src="nexity-map.js?v=29.23.0"></script>
+  <script src="nexity-podium.js?v=29.23.0"></script>
   <script src="carbon-table-import.js?v=29.7.27"></script>
   <script src="carbon-distribution.js?v=29.14.0"></script>
   <script src="requirements-slides.js?v=29.14.0"></script>
   <script src="assets/pptxgen.bundle.js?v=29.7.29"></script>
   <script src="obslide-pptx.js?v=1.1.0"></script>
   <script src="google-slides-export.js?v=29.8.0"></script>
-  <script src="analytics-slides.js?v=29.19.0"></script>
-  <script src="bilan-slides.js?v=29.22.0"></script>
+  <script src="analytics-slides.js?v=29.23.1"></script>
+  <script src="bilan-slides.js?v=29.23.4"></script>
   <script src="bilan-editor.js?v=29.22.0"></script>
-  <script src="app.js?v=29.22.0"></script>
+  <script src="focused-slides.js?v=29.23.1"></script>
+  <script src="app.js?v=29.23.4"></script>
 </body>
 </html>

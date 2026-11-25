@@ -66,6 +66,7 @@
   const text = value => String(value ?? '').trim();
 
   async function importWorkbook(file) {
+    if (!/\.xlsx$/i.test(file?.name || '')) throw new Error('Le bilan consolidé doit être un classeur Excel .xlsx (les fichiers CSV ne sont pas acceptés ici).');
     const workbook = await window.OBSNexityXlsx.open(file);
     const sheets = {};
     for (const [name, expected] of SHEETS) {
@@ -166,8 +167,14 @@
       content += page();
     }
     if (type === 'opSize') {
-      content += select('Mesure de taille', 'measure', [['logements', 'Logements'], ['bâtiments', 'Bâtiments'], ['surfaces', 'Surfaces tertiaires (m²)']]);
-      content += select('Présentation des centiles', 'view', [['curve', 'Courbe de centiles'], ['stats', 'Moyennes et effectifs par référentiel'], ['centiles', 'Tableau détaillé des centiles']]);
+      content += select('Présentation', 'view', [
+        ['housingOverview', 'Logements et bâtiments · vue illustrée'], ['tertiaryOverview', 'Tertiaire : bâtiments et surfaces · vue illustrée'],
+        ['simple', 'Un chiffre clé · moyenne'], ['curve', 'Courbe de centiles'],
+        ['stats', 'Moyennes et effectifs par référentiel'], ['centiles', 'Tableau détaillé des centiles']
+      ]);
+      if (!['housingOverview', 'tertiaryOverview'].includes(c.view)) {
+        content += select('Mesure de taille', 'measure', [['logements', 'Logements'], ['bâtiments', 'Bâtiments'], ['surfaces', 'Surfaces tertiaires (m²)']]);
+      }
     }
     return `<div class="control-section"><h3>Bilan Excel</h3>${content}</div>` + textControls(type, c, book, h);
   }
@@ -512,7 +519,61 @@
     };
   }
 
+  const sizeMetrics = {
+    logements: { label: 'Logements', unit: 'logements', segment: 'Logement', index: 2, scope: 'opérations résidentielles', singular: 'opération résidentielle' },
+    bâtiments: { label: 'Bâtiments', unit: 'bâtiments', segment: 'Global', index: 6, scope: 'opérations tous référentiels', singular: 'opération' },
+    bâtimentsTertiaire: { label: 'Bâtiments', unit: 'bâtiments', segment: 'Tertiaire', index: 6, scope: 'opérations tertiaires', singular: 'opération tertiaire' },
+    surfaces: { label: 'Surface tertiaire', unit: 'm²', segment: 'Tertiaire', index: 10, scope: 'opérations tertiaires', singular: 'opération tertiaire' }
+  };
+  const sizeSource = 'Source : bilan Excel, feuille « Taille par référentiel ». Valeurs strictement positives.';
+  function sizeStatistics(book, metric) {
+    const row = rows(book, 'Taille par référentiel').find(values => text(values[0]).toLowerCase() === metric.segment.toLowerCase());
+    return { base: number(row?.[1]), count: number(row?.[metric.index]), mean: number(row?.[metric.index + 2]), median: number(row?.[metric.index + 3]) };
+  }
+
+  function sizeKeyFigure(book, measure, h) {
+    const metric = sizeMetrics[measure] || sizeMetrics.logements;
+    const { count, mean } = sizeStatistics(book, metric);
+    const body = Number.isFinite(count) && count > 0 && Number.isFinite(mean) && mean > 0
+      ? `<div class="bilan-size-summary">
+          <p class="an-summary-caption">En moyenne par opération</p>
+          <p class="an-summary-number">${fmt(mean)}</p>
+          <p class="an-summary-unit">${h.esc(mean === 1 && metric.unit !== 'm²' ? metric.unit.slice(0, -1) : metric.unit)}</p>
+          <p class="bilan-size-scope">Moyenne calculée sur ${fmt(count)} ${h.esc(count === 1 ? metric.singular : metric.scope)} avec une valeur renseignée.</p>
+        </div>`
+      : '<p class="bilan-empty">La moyenne de ce périmètre est indisponible dans le classeur importé.</p>';
+    return { subtitle: metric.label + ' · bilan Excel', body, note: sizeSource };
+  }
+
+  function illustratedSize(book, tertiary, h) {
+    const metrics = tertiary ? [sizeMetrics.bâtimentsTertiaire, sizeMetrics.surfaces] : [sizeMetrics.logements, sizeMetrics.bâtiments];
+    const illustration = tertiary ? 'assets/bilan-tertiaire.png' : 'assets/bilan-residentiel.png';
+    const alt = tertiary ? 'Dessin en coupe d’un bâtiment de bureaux' : 'Dessin en coupe d’un immeuble de logements';
+    const cards = metrics.map(metric => {
+      const { base, count, mean, median } = sizeStatistics(book, metric);
+      const counts = count === 1 ? ' valeur exploitable' : ' valeurs exploitables';
+      const scope = !Number.isFinite(count) ? 'Effectif exploitable indisponible' :
+        Number.isFinite(base) && base > 0
+          ? fmt(count) + counts + ' sur ' + fmt(base) + ' ' + (base === 1 ? metric.singular : metric.scope)
+          : fmt(count) + counts + ' · ' + metric.scope;
+      return `<article class="bilan-size-metric">
+        <h3>${h.esc(metric.label)} <span>${metric.unit === 'm²' ? 'm² par opération' : 'par opération'}</span></h3>
+        <dl><div><dt>Moyenne</dt><dd>${fmt(mean)}</dd></div><div><dt>Médiane</dt><dd>${fmt(median)}</dd></div></dl>
+        <p>${h.esc(scope)}</p>
+      </article>`;
+    }).join('');
+    const subtitle = tertiary ? 'Périmètre tertiaire · bâtiments et surfaces' : 'Logements et bâtiments par opération';
+    return {
+      subtitle,
+      body: `<div class="bilan-size-overview"><div class="bilan-size-illustration"><img src="${illustration}" alt="${h.esc(alt)}"></div>
+        <div class="bilan-size-metrics">${cards}</div></div>`,
+      note: sizeSource
+    };
+  }
+
   function size(book, c, h) {
+    if (c.view === 'housingOverview' || c.view === 'tertiaryOverview') return illustratedSize(book, c.view === 'tertiaryOverview', h);
+    if (c.view === 'simple') return sizeKeyFigure(book, c.measure, h);
     const sheet = 'Centiles ' + c.measure;
     const centiles = rows(book, sheet);
     const names = header(book, sheet).slice(1).map(name => name.replace(/^BEE /, ''));

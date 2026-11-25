@@ -17,8 +17,8 @@ const defaults={
   moaVolume:{title:'CLIENTS ET FAMILLES DE MOA',subtitle:'Volume d’opérations par client et par famille de maître d’ouvrage',metric:'operations',topN:12,families:[],clients:[],total:0},
   certEvolution:{title:'ÉVOLUTION DES CERTIFICATIONS',subtitle:'Nombre d’opérations par année',kind:'mention',display:'count',maxSeries:8,series:{mention:[],performance:[]},years:[],yearTotals:{}},
   basket:{title:'PANIER MOYEN',subtitle:'Montant HT moyen par opération',column:'',columns:[],source:'',stats:{},showYear:true,showReferential:true},
-  opSize:{title:'TAILLE MOYENNE D’UNE OPÉRATION',subtitle:'Moyenne et répartition par centile',showBuildings:true,showDwellings:true,showSurface:true,surfaceColumn:'',surfaceColumns:[],stats:{}},
-  tertiaryTypes:{title:'BEE TERTIAIRE — TYPOLOGIES DE BÂTIMENT',subtitle:'Répartition des opérations tertiaires par type de programme',items:[],total:0,undetermined:0}
+  opSize:{title:'TAILLE MOYENNE D’UNE OPÉRATION',subtitle:'Taille des opérations du périmètre filtré',sizeDetails:false,sizeMetric:'auto',showBuildings:true,showDwellings:true,showSurface:true,surfaceColumn:'',surfaceColumns:[],stats:{}},
+  tertiaryTypes:{title:'TYPES DE PROGRAMME DANS LE TERTIAIRE',subtitle:'Répartition des opérations tertiaires par type de programme',items:[],total:0,undetermined:0,typologyPage:1,showTypologyBuildings:false}
 };
 // Typologies tertiaires de l'Observatoire (Code_Operations.gs NEWOSB_PROGRAM_TYPES), dans le même ordre.
 const TERTIARY=['Bureaux','Commerces','Hôtelier','Scolaire et enseignement','Résidences gérées (étudiantes, seniors, tourisme)','Santé et médico-social (cliniques, EHPAD, centres médicaux)','Locaux d’activité et industrie','Logistique (entrepôts, plateformes de distribution)','Équipements publics (culturels, sportifs, administratifs)'];
@@ -37,7 +37,35 @@ function rawValue(o,header){ for(const r of (o.rawRows||[o.raw]||[])){ const v=r
 function rawNumber(o,header,h){ const v=rawValue(o,header); if(String(v).trim()==='') return null; const n=h.dataNumber(v); return Number.isFinite(n)&&n>0?n:null; }
 function rawHeaders(ops){ const s=new Set(); ops.slice(0,400).forEach(o=>(o.rawRows||[o.raw]||[]).forEach(r=>Object.keys(r||{}).forEach(k=>s.add(k)))); return [...s]; }
 const SURFACE_RE=/surface|\bshab\b|\bsdp\b|\bsrt\b|\bsu\b|\bsref\b|m²|m2\b/;
-const typologyHeader=hs=>hs.find(x=>/^type de programme \(calcul/.test(norm(x)))||hs.find(x=>/type de programme$/.test(norm(x)))||'';
+// Le pont peut transmettre les lignes d’origine ou des opérations déjà structurées.
+const calculatedProgram = /^(?:operation: )?type de programme \(calcule\)$/;
+const declaredProgram = /^(?:operation: )?(?:type de programme|typologie de programme)$/;
+const knownProgram = value => {
+  const name = String(value ?? '').trim();
+  return /^(?:-|—|non determinee?|non renseignee?|indeterminee?|inconnu|n\/?a)$/i.test(norm(name)) ? '' : name;
+};
+function programType(operation) {
+  const computed = [], declared = [];
+  let hasField = false;
+  for (const row of operation.rawRows?.length ? operation.rawRows : [operation.raw]) {
+    for (const [header, value] of Object.entries(row || {})) {
+      const key = norm(header);
+      const field = calculatedProgram.test(key) ? computed : declaredProgram.test(key) ? declared : null;
+      if (!field) continue;
+      hasField = true;
+      const name = knownProgram(value);
+      if (name) field.push(name);
+    }
+  }
+  for (const key of ['programType', 'typeProgramme', 'typologieProgramme']) {
+    if (!(key in operation)) continue;
+    hasField = true;
+    const name = knownProgram(operation[key]);
+    if (name) declared.push(name);
+  }
+  const values = new Map((computed.length ? computed : declared).map(name => [norm(name), name]));
+  return { name: values.size === 1 ? values.values().next().value : '', hasField };
+}
 const refName=r=>String(r||'').trim()||'Référentiel non précisé';
 
 function aggregate(type,ops,model,h){
@@ -73,11 +101,23 @@ function aggregate(type,ops,model,h){
     model.stats=stats; model.total=ops.length;
   }
   else if(type==='tertiaryTypes'){
-    const tert=ops.filter(o=>/tertiaire/.test(norm(o.referential))), col=typologyHeader(rawHeaders(tert));
-    const m=new Map(TERTIARY.map(n=>[norm(n),{name:n,value:0,buildings:0}])); let und=0;
-    tert.forEach(o=>{ const t=String(col?rawValue(o,col):'').trim(); if(!t||/non determine/.test(norm(t))){ und++; return; }
-      const k=norm(t), x=m.get(k)||{name:t,value:0,buildings:0}; x.value++; x.buildings+=Math.max(0,h.dataNumber(o.buildings)); m.set(k,x); });
-    model.items=[...m.values()]; model.total=tert.length; model.undetermined=und; model.typologyColumn=col;
+    const tert = ops.filter(o => /\btertiaire\b/.test(norm(o.referential)));
+    const items = new Map();
+    let undetermined = 0, hasField = false;
+    for (const operation of tert) {
+      const program = programType(operation);
+      hasField ||= program.hasField;
+      if (!program.name) { undetermined++; continue; }
+      const key = norm(program.name);
+      const item = items.get(key) || { name: TERTIARY.find(name => norm(name) === key) || program.name, value: 0, buildings: 0 };
+      item.value++;
+      item.buildings += Math.max(0, h.dataNumber(operation.buildings));
+      items.set(key, item);
+    }
+    model.items = [...items.values()].sort((a,b) => b.value - a.value || a.name.localeCompare(b.name,'fr'));
+    model.total = tert.length;
+    model.undetermined = undetermined;
+    model.typologyColumn = hasField ? 'Type de programme' : '';
   }
 }
 
@@ -174,8 +214,30 @@ function html(type,model,h){
   }
   if(type==='opSize'){
     if(!model.total) return head(model.title,model.subtitle)+emptyPage(NOT_CONNECTED);
-    const metrics=[model.showBuildings!==false&&['buildings','Bâtiments','bâtiments'],model.showDwellings!==false&&['dwellings','Logements','logements'],model.showSurface!==false&&model.surfaceColumn&&['surface:'+model.surfaceColumn,`Surface — ${model.surfaceColumn}`,'m²']].filter(Boolean);
-    if(!metrics.length) return head(model.title,model.subtitle)+emptyPage('Coche au moins une mesure dans le panneau de droite.');
+    const metrics = [
+      model.showDwellings !== false && ['dwellings','Logements','logements'],
+      model.showBuildings !== false && ['buildings','Bâtiments','bâtiments'],
+      model.showSurface !== false && model.surfaceColumn && ['surface:' + model.surfaceColumn, 'Surface — ' + model.surfaceColumn, 'm²']
+    ].filter(Boolean);
+    if (!metrics.length) return head(model.title,model.subtitle) + emptyPage('Cochez au moins une mesure dans les réglages.');
+    if (!model.sizeDetails) {
+      const metric = model.sizeMetric || 'auto';
+      const selected = metric === 'auto' ? metrics.find(([key]) => model.stats?.[key]?.n) : metrics.find(([key]) => metric === 'surface' ? key.startsWith('surface:') : key === metric);
+      const [key, label, unit] = selected || [];
+      const stats = model.stats?.[key];
+      if (!stats?.n) return head(model.title, model.subtitle) + emptyPage('Aucune valeur exploitable pour cette mesure.');
+      const average = frSmart(Math.round(stats.mean * 10) / 10);
+      const range = stats.min === stats.max ? 'Les opérations renseignées ont toutes la même taille.' :
+        'Les opérations étudiées vont de ' + frSmart(stats.min) + ' à ' + frSmart(stats.max) + ' ' + unit + '.';
+      return head(model.title, model.subtitle || 'Taille des opérations du périmètre filtré') + `
+        <div class="an-size-summary">
+          <div class="an-summary-caption">${esc(label)} · en moyenne par opération</div>
+          <div class="an-summary-number">${esc(average)}</div>
+          <div class="an-summary-unit">${esc(unit)}</div>
+          <p>${esc(range)}</p>
+          <small>${frSmart(stats.n)} / ${frSmart(model.total)} opérations exploitables dans le périmètre filtré</small>
+        </div>`;
+    }
     const card=([k,l,u])=>{ const d=model.stats?.[k]; if(!d||!d.n) return `<div class="an-card card"><h3>${esc(l)}</h3>${empty('Aucune valeur.')}</div>`;
       const mx=Math.max(1,d.centiles[8]);
       return `<div class="an-card card an-size"><h3>${esc(l)}</h3><div class="an-size-kpi"><span>Moyenne <b>${frSmart(Math.round(d.mean*10)/10)}</b> ${esc(u)}</span><span>Médiane <b>${frSmart(Math.round(d.centiles[4]*10)/10)}</b></span><small>${frSmart(d.n)} opérations</small></div>
@@ -184,12 +246,36 @@ function html(type,model,h){
       <div class="an-grid an-cols-${metrics.length}">${metrics.map(card).join('')}</div>`;
   }
   if(type==='tertiaryTypes'){
-    if(!model.total) return head(model.title,model.subtitle)+emptyPage('Aucune opération BEE Tertiaire dans les données connectées.');
-    const det=model.items.filter(x=>x.value>0).sort((a,b)=>b.value-a.value), known=model.total-model.undetermined;
-    return `${head(model.title,model.subtitle,'',model.typologyColumn?'':'Colonne « Type de programme (calculé) » absente des données.')}
-      <div class="an-kpis">${kpi('OPÉRATIONS TERTIAIRES',frSmart(model.total),'référentiels BEE Tertiaire')}${kpi('TYPOLOGIE DÉTERMINÉE',frSmart(known),pc(known,model.total)+' des opérations')}${kpi('1RE TYPOLOGIE',det[0]?frSmart(det[0].value):'—',det[0]?.name||'')}</div>
-      <div class="an-card card an-wide">${det.length?bars(det,{value:x=>x.value,label:x=>esc(x.name),fmt:x=>frSmart(x.value),sub:x=>`${pc(x.value,known)} · ${frSmart(x.buildings)} bât.`}):empty('Aucune typologie déterminée.')}
-      ${model.undetermined?`<div class="an-note">${frSmart(model.undetermined)} opération${model.undetermined>1?'s':''} sans typologie déterminée (non représentée${model.undetermined>1?'s':''}).</div>`:''}</div>`;
+    const heading = head(model.title, model.subtitle);
+    if (!model.total) return heading + emptyPage('Aucune opération tertiaire exploitable dans le périmètre filtré. Connectez les données depuis l’Observatoire ou élargissez les filtres.');
+    const items = (model.items || []).filter(item => item.value > 0);
+    const known = model.total - model.undetermined;
+    if (!known || !items.length) {
+      const message = model.typologyColumn ? 'Aucun type de programme renseigné de façon univoque pour les opérations tertiaires du périmètre.' :
+        'Le périmètre contient des opérations tertiaires. Le pont doit transmettre le champ « Type de programme (calculé) » pour afficher leur répartition.';
+      return heading + emptyPage(message);
+    }
+    const first = items[0], leaders = items.filter(item => item.value === first.value);
+    const takeaway = leaders.length === 1 ? 'La catégorie « ' + first.name + ' » arrive en tête (' + frSmart(first.value) + ' sur ' + frSmart(known) + ' opérations renseignées).' :
+      leaders.length + ' typologies arrivent à égalité en tête (' + frSmart(first.value) + ' opérations chacune).';
+    const pageSize = 9, pages = Math.ceil(items.length / pageSize);
+    const page = Math.min(pages, Math.max(1, Math.trunc(Number(model.typologyPage) || 1)));
+    const visible = items.slice((page - 1) * pageSize, page * pageSize);
+    return heading + `
+      <div class="an-tertiary">
+        <p class="an-tertiary-message">${esc(takeaway)}</p>
+        <div class="an-tertiary-chart" aria-label="Répartition par type de programme">
+          ${visible.map(item => `<div class="an-tertiary-row">
+            <span>${esc(item.name)}</span>
+            <div class="an-tertiary-track"><i style="width:${100 * item.value / known}%;background:${item.value === first.value ? '#087046' : '#6ab48c'}"></i></div>
+            <span class="an-tertiary-value"><b>${frSmart(item.value)}</b> · ${pc(item.value, known)}${model.showTypologyBuildings ? ' · ' + frSmart(item.buildings) + ' bât.' : ''}</span>
+          </div>`).join('')}
+        </div>
+        <div class="an-tertiary-scope">
+          <span>${frSmart(known)} / ${frSmart(model.total)} opérations tertiaires avec une typologie · ${frSmart(model.undetermined)} non déterminée(s)</span>
+          <span>Parts calculées sur les opérations renseignées${pages > 1 ? ' · Page ' + page + ' / ' + pages : ''}</span>
+        </div>
+      </div>`;
   }
   return '';
 }
@@ -205,9 +291,15 @@ function controls(type,model,h){
       <div class="field"><input type="file" accept=".xlsx,.csv,.txt" data-analytics-file="basket"></div>${model.source?`<p class="help">Source : ${esc(model.source)}</p>`:''}
       ${model.columns?.length?selectField('Colonne de montant',p('column'),model.columns.map(c=>({value:c,label:c}))):''}</div>
       <div class="control-section"><h3>Affichage</h3>${toggleField('Par année',p('showYear'))}${toggleField('Par référentiel',p('showReferential'))}</div>`;
-  if(type==='opSize') return texts+`<div class="control-section"><h3>Mesures affichées</h3>${toggleField('Nombre de bâtiments',p('showBuildings'))}${toggleField('Nombre de logements',p('showDwellings'))}${toggleField('Surface',p('showSurface'))}
+  if(type==='opSize') return texts+`<div class="control-section"><h3>Mesures affichées</h3>
+      ${selectField('Chiffre mis en avant',p('sizeMetric'),[{value:'auto',label:'Automatique'},{value:'dwellings',label:'Logements'},{value:'buildings',label:'Bâtiments'},{value:'surface',label:'Surface'}])}
+      ${toggleField('Afficher la comparaison et les centiles détaillés',p('sizeDetails'))}
+      ${toggleField('Nombre de bâtiments',p('showBuildings'))}${toggleField('Nombre de logements',p('showDwellings'))}${toggleField('Surface',p('showSurface'))}
       ${model.surfaceColumns?.length?selectField('Colonne de surface',p('surfaceColumn'),model.surfaceColumns.map(c=>({value:c,label:c}))):'<p class="help">Aucune colonne de surface chiffrée dans les données connectées.</p>'}</div>`;
-  if(type==='tertiaryTypes') return texts+`<div class="control-section"><p class="help">Opérations dont le référentiel contient « Tertiaire ». Typologie : colonne « Type de programme (calculé) » de l’Observatoire.</p></div>`;
+  if(type==='tertiaryTypes') return texts+`<div class="control-section"><h3>Répartition</h3>
+    ${field('Page du graphique',p('typologyPage'),'number',{step:1,min:1})}
+    ${toggleField('Ajouter le nombre de bâtiments',p('showTypologyBuildings'))}
+    <p class="help">Le pont Observatoire transmet la typologie. Les parts portent sur les opérations des référentiels tertiaires ayant un type de programme renseigné.</p></div>`;
   return texts;
 }
 window.OBSAnalytics={TYPES,defaults,aggregate,html,controls,importBasket,_test:{percentile,distribution,headerRow}};

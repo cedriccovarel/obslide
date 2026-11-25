@@ -25,9 +25,42 @@ function controls(m){const s=summary(m),mode=m.sourceMode||'local';return `<div 
 <div class="control-section"><h3>Référentiel géographique</h3><p class="help">Départements non affectés par la carte résidentielle fournie (ex. Paris 75, Corse) : conservés en « À vérifier » plutôt que rattachés arbitrairement.</p><button class="btn btn-secondary btn-small" data-nx-action="source">Ouvrir la carte source</button><p class="help">Nexity · Direction du Marketing Stratégique et Études · 02/07/2026. Organisation au 01/07/2026.</p></div>`;}
 function text(value,x,y,size,width=1000,opts={}){const raw=String(value??''),scale=bridge?.scale?.()||1;let fs=Math.min(size*scale,opts.maxSize||size*1.5);if(!measureCtx)measureCtx=document.createElement('canvas').getContext('2d');measureCtx.font=`${opts.weight||600} ${fs}px Arial`;if(width&&measureCtx.measureText(raw).width>width)fs*=width/measureCtx.measureText(raw).width;return `<text x="${x}" y="${y}" font-family="Arial,Helvetica,sans-serif" font-size="${fs.toFixed(2)}" font-weight="${opts.weight||600}" fill="${opts.color||'#06402b'}" text-anchor="${opts.anchor||'start'}" dominant-baseline="middle">${e(raw)}</text>`;}
 const rect=(x,y,w,h,fill='#fff',stroke='#d3dfd8',r=14)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" stroke="${stroke}"/>`;
-function svg(m=model()){const s=summary(m),has=s.hasData,n=s.projects.length;const ordered=[...G.catalog];if(m.sortBy==='count')ordered.sort((a,b)=>s.counts[b.id]-s.counts[a.id]||a.number-b.number);const main={x:303,y:144,w:674,h:660.52},idf={x:47,y:573,w:227,h:203.46};let out=`<svg class="nx-slide-svg" xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="${e(m.title)}"><rect width="1600" height="900" fill="white"/>`;out+=text(m.title,40,51,36,1330,{weight:800,maxSize:46})+text(m.subtitle,42,93,19,1345,{weight:500,color:'#53695d',maxSize:24});if(bridge.logo)out+=`<image href="${bridge.logo}" x="1442" y="18" width="113" height="83" preserveAspectRatio="xMidYMid meet"/>`;out+=rect(30,127,986,696)+rect(1033,127,536,696)+`<image href="${G.images.main}" x="${main.x}" y="${main.y}" width="${main.w}" height="${main.h}"/>`;
+function dgProjectsSvg(m, s) {
+  const dg = [...s.byDG].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'fr'));
+  const max = Math.max(1, ...dg.map(row => row.total));
+  let out = `<svg class="nx-slide-svg" xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="${e(m.title)}"><rect width="1600" height="900" fill="white"/>`;
+  out += text(m.title, 42, 55, 37, 1330, { weight: 800 });
+  out += text(s.hasData ? `${f(s.assigned)} / ${f(s.projects.length)} projets uniques rattachés à une direction · périmètre filtré` :
+    'Importer un tableau Nexity ou sélectionner la base connectée.', 42, 104, 19, 1340, { color: '#53695d' });
+  if (bridge.logo) out += `<image href="${bridge.logo}" x="1442" y="18" width="113" height="83" preserveAspectRatio="xMidYMid meet"/>`;
+  dg.forEach((group, i) => {
+    const y = 180 + i * 84;
+    out += `<g data-nx-dg="${group.id}" role="button" tabindex="0" style="cursor:pointer">`;
+    out += text(group.name, 58, y + 24, 22, 465, { weight: 750 });
+    out += rect(558, y, 835, 48, '#edf4ef', '#edf4ef', 8);
+    if (group.total) out += rect(558, y, 835 * group.total / max, 48, '#60a77a', '#60a77a', 8);
+    out += text(s.hasData ? f(group.total) : '—', 1505, y + 24, 27, 115, { weight: 800, anchor: 'end' }) + '</g>';
+  });
+  if (s.hasData && dg[0]?.total) out += text(`${dg[0].name} rassemble ${f(dg[0].total)} projets rattachés dans ce périmètre.`, 55, 808, 19, 1470, { color: '#53695d' });
+  out += text('Source géographique : Nexity · organisation au 01/07/2026', 42, 858, 13, 1450, { color: '#718078' });
+  return out + '</svg>';
+}
+
+function svg(m=model()){const s=summary(m);
+if (m.focusView === 'dg') return dgProjectsSvg(m, s);
+const has=s.hasData,n=s.projects.length;const ordered=[...G.catalog];if(m.sortBy==='count')ordered.sort((a,b)=>s.counts[b.id]-s.counts[a.id]||a.number-b.number);const main={x:303,y:144,w:674,h:660.52},idf={x:47,y:573,w:227,h:203.46};let out=`<svg class="nx-slide-svg" xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="${e(m.title)}"><rect width="1600" height="900" fill="white"/>`;out+=text(m.title,40,51,36,1330,{weight:800,maxSize:46})+text(m.subtitle,42,93,19,1345,{weight:500,color:'#53695d',maxSize:24});if(bridge.logo)out+=`<image href="${bridge.logo}" x="1442" y="18" width="113" height="83" preserveAspectRatio="xMidYMid meet"/>`;out+=rect(30,127,986,696)+rect(1033,127,536,696)+`<image href="${G.images.main}" x="${main.x}" y="${main.y}" width="${main.w}" height="${main.h}"/>`;
 const metric=(y,label,value,note,action)=>`<g ${action?`data-nx-action="${action}" role="button" tabindex="0" style="cursor:pointer"`:''}>${rect(48,y,220,101,'#f3f7f4','#e4ebe6',12)}${text(label,62,y+23,12.5,191,{weight:700,color:'#5f7668',maxSize:15})}${text(value,62,y+57,37,188,{weight:800,maxSize:40})}${text(note,62,y+86,11,191,{weight:500,color:'#617168',maxSize:12})}</g>`;out+=metric(151,'PROJETS UNIQUES',has?f(n):'—',has?`${f(s.rowCount)} lignes dans la source`:'Tableau Nexity à importer','all')+metric(266,'RATTACHÉS À UNE DR',has?f(s.assigned):'—','Calculés par département','assigned')+metric(381,'À VÉRIFIER',has?f(s.unassigned):'—','Département absent/non mappé','unassigned');out+=text('ZOOM ÎLE-DE-FRANCE',48,544,16,220,{weight:800})+`<image href="${G.images.idf}" x="${idf.x}" y="${idf.y}" width="${idf.w}" height="${idf.h}"/>`+text('Repères 17 à 20',48,794,11.5,217,{color:'#65766b',weight:500});
 const point=d=>{const box=d.view==='idf'?idf:main,sz=d.view==='idf'?G.idfSize:G.mainSize;return{x:box.x+d.x*box.w/sz[0],y:box.y+d.y*box.h/sz[1]};};const bubbleScale=Math.max(.55,Math.min(2,Number(m.bubbleScale)||1)),outerR=18*bubbleScale,innerR=13*bubbleScale,bubbleStroke=4*bubbleScale,bubbleFont=11.5*bubbleScale;G.catalog.forEach(d=>{const p=point(d),count=s.counts[d.id],muted=(m.filters?.direction&&m.filters.direction!=='all'&&m.filters.direction!==d.id),label=has?f(count):'—';out+=`<g data-nx-direction="${d.id}" role="button" tabindex="0" style="cursor:pointer;opacity:${muted?.32:1}"><circle cx="${p.x}" cy="${p.y}" r="${outerR.toFixed(2)}" fill="#fff" stroke="${d.color}" stroke-width="${bubbleStroke.toFixed(2)}"/><circle cx="${p.x}" cy="${p.y}" r="${innerR.toFixed(2)}" fill="${d.color}"/><text x="${p.x}" y="${p.y+1}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="${bubbleFont.toFixed(2)}" font-weight="800" fill="#173c2a">${e(label)}</text></g>`;});
+if (m.focusView === 'directions') {
+  out += text('PROJETS UNIQUES PAR DIRECTION RÉGIONALE', 1053, 157, 16, 490, { weight: 800 });
+  ordered.forEach((direction, i) => {
+    const y = 190 + i * 29;
+    out += `<g data-nx-direction="${direction.id}" role="button" tabindex="0" style="cursor:pointer">`;
+    out += text(direction.number + '  ' + direction.name, 1058, y, 13, 430, { weight: 650 });
+    out += text(has ? f(s.counts[direction.id]) : '—', 1532, y, 15, 60, { weight: 800, anchor: 'end' }) + '</g>';
+  });
+  return out + text('Un projet est compté une fois. Le rattachement est établi par département.', 42, 852, 14, 1500, { color: '#718078' }) + '</svg>';
+}
 out+=text('CLASSEMENT DES DG RÉGION · PROJETS & BBCA',1053,154,16,486,{weight:800});
 const cols={rank:1060,name:1091,hors:1328,exc:1390,perf:1453,std:1517};
 out+=`<rect x="1048" y="181" width="505" height="42" rx="8" fill="#eef4f0"/>`+text('#',cols.rank,202,10,24,{weight:800,anchor:'middle',color:'#4e6658'})+text('DG RÉGION',cols.name,202,10.5,220,{weight:800,color:'#4e6658'})+text('HORS BBCA',cols.hors,202,9,55,{weight:800,anchor:'middle',color:'#4e6658'})+text('EXCELL.',cols.exc,202,9,55,{weight:800,anchor:'middle',color:'#4e6658'})+text('PERF.',cols.perf,202,9,55,{weight:800,anchor:'middle',color:'#4e6658'})+text('STANDARD',cols.std,202,8.8,62,{weight:800,anchor:'middle',color:'#4e6658'});
