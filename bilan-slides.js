@@ -23,8 +23,14 @@
   ];
   const TEMPLATES = [
     { type: 'bilanSummary', label: 'Bilan général de l’Observatoire', slug: 'bilan-general' },
-    { type: 'bilanQuality', label: 'Qualité et couverture des données', slug: 'qualite-couverture' }
+    { type: 'bilanQuality', label: 'Qualité et couverture des données', slug: 'qualite-couverture' },
+    { type: 'annulThemes', label: 'Annulations par année et par thème', slug: 'annulations-annees-themes', family: 'Activité et annulations' },
+    { type: 'annulContracts', label: 'Annulations · doublons, fusions et remplacements', slug: 'annulations-doublons-fusions', family: 'Activité et annulations' },
+    { type: 'annulCertifier', label: 'Annulations · changements de certificateur', slug: 'annulations-changement-certificateur', family: 'Activité et annulations' },
+    { type: 'annulReasons', label: 'Évolution des raisons déclarées', slug: 'evolution-raisons-declarees', family: 'Activité et annulations' }
   ];
+  // Diapositives d'analyse des annulations : données collées depuis Excel (onglet « Annulation »), sans classeur du bilan.
+  const ANNUL = ['annulThemes', 'annulContracts', 'annulCertifier', 'annulReasons'];
   const VARIANTS = ['abandonRate', 'moaVolume', 'certEvolution', 'labels', 'opSize'];
   const TYPES = [...TEMPLATES.map(t => t.type), ...VARIANTS];
   const TITLES = {
@@ -34,7 +40,11 @@
     moaVolume: 'PORTEFEUILLE CLIENTS ET FAMILLES DE MOA',
     certEvolution: 'ÉVOLUTION DES CERTIFICATIONS',
     labels: 'LABELS ET NIVEAUX RENSEIGNÉS',
-    opSize: 'TAILLE DES OPÉRATIONS'
+    opSize: 'TAILLE DES OPÉRATIONS',
+    annulThemes: 'ANNULATIONS PAR ANNÉE ET PAR THÈME',
+    annulContracts: 'DOUBLONS, FUSIONS ET REMPLACEMENTS',
+    annulCertifier: 'CHANGEMENTS DE CERTIFICATEUR',
+    annulReasons: 'ÉVOLUTION DES RAISONS DÉCLARÉES'
   };
   const DECK = [
     ['bilanSummary', 'Bilan général'],
@@ -52,7 +62,11 @@
     moaVolume: { bilan: { enabled: false, view: 'family', layout: 'auto', measure: 'contracts', status: false, limit: '10', page: 1, family: '' } },
     certEvolution: { bilan: { enabled: false, basis: 'creation', layout: 'curve', years: 'auto', series: 'labels', unit: 'count', detail: '', page: 1, seriesVisible: {} } },
     labels: { bilan: { enabled: false, family: FAMILIES[0], population: 'compare', view: 'bars', layout: 'auto', page: 1 } },
-    opSize: { bilan: { enabled: false, measure: 'logements', view: 'curve' } }
+    opSize: { bilan: { enabled: false, measure: 'logements', view: 'curve' } },
+    annulThemes: { bilan: { paste: '', data: null } },
+    annulContracts: { bilan: { paste: '', data: null } },
+    annulCertifier: { bilan: { paste: '', data: null } },
+    annulReasons: { bilan: { paste: '', data: null } }
   };
   const textDefaults = { subtitle: null, heading: null, introduction: null, note: null };
   const DATE_OPTIONS = [['auto', 'Première année avec une valeur non nulle'], ['all', 'Toutes les années']];
@@ -95,6 +109,7 @@
   const rows = (book, name) => book?.sheets?.[name]?.rows || [];
   const header = (book, name) => book?.sheets?.[name]?.header || [];
   const usesWorkbook = (type, model) => TYPES.includes(type) && (!VARIANTS.includes(type) || model?.bilan?.enabled);
+  const ownData = type => ANNUL.includes(type);
   Object.values(defaults).forEach(model => {
     model.bilan.copy = { ...textDefaults };
     model.bilan.textAlign = 'left';
@@ -103,6 +118,8 @@
     model.bilan.canvas = { positions: {}, labels: {}, boxes: [] };
   });
 
+  // les diapositives des annulations s'ouvrent avec un message encadré placé sous les données
+  ANNUL.forEach(type => Object.assign(defaults[type].bilan, { textTreatment: 'callout', textPosition: 'below' }));
   const config = (type, model) => ({
     ...defaults[type].bilan,
     ...model?.bilan,
@@ -120,6 +137,7 @@
     const toggle = (label, key) => toggleField(label, p(key));
     let content = VARIANTS.includes(type) ? toggle('Utiliser le bilan Excel', 'enabled') : '';
     if (!usesWorkbook(type, model)) return `<div class="control-section"><h3>Source de la diapositive</h3>${content}</div>`;
+    if (ownData(type)) return annulControls(type, c, h) + textControls(type, c, book, h);
     content += book ? `<p class="help">Classeur : ${esc(book.name)}</p>` : '<p class="help">Utilise « Importer le bilan Excel » pour charger les données.</p>';
     const page = () => field('Page du tableau', p('page'), 'number', { min: 1, step: 1 });
     if (type === 'bilanSummary') {
@@ -181,12 +199,12 @@
 
   function textControls(type, c, book, h) {
     const { esc, selectField } = h;
-    const display = book?.sheets ? renders[type](book, c, h) : {};
+    const display = book?.sheets || ownData(type) ? renders[type](book, c, h) : {};
     const fields = [
       ['title', 'Titre', c.title, TITLES[type], 2],
       ['subtitle', 'Sous-titre', c.copy.subtitle, display.subtitle, 2],
       ['heading', 'Titre du graphique ou du tableau', c.copy.heading, '', 1],
-      ['introduction', 'Message à mettre en avant', c.copy.introduction, '', 3],
+      ['introduction', 'Message à mettre en avant', c.copy.introduction, display.introduction, 3],
       ['note', 'Note de lecture et source', c.copy.note, display.note, 3]
     ];
     return `<div class="control-section bilan-text-controls"><h3>Textes sur la diapositive</h3>
@@ -597,16 +615,284 @@
     };
   }
 
-  const renders = { bilanSummary: summary, bilanQuality: quality, abandonRate: cancellations, moaVolume: portfolio, certEvolution: evolution, labels, opSize: size };
+
+  // ---------- Annulations (onglet « Annulation ») ----------
+  // Valeurs de référence : export de l'onglet du 25/11/2026 (colonnes H thème, N date de demande, O sous-motif, P statut).
+  const ANNUL_YEARS = ['2020', '2021', '2022', '2023', '2024', '2025', '2026'];
+  const ANNUL_COLORS = ['#07543d', '#3778a5', '#d1842a', '#7160a1', '#2a9d8f', '#c0485a', '#8a6a3b', '#6aa84f', '#d36fb0', '#4b5563', '#e2b007'];
+  const ANNUL_DEFAULT = {
+    annulThemes: {
+      years: ANNUL_YEARS, asOf: '25 novembre',
+      totals: { 2020: 5, 2021: 10, 2022: 27, 2023: 112, 2024: 140, 2025: 130, 2026: 112, 'Sans date': 89 },
+      themes: [
+        ['Permis, recours ou décision publique', [0, 0, 3, 6, 13, 8, 13]],
+        ['Changement de programme ou de périmètre', [2, 3, 1, 5, 6, 8, 9]],
+        ['Niveau ou exigence technique non atteint', [0, 1, 3, 3, 14, 4, 5]],
+        ['Budget, financement ou intérêt fiscal', [0, 1, 2, 3, 8, 10, 2]],
+        ['Certification devenue inutile ou attestation suffisante', [1, 0, 4, 2, 1, 5, 6]],
+        ['Changement de label ou de certificateur', [0, 0, 2, 5, 1, 3, 4]],
+        ['Relances, pièces manquantes ou calendrier', [0, 0, 1, 1, 1, 3, 9]],
+        ['Commercialisation, acquéreur ou bailleur', [0, 0, 1, 0, 3, 3, 5]],
+        ['Liquidation ou radiation', [0, 0, 0, 1, 0, 1, 1]],
+        ['Appel d’offres ou entreprises introuvables', [0, 0, 0, 1, 2, 0, 0]],
+        ['Travaux refusés', [0, 0, 0, 0, 0, 1, 0]]
+      ],
+      excluded: { vague: 387, gestion: 32, undated: 5 }
+    },
+    annulContracts: { rows: [
+      ['Doublon', 12, 'Deux contrats cités comme référence figurent eux aussi dans l’export des annulations.'],
+      ['Erreur d’affectation', 1, 'Le contrat a été affecté à la mauvaise opération.'],
+      ['Fusion de contrats', 9, 'Huit dossiers précisent le rattachement, dont quatre vers OPE-006175.'],
+      ['Nouveau contrat ou périmètre repris', 7, 'Six lignes mentionnent un nouveau contrat. Une ligne rattache le périmètre à un autre contrat.'],
+      ['Remplacement ou transfert envisagé', 3, 'La mise en œuvre reste à vérifier.']
+    ] },
+    annulCertifier: { rows: [['Changement confirmé', 3], ['Client déjà engagé ailleurs', 1], ['À vérifier', 11], ['Autre motif documenté', 3]] },
+    annulReasons: { years: ANNUL_YEARS, rows: [
+      ['Montage financier infructueux', [0, 5, 6, 29, 41, 66, 27]],
+      ['Impossibilité d’atteindre le ou les niveaux visés', [2, 3, 11, 42, 57, 30, 35]],
+      ['Raison non renseignée', [1, 1, 1, 22, 21, 17, 32]],
+      ['Refus de permis de construire', [1, 0, 3, 7, 15, 7, 8]],
+      ['Changement de certificateur', [0, 0, 2, 4, 3, 3, 3]],
+      ['Acquéreur VEFA se retire du projet', [1, 0, 4, 2, 0, 1, 3]],
+      ['Changement location vers accession', [0, 1, 0, 2, 0, 2, 2]],
+      ['Recours sur permis de construire', [0, 0, 0, 0, 1, 1, 2]],
+      ['Faillite de la société', [0, 0, 0, 1, 0, 2, 0]],
+      ['Appel d’offres infructueux', [0, 0, 0, 1, 1, 1, 0]],
+      ['Fusion de société', [0, 0, 0, 1, 1, 0, 0]],
+      ['Erreur de lecture du cahier de l’aménageur', [0, 0, 0, 1, 0, 0, 0]]
+    ] }
+  };
+  const annulData = (type, c) => c.data || ANNUL_DEFAULT[type];
+  const toNumber = value => { const v = text(value).replace(/[\s  ]/g, '').replace(',', '.'); return /^-?\d+(?:\.\d+)?$/.test(v) ? Number(v) : null; };
+  // tableau copié depuis Excel / Google Sheets : tabulations, cellules entre guillemets (retours à la ligne internes)
+  function tsv(raw) {
+    if (!/\t/.test(String(raw || ''))) return String(raw || '').replace(/\r\n?/g, '\n').split('\n').map(l => l.trim().split(/\s{2,}/).map(c => c.trim())).filter(r => r.some(Boolean));
+    const out = []; let row = [], cell = '', quoted = false; const src = String(raw || '').replace(/\r\n?/g, '\n');
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (quoted) { if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') quoted = false; else cell += ch; continue; }
+      if (ch === '"' && cell === '') { quoted = true; continue; }
+      if (ch === '\t') { row.push(cell.trim()); cell = ''; continue; }
+      if (ch === '\n') { row.push(cell.trim()); out.push(row); row = []; cell = ''; continue; }
+      cell += ch;
+    }
+    row.push(cell.trim()); out.push(row);
+    return out.filter(r => r.some(Boolean));
+  }
+  function yearOf(value) {
+    const v = text(value); let m;
+    if ((m = /^(\d{4})-\d{2}-\d{2}/.exec(v))) return m[1];
+    if ((m = /^\d{1,2}\/\d{1,2}\/(\d{4})/.exec(v))) return m[1];
+    if (/^\d{5}(?:[.,]\d+)?$/.test(v)) return String(new Date(Date.UTC(1899, 11, 30) + Number(v.replace(',', '.')) * 864e5).getUTCFullYear());
+    if ((m = /\b(20\d{2})\b/.exec(v))) return m[1];
+    return null;
+  }
+  const VAGUE = /d[ée]tail vide|insuffisant|cause non pr[ée]cis[ée]e|sans cause pr[ée]cis[ée]e/i, CONTRACT = /^doublon|fusion|remplacement de contrat/i;
+  const themeName = t => /plus n[ée]cessaire/i.test(t) ? 'Certification devenue inutile ou attestation suffisante' : t;
+  // lignes de l'onglet source (une ligne par contrat) : thème en colonne H, date de demande en N, sous-motif en O, statut en P
+  function fromSource(rows) {
+    const head = rows[0].map(norm => norm.toLowerCase());
+    const find = (re, fallback) => { const i = head.findIndex(x => re.test(x)); return i >= 0 ? i : fallback; };
+    const iT = find(/motif tir|th[eè]me/, 7), iD = find(/date de demande/, 13), iO = find(/sous-motif/, 14), iP = find(/statut du changement|changement de certificateur/, 15);
+    const lines = rows.slice(1).filter(r => text(r[iT]) || text(r[1]));
+    const totals = {}, series = new Map(), excluded = { vague: 0, gestion: 0, undated: 0 }, subs = new Map(), statuses = new Map();
+    for (const r of lines) {
+      const y = yearOf(r[iD]), key = y && Number(y) >= 2000 ? y : 'Sans date', theme = themeName(text(r[iT]));
+      totals[key] = (totals[key] || 0) + 1;
+      if (text(r[iO])) subs.set(text(r[iO]), (subs.get(text(r[iO])) || 0) + 1);
+      if (text(r[iP])) statuses.set(text(r[iP]), (statuses.get(text(r[iP])) || 0) + 1);
+      if (!theme || VAGUE.test(theme)) { excluded.vague++; continue; }
+      if (CONTRACT.test(theme)) { excluded.gestion++; continue; }
+      if (key === 'Sans date') { excluded.undated++; continue; }
+      if (!series.has(theme)) series.set(theme, {});
+      series.get(theme)[key] = (series.get(theme)[key] || 0) + 1;
+    }
+    const years = Object.keys(totals).filter(k => k !== 'Sans date').sort();
+    const order = ANNUL_DEFAULT.annulThemes.themes.map(t => t[0]);
+    const themes = [...series].map(([name, v]) => [name, years.map(y => v[y] || 0)])
+      .sort((a, b) => ((order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99)) || b[1].reduce((x, z) => x + z, 0) - a[1].reduce((x, z) => x + z, 0));
+    return { themes: { years, totals, themes, excluded, source: lines.length }, subs, statuses };
+  }
+  // lecture du tableau collé pour une diapositive ; current = données affichées (un collage partiel les complète)
+  function parseAnnul(type, raw, current) {
+    const rows = tsv(raw);
+    if (!rows.length) throw new Error('Colle d’abord un tableau copié depuis Excel.');
+    const cur = current || ANNUL_DEFAULT[type];
+    const source = rows.length > 20 && rows[0].length >= 8;
+    if (type === 'annulReasons') {
+      const head = rows[0].slice(1).map(text), years = head.filter(y => /^\d{4}$/.test(y));
+      if (!years.length) throw new Error('La première ligne doit contenir les années (2020, 2021…) à partir de la deuxième colonne.');
+      const idx = years.map(y => head.indexOf(y) + 1);
+      const out = rows.slice(1).filter(r => text(r[0]) && !/^total/i.test(r[0])).map(r => [text(r[0]), idx.map(i => toNumber(r[i]) ?? 0)]);
+      if (!out.length) throw new Error('Aucune raison reconnue : une raison par ligne, puis un effectif par année.');
+      return { years, rows: out };
+    }
+    if (type === 'annulThemes') {
+      if (source) return { ...fromSource(rows).themes, asOf: cur.asOf };
+      const head = rows[0].slice(1), cols = head.map(x => /^\d{4}$/.test(text(x)) ? text(x) : /sans date/i.test(x) ? 'Sans date' : null);
+      if (!cols.some(Boolean)) throw new Error('La première ligne doit contenir les années (2020, 2021…) et, si besoin, « Sans date ».');
+      const years = cols.filter(x => x && x !== 'Sans date');
+      let totals = null; const themes = [];
+      for (const r of rows.slice(1)) {
+        const vals = cols.map((k, i) => [k, toNumber(r[i + 1]) ?? 0]).filter(([k]) => k);
+        if (/^total|^ann[ée]e/i.test(r[0])) { totals = Object.fromEntries(vals); continue; }
+        if (text(r[0])) themes.push([themeName(text(r[0])), years.map(y => vals.find(v => v[0] === y)?.[1] ?? 0)]);
+      }
+      if (!themes.length && !totals) throw new Error('Aucune ligne reconnue : une ligne « Total des annulations » ou une ligne par thème.');
+      const out = { ...cur, years: themes.length ? years : cur.years };
+      if (themes.length) { out.themes = themes; out.excluded = null; }
+      if (totals) { out.totals = totals; if (!themes.length) out.excluded = null; }
+      return out;
+    }
+    if (source) {
+      const r = fromSource(rows), map = type === 'annulContracts' ? r.subs : r.statuses;
+      if (!map.size) throw new Error(`La colonne ${type === 'annulContracts' ? 'O (sous-motif)' : 'P (statut du changement de certificateur)'} est vide dans le tableau collé.`);
+      const known = new Map((cur.rows || []).map(row => [norm(row[0]), row]));
+      return { rows: [...map].map(([label, n]) => type === 'annulContracts' ? [label, n, known.get(norm(label))?.[2] || ''] : [label, n]) };
+    }
+    const body = rows.filter(r => toNumber(r[1]) != null && !/^total|examin/i.test(r[0]));
+    if (!body.length) throw new Error(type === 'annulContracts' ? 'Format attendu : Sous-motif ⇥ Contrats ⇥ Explication.' : 'Format attendu : Statut ⇥ Dossiers.');
+    return { rows: body.map(r => type === 'annulContracts' ? [text(r[0]), toNumber(r[1]), text(r[2])] : [text(r[0]), toNumber(r[1])]) };
+  }
+  function norm(value) { return text(value).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[’']/g, "'"); }
+  const sum = values => values.reduce((a, b) => a + (Number(b) || 0), 0);
+  const plural = (n, one, many) => fmt(n) + ' ' + (n > 1 ? many : one);
+
+  function groupedColumns(h, years, themes) {
+    const W = 1490, H = 330, left = 46, right = 8, top = 26, bottom = 34;
+    const highest = Math.max(1, ...themes.flatMap(t => t[1]));
+    const step = highest <= 5 ? 1 : highest <= 10 ? 2 : highest <= 25 ? 5 : 10, max = Math.ceil(highest / step) * step;
+    const y = v => H - bottom - (H - top - bottom) * v / max, slot = (W - left - right) / years.length, bw = slot * .88 / themes.length;
+    let out = `<svg class="bilan-chart annul-columns" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Annulations par année et par thème">`;
+    for (let v = 0; v <= max; v += step) out += `<line x1="${left}" x2="${W - right}" y1="${y(v)}" y2="${y(v)}" stroke="#dbe6df"/><text x="${left - 10}" y="${y(v) + 6}" text-anchor="end">${fmt(v)}</text>`;
+    years.forEach((year, i) => {
+      const x0 = left + slot * i + slot * .06;
+      out += `<text x="${left + slot * (i + .5)}" y="${H - 8}" text-anchor="middle" class="annul-year">${h.esc(year)}</text>`;
+      themes.forEach(([name, values], j) => {
+        const v = Number(values[i]) || 0; if (!v) return;
+        const x = x0 + j * bw;
+        out += `<rect x="${x.toFixed(1)}" y="${y(v).toFixed(1)}" width="${(bw * .9).toFixed(1)}" height="${(y(0) - y(v)).toFixed(1)}" fill="${ANNUL_COLORS[j % ANNUL_COLORS.length]}"><title>${h.esc(`${name} · ${year} · ${v}`)}</title></rect>`;
+        out += `<text class="bilan-chart-value annul-value" x="${(x + bw * .45).toFixed(1)}" y="${(y(v) - 5).toFixed(1)}" text-anchor="middle">${fmt(v)}</text>`;
+      });
+    });
+    return out + '</svg>';
+  }
+  const annulLegend = (h, names) => `<div class="bilan-legend annul-legend">${names.map((label, i) =>
+    `<span><i style="background:${ANNUL_COLORS[i % ANNUL_COLORS.length]}"></i><span class="bilan-legend-label">${h.esc(label)}</span></span>`).join('')}</div>`;
+
+  function annulThemes(book, c, h) {
+    const d = annulData('annulThemes', c), keys = [...d.years, ...('Sans date' in (d.totals || {}) ? ['Sans date'] : [])];
+    const total = sum(Object.values(d.totals || {})), dated = sum(d.themes.flatMap(t => t[1])), out = total - dated, x = d.excluded;
+    const body = `<div class="annul-top"><div class="annul-kpi"><strong>${fmt(total)}</strong><span>annulations, tous motifs confondus</span><small>y compris les dossiers sans motif précis</small></div>
+      ${table(h, ['Année de la demande', ...keys], [['Total des annulations', ...keys.map(k => fmt(d.totals?.[k] ?? 0))]])}</div>
+      <p class="annul-chart-title">Contrats datés avec un motif explicite, par thème et par année · ${fmt(dated)} contrats</p>
+      ${groupedColumns(h, d.years, d.themes)}${annulLegend(h, d.themes.map(t => t[0]))}`;
+    const parts = x ? `${plural(x.vague, 'dossier au détail vide ou insuffisant', 'dossiers au détail vide ou insuffisant')}, ${plural(x.gestion, 'dossier de gestion contractuelle', 'dossiers de gestion contractuelle')} et ${plural(x.undated, 'motif explicite sans date', 'motifs explicites sans date')}, qui restent hors des barres`
+      : `${plural(out, 'dossier', 'dossiers')} hors des barres (détail vide ou insuffisant, gestion contractuelle ou motif sans date)`;
+    const refused = d.themes.find(t => /travaux refus/i.test(t[0]));
+    return {
+      subtitle: `${fmt(total)} annulations · barres : ${fmt(dated)} contrats datés avec un motif explicite`,
+      body,
+      note: `Lecture : le total inclut ${parts}.${d.asOf ? ` ${d.years.at(-1)} est arrêté au ${d.asOf}.` : ''}` +
+        (refused && sum(refused[1]) === 1 && !c.data ? ' Le cas « Travaux refusés » correspond à Nantes – Dalby, OPE-002975, avec une demande d’annulation le 18 février 2025. Le commentaire ne précise pas l’auteur ni la cause du refus.' : '') +
+        ' Source : onglet Annulation (thème en colonne H, date de demande en colonne N).'
+    };
+  }
+  function annulContracts(book, c, h) {
+    const d = annulData('annulContracts', c), n = sum(d.rows.map(r => r[1]));
+    const body = `<div class="annul-top"><div class="annul-kpi"><strong>${fmt(n)}</strong><span>contrats annulés pour gestion contractuelle</span><small>doublons, fusions, reprises et remplacements</small></div></div>
+      <table class="bilan-table annul-table"><thead><tr><th scope="col">Sous-motif</th><th scope="col">Contrats</th><th scope="col">Explication</th></tr></thead>
+      <tbody>${d.rows.map(([label, count, why]) => `<tr><th scope="row">${h.esc(label)}</th><td>${fmt(count)}</td><td class="annul-why">${h.esc(why || '')}</td></tr>`).join('')}
+      <tr class="annul-total"><th scope="row">Total</th><td>${fmt(n)}</td><td class="annul-why"></td></tr></tbody></table>`;
+    return { subtitle: `${fmt(n)} contrats · sous-motif du contrat (colonne O)`, body,
+      introduction: 'À vérifier : le statut des contrats de reprise doit être contrôlé pour établir la poursuite des opérations.',
+      note: 'Source : onglet Annulation, sous-motif du contrat en colonne O.' };
+  }
+  function donut(h, rows, total) {
+    const R = 170, r = 112, cx = 200, cy = 200; let a = -Math.PI / 2, out = `<svg class="annul-donut" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="Statuts des changements de certificateur">`;
+    rows.forEach(([label, n], i) => {
+      if (!n) return; const da = 2 * Math.PI * n / (total || 1), b = a + da, large = da > Math.PI ? 1 : 0, P = (rad, ang) => [cx + rad * Math.cos(ang), cy + rad * Math.sin(ang)].map(v => v.toFixed(2));
+      const d = rows.filter(x => x[1]).length === 1 ? `M${cx} ${cy - R}A${R} ${R} 0 1 1 ${cx - .01} ${cy - R}L${cx - .01} ${cy - r}A${r} ${r} 0 1 0 ${cx} ${cy - r}Z`
+        : `M${P(R, a)}A${R} ${R} 0 ${large} 1 ${P(R, b)}L${P(r, b)}A${r} ${r} 0 ${large} 0 ${P(r, a)}Z`;
+      out += `<path d="${d}" fill="${ANNUL_COLORS[i % ANNUL_COLORS.length]}" stroke="#fff" stroke-width="3"><title>${h.esc(label + ' · ' + n)}</title></path>`;
+      const m = a + da / 2, [tx, ty] = P((R + r) / 2, m); out += `<text x="${tx}" y="${Number(ty) + 9}" text-anchor="middle" class="annul-seg">${fmt(n)}</text>`; a = b;
+    });
+    return out + `<text x="${cx}" y="${cy + 6}" text-anchor="middle" class="annul-center">${fmt(total)}</text><text x="${cx}" y="${cy + 36}" text-anchor="middle" class="annul-center-label">dossiers</text><text x="${cx}" y="${cy + 60}" text-anchor="middle" class="annul-center-label">examinés</text></svg>`;
+  }
+  function annulCertifier(book, c, h) {
+    const d = annulData('annulCertifier', c), n = sum(d.rows.map(r => r[1]));
+    const body = `<div class="annul-donut-wrap">${donut(h, d.rows, n)}<ul class="annul-status">${d.rows.map(([label, count], i) =>
+      `<li><i style="background:${ANNUL_COLORS[i % ANNUL_COLORS.length]}"></i><span>${h.esc(label)}</span><strong>${fmt(count)}</strong><small>${n ? fmt(Math.round(count * 100 / n)) + ' %' : ''}</small></li>`).join('')}</ul></div>`;
+    const verify = d.rows.find(r => /v[ée]rifier/i.test(r[0]));
+    return { subtitle: `${fmt(n)} dossiers examinés · statut du changement de certificateur (colonne P)`, body,
+      note: (verify && verify[1] === 11 && !c.data ? 'Parmi les 11 dossiers à vérifier, 3 mentionnent un organisme imposé et 8 citent un autre label ou référentiel. ' : '') + 'Source : onglet Annulation, colonne P.' };
+  }
+  const UNKNOWN = /raison non renseign/i;
+  function reasonLines(h, years, rows) {
+    const W = 1490, H = 470, left = 78, right = 78, top = 30, bottom = 66;
+    const highest = Math.max(1, ...rows.flatMap(r => r[1]));
+    const step = [1, 2, 5, 10, 20, 25, 50, 100].find(s => highest / s <= 6) || 200, max = Math.ceil(highest / step) * step;
+    const x = i => left + (W - left - right) * (years.length === 1 ? .5 : i / (years.length - 1)), y = v => H - bottom - (H - top - bottom) * v / max;
+    const style = reasonStyles(rows);
+    let out = `<svg class="bilan-chart annul-lines" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Évolution des raisons déclarées">`;
+    for (let v = 0; v <= max; v += step) out += `<line x1="${left}" x2="${W - right}" y1="${y(v)}" y2="${y(v)}" stroke="#dbe6df"/><text x="${left - 10}" y="${y(v) + 6}" text-anchor="end">${fmt(v)}</text>`;
+    years.forEach((yr, i) => { out += `<text x="${x(i)}" y="${H - bottom + 26}" text-anchor="middle" class="annul-year">${h.esc(yr)}</text><text x="${x(i)}" y="${H - bottom + 50}" text-anchor="middle" class="annul-ytotal">${fmt(sum(rows.map(r => r[1][i])))} contrats</text>`; });
+    const order = rows.map((r, i) => i).sort((a, b) => style[a].rank - style[b].rank);
+    for (const i of order) {
+      const [name, values] = rows[i], st = style[i];
+      out += `<path d="${values.map((v, j) => `${j ? 'L' : 'M'}${x(j).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${st.color}" stroke-width="${st.width}"${st.dash ? ` stroke-dasharray="${st.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round"><title>${h.esc(name)}</title></path>`;
+      if (st.main || st.gray) out += values.map((v, j) => `<circle cx="${x(j).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${st.main ? 6 : 4}" fill="${st.color}"><title>${h.esc(`${name} · ${years[j]} · ${v}`)}</title></circle>`).join('');
+      if (st.main) { const other = rows.find((r2, k) => k !== i && style[k].main); const below = st.color === '#d1842a';
+        out += values.map((v, j) => { if (!v) return ''; const close = other && Math.abs(y(other[1][j]) - y(v)) < 26;
+          // deux étiquettes trop proches : la série secondaire passe à droite du point
+          if (close && below) return `<text class="bilan-chart-value annul-value annul-value-main" x="${(x(j) + 12).toFixed(1)}" y="${(y(v) + 20).toFixed(1)}" text-anchor="start" style="fill:${st.color}">${fmt(v)}</text>`;
+          return `<text class="bilan-chart-value annul-value annul-value-main" x="${x(j).toFixed(1)}" y="${(y(v) - 12).toFixed(1)}" text-anchor="middle" style="fill:${st.color}">${fmt(v)}</text>`; }).join(''); }
+    }
+    return out + '</svg>';
+  }
+  // deux séries principales (plus gros totaux hors « Raison non renseignée ») en trait épais ; « Raison non renseignée » en gris pointillé ; les autres en trait fin
+  function reasonStyles(rows) {
+    const totals = rows.map((r, i) => [i, sum(r[1])]).filter(([i]) => !UNKNOWN.test(rows[i][0])).sort((a, b) => b[1] - a[1]);
+    const main = new Map(totals.slice(0, 2).map(([i], k) => [i, ['#07543d', '#d1842a'][k]]));
+    const others = ['#3778a5', '#7160a1', '#2a9d8f', '#c0485a', '#8a6a3b', '#6aa84f', '#d36fb0', '#4b5563', '#e2b007', '#1f8fbf', '#a0522d', '#5a3d8a'];
+    let k = 0;
+    return rows.map((r, i) => UNKNOWN.test(r[0]) ? { color: '#8c9399', width: 4, dash: '10 7', gray: true, rank: 1 }
+      : main.has(i) ? { color: main.get(i), width: 6, main: true, rank: 2 } : { color: others[k++ % others.length], width: 2.5, rank: 0 });
+  }
+  function annulReasons(book, c, h) {
+    const d = annulData('annulReasons', c), total = sum(d.rows.flatMap(r => r[1])), unknown = sum(d.rows.filter(r => UNKNOWN.test(r[0])).flatMap(r => r[1]));
+    const st = reasonStyles(d.rows);
+    const legendHtml = `<div class="bilan-legend annul-legend annul-reason-legend">${d.rows.map((r, i) => `<span class="${st[i].main ? 'is-main' : st[i].gray ? 'is-gray' : ''}"><i style="${st[i].gray ? 'background:none;height:0;border-top:4px dashed #8c9399' : 'background:' + st[i].color}"></i><span class="bilan-legend-label">${h.esc(r[0])} · ${fmt(sum(r[1]))}</span></span>`).join('')}</div>`;
+    return { subtitle: `${fmt(total)} annulations datées, dont ${fmt(unknown)} sans raison renseignée`,
+      body: reasonLines(h, d.years, d.rows) + legendHtml,
+      note: `89 contrats sans date sont hors graphique. ${d.years.at(-1) || '2026'} est arrêté au 25 novembre. Raison déclarée dans l’export, reprise telle quelle.` };
+  }
+  const ANNUL_HELP = {
+    annulReasons: ['Copie la plage dans Excel puis colle-la ici : première colonne = raisons, première ligne = années, cellules = effectifs. Le graphique est recalculé dès le collage.', 'Raison\t2020\t2021\t2022\nMontage financier infructueux\t0\t5\t6'],
+    annulThemes: ['Thème ⇥ 2020 ⇥ 2021 ⇥ … ⇥ 2026, une ligne par thème ; ajoute une ligne « Total des annulations » (avec « Sans date ») pour le bandeau. Tu peux aussi coller l’onglet Annulation entier : les totaux sont recalculés depuis les colonnes H et N.', 'Thème\t2020\t2021\t2022\nPermis, recours ou décision publique\t0\t0\t3\nTotal des annulations\t5\t10\t27'],
+    annulContracts: ['Sous-motif ⇥ Contrats ⇥ Explication, une ligne par sous-motif (ou l’onglet entier : colonne O).', 'Sous-motif\tContrats\tExplication\nDoublon\t12\tDeux contrats…'],
+    annulCertifier: ['Statut ⇥ Dossiers, une ligne par statut (ou l’onglet entier : colonne P). Le total au centre est la somme.', 'Statut\tDossiers\nChangement confirmé\t3\nÀ vérifier\t11']
+  };
+  function annulControls(type, c, h) {
+    const [help, ph] = ANNUL_HELP[type];
+    return `<div class="control-section annul-paste"><h3>Coller un tableau Excel</h3><p class="help">${h.esc(help)}</p>
+      <p class="help"><strong>${c.data ? 'Tableau collé appliqué.' : 'Valeurs de l’onglet Annulation au 25/11/2026.'}</strong></p>
+      <div class="field"><textarea rows="7" data-annul-paste="${type}" placeholder="${h.esc(ph)}">${h.esc(c.paste || '')}</textarea></div>
+      <div class="evolution-import-actions"><button type="button" class="btn btn-primary" data-annul-apply="${type}">Appliquer le tableau</button><button type="button" class="btn btn-secondary btn-small" data-annul-reset="${type}">Valeurs du 25/11/2026</button></div>
+      <p class="help" data-annul-status role="status"></p></div>`;
+  }
+
+  const renders = { annulThemes, annulContracts, annulCertifier, annulReasons, bilanSummary: summary, bilanQuality: quality, abandonRate: cancellations, moaVolume: portfolio, certEvolution: evolution, labels, opSize: size };
   function html(type, model, book, h) {
     const c = config(type, model);
     const title = c.title ?? TITLES[type];
-    const display = book?.sheets ? renders[type](book, c, h)
+    const display = book?.sheets || ownData(type) ? renders[type](book, c, h)
       : { subtitle: 'Données du bilan consolidé', body: '<p class="bilan-empty">Importe le bilan Excel pour afficher cette diapositive.</p>' };
     const alignment = ['center', 'right'].includes(c.textAlign) ? c.textAlign : 'left';
     const treatment = c.textTreatment === 'callout' ? 'bilan-intro-callout' : '';
     const note = c.copy.note ?? display.note;
-    const message = c.copy.introduction?.trim() ? `<p class="bilan-intro ${treatment}">${h.esc(c.copy.introduction)}</p>` : '';
+    const intro = c.copy.introduction ?? display.introduction;
+    const message = intro?.trim() ? `<p class="bilan-intro ${treatment}">${h.esc(intro)}</p>` : '';
     return h.head(title, c.copy.subtitle ?? display.subtitle) + `<div class="bilan-content bilan-text-${alignment}">
       ${c.textPosition === 'below' ? '' : message}
       ${c.copy.heading?.trim() ? `<h2 class="bilan-content-heading">${h.esc(c.copy.heading)}</h2>` : ''}
@@ -615,5 +901,5 @@
       ${note?.trim() ? `<p class="bilan-note">${h.esc(note)}</p>` : ''}</div>`;
   }
 
-  window.OBSBilan = { TEMPLATES, TYPES, DECK, defaults, usesWorkbook, importWorkbook, controls, html };
+  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul };
 })();

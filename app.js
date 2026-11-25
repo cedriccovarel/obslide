@@ -551,7 +551,7 @@ const MAP_GEOJSON_URLS = [
     tertiaryTypes: 'Taille des opérations', envelope: 'Construction et isolation', equipments: 'Équipements',
     heatingMatrix: 'Équipements', ecsMatrix: 'Équipements', dpe: 'DPE'
   };
-  TEMPLATE_CATALOG.forEach(item => { item.family = legacyGroups[item.type]; });
+  TEMPLATE_CATALOG.forEach(item => { item.family = legacyGroups[item.type] || item.family; });
   for (const item of focused.definitions) {
     defaults[item.type] = clone(focused.defaults[item.type]);
     TEMPLATE_CATALOG.push(item);
@@ -5139,6 +5139,19 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       saveState();
       return;
     }
+    if (t.dataset.annulPaste) {
+      const type = t.dataset.annulPaste, m = state[type];
+      if (!m?.bilan) return;
+      m.bilan.paste = t.value;
+      const status = controls.querySelector('[data-annul-status]');
+      // collage : le graphique est recalculé dès que le tableau est lisible ; sinon le dernier tableau valide reste affiché
+      if (t.value.trim()) {
+        try { m.bilan.data = bilan.parseAnnul(type, t.value, m.bilan.data); if (status) status.textContent = 'Tableau lu et appliqué.'; renderSlide(); }
+        catch (error) { if (status) status.textContent = error.message; }
+      }
+      saveState();
+      return;
+    }
     if (t.dataset.evolutionImportPaste !== undefined) {
       state.evolution.importPaste = t.value;
       saveState();
@@ -5377,6 +5390,19 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       const items = getByPath(state, t.dataset.path);
       items.push({ name: 'À préciser', value: 0 });
       saveState(); renderControls(); renderSlide();
+    }
+    if (t.dataset.annulApply || t.dataset.annulReset) {
+      const type = t.dataset.annulApply || t.dataset.annulReset, m = state[type];
+      if (!m?.bilan) return;
+      if (t.dataset.annulReset) { m.bilan.data = null; saveState(); renderControls(); renderSlide(); toast('Valeurs de l’onglet Annulation au 25/11/2026 rétablies.'); return; }
+      try {
+        m.bilan.data = bilan.parseAnnul(type, m.bilan.paste, m.bilan.data);
+        saveState(); renderControls(); renderSlide(); toast('Tableau collé appliqué à la diapositive.');
+      } catch (error) {
+        const status = document.querySelector('[data-annul-status]');
+        if (status) status.textContent = error.message; else toast(error.message);
+      }
+      return;
     }
     if (t.dataset.evolutionImport !== undefined) {
       importEvolutionSheetPaste();
