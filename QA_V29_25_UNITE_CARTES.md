@@ -38,3 +38,8 @@ Observatoire V6.67 (dépôt observatoire-prestaterre-beta, non poussé) : `gener
 | TOP 12 → TOP 3 → libre 2 | 3 puis 2 lignes, menu synchronisé |
 | Bailleurs / promoteurs, 6 catégories longues, Présentation | légende dans la carte, slide entière à l'écran |
 | Non-régression pont normal + carte unités | identique |
+
+## V29.25.1 / Observatoire V6.67.1 — correctif de lenteur (26/11/2026)
+
+Cause : la V6.67 envoyait à chaque ouverture du Générateur tous les contrats hors périmètre (milliers de lignes), convertis par Obslide → onglets figés. Désormais l'Observatoire n'envoie que le périmètre + `othersAvailable` ; Obslide demande `obslide-need-others` seulement quand la case est décochée (ou si « sans périmètre » est mémorisé), reçoit `newosb-generator-others`, dédoublonne par code. Case grisée pendant le chargement, délai 60 s (périmètre conservé si pas de réponse). Envoi direct `otherOperationRows` (V6.67) toujours accepté.
+Essais : pont simulé (4 + 2) → demande envoyée seulement au décochage, 4 → 6 → 4 ; vraie V6.67.1 en démonstration servie en local → ouverture identique à V6.66, décochage OK, aucune erreur ; Observatoire 251 tests OK.

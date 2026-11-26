@@ -2498,7 +2498,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
   function dataLaunchScopeHtml(){
     const can=!(dataRuntime.mode==='observatoire'&&!dataRuntime.otherReceived), total=dataRuntime.connected?dataRuntime.operations.length:0;
-    const toggle=dataLaunchScope?`<label class="slide-filter-scope-limit" title="${can?(dataScopeAll?`Sans périmètre : les ${frSmart(total)} contrats disponibles`:'Décocher pour utiliser tous les contrats disponibles sur l’Observatoire'):'Mettre à jour l’Observatoire (V6.67) pour transmettre aussi les contrats hors périmètre'}"><input type="checkbox" data-scope-limit="1"${dataScopeAll?'':' checked'}${can?'':' disabled'}> Limiter au périmètre Observatoire</label>`:'';
+    const toggle=dataLaunchScope?`<label class="slide-filter-scope-limit" title="${can?(dataScopeAll?`Sans périmètre : les ${frSmart(total)} contrats disponibles`:'Décocher pour utiliser tous les contrats disponibles sur l’Observatoire'):'Mettre à jour l’Observatoire (V6.67) pour transmettre aussi les contrats hors périmètre'}"><input type="checkbox" data-scope-limit="1"${dataScopeAll?'':' checked'}${can&&!dataOthersPending?'':' disabled'}> Limiter au périmètre Observatoire${dataOthersPending?' (chargement…)':''}</label>`:'';
     return dataLaunchScope?toggle+`<div class="slide-filter-launch-scope${dataScopeAll?' is-off':''}"><div><b>Périmètre Observatoire${dataScopeAll?' (non appliqué)':''}</b><span title="${esc(dataLaunchScope.summary||'')}">${esc(dataLaunchScope.summary||`${dataLaunchScope.operationCodes?.length||0} opérations transmises`)} · ${frSmart(dataLaunchScope.operationCodes?.length||0)} opérations</span></div><button type="button" data-clear-newosb-scope="1" title="Retirer le périmètre transmis par l’Observatoire" aria-label="Retirer le périmètre transmis par l’Observatoire">×</button></div>`:'';
   }
   function dataRenderSlideFilterBar(){
@@ -2553,6 +2553,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     slideFilterToolbar.addEventListener('change',e=>{
       const t=e.target; if(!t?.matches?.('[data-scope-limit]')) return;
       dataSetScopeAll(!t.checked);
+      if(dataScopeAll&&dataRuntime.mode==='observatoire'&&!dataRuntime.othersLoaded){ if(dataRequestObservatoireOthers()){ toast('Chargement des contrats hors périmètre depuis l’Observatoire…'); try{ dataRenderSlideFilterToolbar(); }catch{} return; } }
       if(dataRuntime.connected) dataSyncViews();
       try{ dataUpdateBadge(); dataRenderSlideFilterToolbar(); renderControls(); renderSlide(); }catch(err){ console.error(err); }
       const n=dataRuntime.filtered?.length||0;
@@ -7354,6 +7355,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   // V29.25 : case « Limiter au périmètre de l'Observatoire ». Décochée : toutes les opérations reçues (périmètre filtré
   // + contrats hors filtre transmis par l'Observatoire ≥ V6.67, ou toute la source chargée) ; réglage gardé sur ce poste.
   const DATA_SCOPE_ALL_KEY='obslide.perimetre.tous.v1';
+  let dataOthersPending=false;
   let dataScopeAll=(()=>{try{return localStorage.getItem(DATA_SCOPE_ALL_KEY)==='1';}catch{return false;}})();
   function dataSetScopeAll(v){ dataScopeAll=!!v; try{ if(dataScopeAll) localStorage.setItem(DATA_SCOPE_ALL_KEY,'1'); else localStorage.removeItem(DATA_SCOPE_ALL_KEY); }catch{} }
   function dataApplyLaunchScope(ops){
@@ -7388,6 +7390,21 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     ask();
     return true;
   }
+  // V29.25.1 : contrats hors périmètre demandés à l'Observatoire seulement quand la case est décochée (ouverture aussi rapide qu'avant)
+  function dataRequestObservatoireOthers(){
+    const token=dataObservatoireHandoffToken(); let opener=null; try{opener=window.opener;}catch{}
+    if(!token||!opener||dataOthersPending) return false; dataOthersPending=true;
+    const onMsg=e=>{ if(e.origin!==location.origin||e.source!==opener) return; const d=e.data; if(d?.type!=='newosb-generator-others'||d.token!==token) return;
+      window.removeEventListener('message',onMsg); dataOthersPending=false;
+      let others=[]; try{ others=dataRowsToOperations(Array.isArray(d.otherOperationRows)?d.otherOperationRows:[]); }catch(err){ console.error('Obslide : contrats hors périmètre',err); toast('Contrats hors périmètre illisibles.'); return; }
+      const have=new Set(dataRuntime.operations.map(o=>dataNorm(o?.code))); others=others.filter(o=>!have.has(dataNorm(o?.code)));
+      dataRuntime.operations=[...dataRuntime.operations,...others]; dataRuntime.othersLoaded=true; dataRuntime.otherCount=others.length;
+      dataPopulateFilters(); dataSyncViews(); try{ dataUpdateBadge(); dataRenderSlideFilterToolbar(); renderControls(); renderSlide(); }catch(err){ console.error(err); }
+      const n=dataRuntime.filtered?.length||0; toast(`Sans périmètre : ${n} opération${n>1?'s':''} (tous les contrats disponibles).`); };
+    window.addEventListener('message',onMsg);
+    try{ opener.postMessage({type:'obslide-need-others',token},location.origin); }catch{ dataOthersPending=false; return false; }
+    setTimeout(()=>{ if(dataOthersPending){ dataOthersPending=false; window.removeEventListener('message',onMsg); toast('L’Observatoire n’a pas répondu (onglet fermé ?) : périmètre conservé.'); dataSetScopeAll(false); try{ dataSyncViews(); dataUpdateBadge(); dataRenderSlideFilterToolbar(); renderSlide(); }catch{} } },60000);
+    return true; }
   function dataAdoptObservatoireData(d){
     const problems=[];
     // 1. Exigences : lignes affichées par l'onglet Exigences de l'Observatoire.
@@ -7409,7 +7426,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     let others=[];
     try{ if(Array.isArray(d.otherOperationRows)&&d.otherOperationRows.length) others=dataRowsToOperations(d.otherOperationRows); }
     catch(err){console.error('Obslide : contrats hors périmètre de l’Observatoire',err);problems.push(`contrats hors périmètre illisibles (${err.message||err})`);}
-    dataRuntime.otherReceived=Array.isArray(d.otherOperationRows); dataRuntime.otherCount=others.length;
+    dataRuntime.otherReceived=Array.isArray(d.otherOperationRows)||!!d.othersAvailable; dataRuntime.othersLoaded=Array.isArray(d.otherOperationRows); dataRuntime.otherCount=others.length;
     if(ops.length){
       try{
         dataSnapshotManual();
@@ -7431,6 +7448,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     dataFeedback(problems.length?`${msg} Problème : ${problems.join(' ; ')}.`:msg,!!problems.length);
     toast(problems.length?`Données de l’Observatoire reçues avec un problème : ${problems.join(' ; ')}.`:`Données de l’Observatoire reçues : ${n} opération${n>1?'s':''}${ev?`, ${ev} dossiers d’exigences`:''}.`);
     try{dataUpdateBadge();dataRenderSlideFilterToolbar();renderControls();renderSlide();}catch(err){console.error(err);}
+    if(dataScopeAll&&dataRuntime.otherReceived&&!dataRuntime.othersLoaded) dataRequestObservatoireOthers();
   }
   // Accès pour les slides Exigences (requirements-slides.js).
   window.OBSLIDE_LAUNCH_SCOPE={
