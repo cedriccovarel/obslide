@@ -187,11 +187,11 @@ function html(type,model,h){
   if(type==='moaVolume'){
     if(!model.total) return head(model.title,model.subtitle)+emptyPage(NOT_CONNECTED);
     const met=model.metric==='dwellings'?'dwellings':'operations', unit=met==='dwellings'?'de logements':'d’opérations', tot=model.families.reduce((a,x)=>a+x[met],0);
-    const famColor=new Map(model.families.map((f,i)=>[f.name,PALETTE[i%PALETTE.length]])), top=model.clients.slice().sort((a,b)=>b[met]-a[met]).slice(0,Math.max(3,Math.min(25,Math.round(model.topN)||12)));
+    const famColor=new Map(model.families.map((f,i)=>[f.name,PALETTE[i%PALETTE.length]])), N=Math.max(1,Math.min(50,Math.round(Number(model.topN))||12)), top=model.clients.slice().sort((a,b)=>b[met]-a[met]).slice(0,N);
     return `${head(model.title,model.subtitle,'',`Classement par nombre ${unit}.`)}
       <div class="an-grid an-cols-2 an-moa">
         <div class="an-card card"><h3>Par famille de MOA</h3>${bars(model.families,{value:x=>x[met],label:x=>`<i class="an-dot" style="background:${famColor.get(x.name)}"></i>${esc(x.name)}`,fmt:x=>frSmart(x[met]),sub:x=>`${pc(x[met],tot)} · ${frSmart(x.clients)} client${x.clients>1?'s':''}`,color:x=>famColor.get(x.name)})}</div>
-        <div class="an-card card"><h3>Principaux clients</h3>${bars(top,{value:x=>x[met],label:x=>`<i class="an-dot" style="background:${famColor.get(x.family)}"></i>${esc(x.name)}`,fmt:x=>frSmart(x[met]),sub:x=>esc(x.family),color:x=>famColor.get(x.family)})}</div>
+        <div class="an-card card${N>12?(N>25?' an-dense an-dense2':' an-dense'):''}"><h3>Principaux clients — TOP ${N}</h3>${bars(top,{value:x=>x[met],label:x=>`<i class="an-dot" style="background:${famColor.get(x.family)}"></i>${esc(x.name)}`,fmt:x=>frSmart(x[met]),sub:x=>esc(x.family),color:x=>famColor.get(x.family)})}</div>
       </div>`;
   }
   if(type==='certEvolution'){
@@ -283,7 +283,7 @@ function controls(type,model,h){
   const {field,selectField,toggleField,esc,frSmart}=h, p=k=>`${type}.${k}`;
   const texts=`<div class="control-section"><h3>Textes</h3>${field('Titre',p('title'),'text')}${field('Sous-titre',p('subtitle'),'text')}</div>`;
   if(type==='abandonRate') return texts+`<div class="control-section"><h3>Affichage</h3>${toggleField('Par année',p('showYear'))}${toggleField('Par référentiel',p('showReferential'))}<p class="help">Statut « annulé » ou « abandonné » de l’évaluation. Année : colonne Année, sinon date de création.</p></div>`;
-  if(type==='moaVolume') return texts+`<div class="control-section"><h3>Affichage</h3>${selectField('Mesure',p('metric'),[{value:'operations',label:'Nombre d’opérations'},{value:'dwellings',label:'Nombre de logements'}])}${field('Nombre de clients affichés (3 à 25)',p('topN'),'number',{step:'1',min:3,max:25})}<p class="help">Famille : colonne « Maître d’ouvrage : Hiérarchie » / « Type MOA ».</p></div>`;
+  if(type==='moaVolume') return texts+`<div class="control-section"><h3>Affichage</h3>${selectField('Mesure',p('metric'),[{value:'operations',label:'Nombre d’opérations'},{value:'dwellings',label:'Nombre de logements'}])}${(()=>{ const n=Math.round(Number(model.topN))||12, pre=[3,5,10,15,20]; return `<div class="field"><label>Clients affichés</label><select data-bind="${p('topN')}">${pre.map(v=>`<option value="${v}"${v===n?' selected':''}>TOP ${v}</option>`).join('')}${pre.includes(n)?'':`<option value="${n}" selected>TOP ${n} (personnalisé)</option>`}</select></div>`; })()}${field('TOP : nombre libre (1 à 50)',p('topN'),'number',{step:'1',min:1,max:50})}<p class="help">Famille : colonne « Maître d’ouvrage : Hiérarchie » / « Type MOA ».</p></div>`;
   if(type==='certEvolution'){ const kind=model.kind==='performance'?'performance':'mention', list=model.series?.[kind]||[];
     return texts+`<div class="control-section"><h3>Données</h3>${selectField('Suivre',p('kind'),[{value:'mention',label:'Mentions et labels'},{value:'performance',label:'Performances et niveaux'}])}${selectField('Valeur',p('display'),[{value:'count',label:'Nombre d’opérations'},{value:'share',label:'Part des opérations de l’année'}])}</div>
       <div class="control-section"><h3>Séries affichées</h3>${list.length?list.map((s,i)=>toggleField(`${s.name} (${frSmart(s.total)})`,`${type}.series.${kind}.${i}.show`)).join(''):'<p class="help">Aucune série : connecte les données.</p>'}<p class="help">12 séries au plus sur le graphique.</p></div>`; }

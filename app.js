@@ -50,6 +50,9 @@ const MAP_GEOJSON_URLS = [
     return out;
   })();
   const REGION_BY_CODE = Object.fromEntries(REGIONS.map(region => [region.code, region]));
+  // V29.25 : unité des cartes département / région — [singulier, pluriel, MAJUSCULES]
+  const MAP_UNITS = { operations:['opération','opérations','OPÉRATIONS'], dwellings:['logement','logements','LOGEMENTS'], buildings:['bâtiment','bâtiments','BÂTIMENTS'] };
+  const mapU = (i = 1) => (MAP_UNITS[state.map?.unit] || MAP_UNITS.operations)[i];
 
   const lists = {
     labels: [
@@ -447,6 +450,7 @@ const MAP_GEOJSON_URLS = [
       title: 'CARTOGRAPHIE DES OPÉRATIONS',
       subtitle: 'Répartition des opérations par département',
       level: 'department',
+      unit: 'operations',
       regionZoom: 'all',
       values: {},
       paste: '',
@@ -608,6 +612,7 @@ const MAP_GEOJSON_URLS = [
   if (!state.presentation.textScaleByTab || typeof state.presentation.textScaleByTab !== 'object') state.presentation.textScaleByTab = {};
   if (!state.map || typeof state.map !== 'object') state.map = clone(defaults.map);
   if (!['department','region'].includes(state.map.level)) state.map.level = 'department';
+  if (!MAP_UNITS[state.map.unit]) state.map.unit = 'operations';
   if (state.map.regionZoom !== 'all' && !REGIONS.some(region => !region.overseas && region.name === state.map.regionZoom)) state.map.regionZoom = 'all';
   state.cityList = deepMerge(clone(defaults.cityList), state.cityList && typeof state.cityList === 'object' ? state.cityList : {});
   state.communeMap = deepMerge(clone(defaults.communeMap), state.communeMap && typeof state.communeMap === 'object' ? state.communeMap : {});
@@ -1416,7 +1421,7 @@ const MAP_GEOJSON_URLS = [
       return `<div class="map-dept-row" data-map-row="1" data-code="${esc(dep.code)}" data-name="${esc(normalizeMapText(dep.name))}">
         <span class="map-dept-code">${esc(dep.code)}</span>
         <span class="map-dept-name">${esc(dep.name)}</span>
-        <input class="map-dept-input" type="number" min="0" step="1" data-map-value="${esc(dep.code)}" value="${value > 0 ? esc(value) : ''}" aria-label="Nombre d’opérations - ${esc(dep.name)}" />
+        <input class="map-dept-input" type="number" min="0" step="1" data-map-value="${esc(dep.code)}" value="${value > 0 ? esc(value) : ''}" aria-label="Nombre de ${mapU(1)} - ${esc(dep.name)}" />
       </div>`;
     }).join('');
   }
@@ -1433,13 +1438,14 @@ const MAP_GEOJSON_URLS = [
     return `<div class="control-section map-control-intro">
       <h3>Cartographie g&eacute;ographique</h3>
       <p class="help">Les donn&eacute;es restent lues ou saisies par d&eacute;partement. La vue R&eacute;gion regroupe automatiquement chaque d&eacute;partement dans sa r&eacute;gion administrative.</p>
+      <div class="field"><label>Unit&eacute;</label><select data-map-unit="1">${Object.entries({operations:'Nombre d’opérations',dwellings:'Nombre de logements',buildings:'Nombre de bâtiments'}).map(([k,v])=>`<option value="${k}" ${state.map.unit===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div class="field"><label>Niveau d&rsquo;affichage</label><select data-map-level="1"><option value="department" ${state.map.level === 'department' ? 'selected' : ''}>D&eacute;partement</option><option value="region" ${state.map.level === 'region' ? 'selected' : ''}>R&eacute;gion</option></select></div>
       ${state.map.level === 'department' ? `<div class="field map-region-zoom-control"><label>Zoom r&eacute;gional</label><select data-map-region-zoom="1">${mapRegionZoomOptions()}</select><div class="field-hint">France enti&egrave;re conserve la carte nationale. Une r&eacute;gion recadre la carte et affiche uniquement ses d&eacute;partements.</div></div>` : ''}
-      <div class="map-total-control"><span>Total op&eacute;rations</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
+      <div class="map-total-control"><span>Total ${mapU(1)}</span><strong id="mapControlTotal">${frSmart(mapTotal())}</strong></div>
     </div>
     <div class="control-section">
       <h3>Copier / coller</h3>
-      <div class="field"><label>D&eacute;partement + nombre d&rsquo;op&eacute;rations</label><textarea id="mapPasteArea" data-map-paste="1" placeholder="Nord\t18
+      <div class="field"><label>D&eacute;partement + nombre de ${mapU(1)}</label><textarea id="mapPasteArea" data-map-paste="1" placeholder="Nord\t18
 Pas-de-Calais\t15
 Paris\t7">${esc(state.map.paste || '')}</textarea></div>
       <div class="map-control-actions">
@@ -2491,7 +2497,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     </div>`;
   }
   function dataLaunchScopeHtml(){
-    return dataLaunchScope?`<div class="slide-filter-launch-scope"><div><b>Périmètre Observatoire</b><span title="${esc(dataLaunchScope.summary||'')}">${esc(dataLaunchScope.summary||`${dataLaunchScope.operationCodes?.length||0} opérations transmises`)} · ${frSmart(dataLaunchScope.operationCodes?.length||0)} opérations</span></div><button type="button" data-clear-newosb-scope="1" title="Retirer le périmètre transmis par l’Observatoire" aria-label="Retirer le périmètre transmis par l’Observatoire">×</button></div>`:'';
+    const can=!(dataRuntime.mode==='observatoire'&&!dataRuntime.otherReceived), total=dataRuntime.connected?dataRuntime.operations.length:0;
+    const toggle=dataLaunchScope?`<label class="slide-filter-scope-limit" title="${can?(dataScopeAll?`Sans périmètre : les ${frSmart(total)} contrats disponibles`:'Décocher pour utiliser tous les contrats disponibles sur l’Observatoire'):'Mettre à jour l’Observatoire (V6.67) pour transmettre aussi les contrats hors périmètre'}"><input type="checkbox" data-scope-limit="1"${dataScopeAll?'':' checked'}${can?'':' disabled'}> Limiter au périmètre Observatoire</label>`:'';
+    return dataLaunchScope?toggle+`<div class="slide-filter-launch-scope${dataScopeAll?' is-off':''}"><div><b>Périmètre Observatoire${dataScopeAll?' (non appliqué)':''}</b><span title="${esc(dataLaunchScope.summary||'')}">${esc(dataLaunchScope.summary||`${dataLaunchScope.operationCodes?.length||0} opérations transmises`)} · ${frSmart(dataLaunchScope.operationCodes?.length||0)} opérations</span></div><button type="button" data-clear-newosb-scope="1" title="Retirer le périmètre transmis par l’Observatoire" aria-label="Retirer le périmètre transmis par l’Observatoire">×</button></div>`:'';
   }
   function dataRenderSlideFilterBar(){
     if(tabType(activeTab)==='nexityMap') return window.OBSNexityMap.toolbar(state.nexityMap);
@@ -2542,6 +2550,14 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if(!slideFilterToolbar||slideFilterToolbar.dataset.bound==='1')return;
     slideFilterToolbar.dataset.bound='1';
 
+    slideFilterToolbar.addEventListener('change',e=>{
+      const t=e.target; if(!t?.matches?.('[data-scope-limit]')) return;
+      dataSetScopeAll(!t.checked);
+      if(dataRuntime.connected) dataSyncViews();
+      try{ dataUpdateBadge(); dataRenderSlideFilterToolbar(); renderControls(); renderSlide(); }catch(err){ console.error(err); }
+      const n=dataRuntime.filtered?.length||0;
+      toast(dataScopeAll?`Sans périmètre : ${n} opération${n>1?'s':''} (tous les contrats disponibles). Exigences : celles transmises par l’Observatoire.`:`Périmètre de l’Observatoire : ${n} opération${n>1?'s':''}.`);
+    });
     slideFilterToolbar.addEventListener('click',e=>{
       const clearScope=e.target.closest('[data-clear-newosb-scope]');
       if(clearScope){e.preventDefault();e.stopPropagation();dataClearLaunchScope();return;}
@@ -3008,8 +3024,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     return [...(items || [])].map(item => ({name:String(item?.name || '').trim(), value:Math.max(0,num(item?.value))})).filter(item => item.name).sort((a,b)=>b.value-a.value);
   }
 
+  // V29.25 : au-delà de 7 catégories, les plus petites sont regroupées en « Autres » (la légende tient dans la carte)
+  function stakeholderItems(){ const all=sortedPositiveItems(state.stakeholderSplit.items); if(all.length<=7) return all; const rest=all.slice(6); return [...all.slice(0,6),{name:`Autres (${rest.length} catégories)`,value:rest.reduce((a,x)=>a+x.value,0)}]; }
   function renderStakeholderSplitSlide() {
-    const items = sortedPositiveItems(state.stakeholderSplit.items);
+    const items = stakeholderItems();
     const total = items.reduce((s,item)=>s+item.value,0);
     const first = items[0] || {name:'—',value:0};
     const second = items[1] || {name:'—',value:0};
@@ -3018,7 +3036,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       <div class="stakeholder-main-card card">
         <div class="stakeholder-donut-area">
           <div class="stakeholder-donut" style="background:${donutGradient(items)}"><div class="stakeholder-donut-hole"><b>${frSmart(total)}</b><span>opérations au total</span></div></div>
-          <div class="stakeholder-legend">${items.map((item,i)=>`<div class="stakeholder-legend-row"><span class="legend-swatch" style="background:${COLORS[i%COLORS.length]}"></span><div><b>${esc(item.name)}</b><span>${frSmart(item.value)} opérations (${fr(share(item.value),1)} %)</span></div></div>`).join('')}</div>
+          <div class="stakeholder-legend${items.length>4?' is-dense':''}">${items.map((item,i)=>`<div class="stakeholder-legend-row"><span class="legend-swatch" style="background:${COLORS[i%COLORS.length]}"></span><div><b>${esc(item.name)}</b><span>${frSmart(item.value)} opérations (${fr(share(item.value),1)} %)</span></div></div>`).join('')}</div>
         </div>
       </div>
       <div class="stakeholder-kpis">
@@ -3780,7 +3798,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
 
   function renderMapSlide() {
     const byRegion = state.map.level === 'region';
-    return `${head(state.map.title, state.map.subtitle, '', `Une bulle = le nombre d’opérations renseignées par ${byRegion ? 'région' : 'département'}`)}
+    return `${head(state.map.title, state.map.subtitle, '', `Une bulle = le nombre ${state.map.unit==='dwellings'?'de logements':state.map.unit==='buildings'?'de bâtiments':'d’opérations'} ${state.map.unit&&state.map.unit!=='operations'?'renseignés':'renseignées'} par ${byRegion ? 'région' : 'département'}`)}
       <div class="map-slide-canvas">
         <svg id="departmentMapSvg" class="department-map-svg" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" aria-label="Carte de France des opérations par ${byRegion ? 'région' : 'département'}"></svg>
         <div id="mapSlideStatus" class="map-slide-status">Chargement du fond cartographique…</div>
@@ -4048,7 +4066,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const x = 1160, y = 375, width = 400, height = 505;
     svg.appendChild(mapSvgEl('rect', { x, y, width, height, rx: 18, fill: '#ffffff', stroke: forest, 'stroke-width': 1.5 }));
     mapAddText(svg, 'ZOOM ÎLE-DE-FRANCE', x + 20, y + 34, { fill: forest, size: 17, weight: 900 });
-    mapAddText(svg, `${frSmart(getIdfMapTotal())} OPÉRATIONS`, x + width - 20, y + 34, { fill: forest, size: 13, weight: 900, anchor: 'end' });
+    mapAddText(svg, `${frSmart(getIdfMapTotal())} ${mapU(2)}`, x + width - 20, y + 34, { fill: forest, size: 13, weight: 900, anchor: 'end' });
 
     const mapBox = { x: x + 24, y: y + 58, width: 352, height: 258 };
     const project = createMapProjector(idfFeatures, mapBox);
@@ -4158,7 +4176,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     svg.appendChild(mapSvgEl('rect', { x:1160, y:62, width:400, height:786, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
     mapAddText(svg, 'ZOOM R\u00c9GIONAL', 1214, 102, { fill:forest, size:12, weight:900 });
     mapAddText(svg, region.name.toUpperCase(), 1214, 132, { fill:text, size:15, weight:900 });
-    mapAddText(svg, 'TOTAL OP\u00c9RATIONS', 1214, 178, { fill:forest, size:12, weight:900 });
+    mapAddText(svg, `TOTAL ${mapU(2)}`, 1214, 178, { fill:forest, size:12, weight:900 });
     mapAddText(svg, frSmart(total), 1214, 233, { fill:forest, size:46, weight:900 });
     mapAddText(svg, `${region.departments.length} d\u00e9partements affich\u00e9s`, 1214, 263, { fill:'#557567', size:11, weight:700 });
     mapAddText(svg, 'R\u00c9PARTITION PAR D\u00c9PARTEMENT', 1214, 310, { fill:forest, size:11, weight:900 });
@@ -4247,9 +4265,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const nationalTotal = mapTotal();
     const dromTotal = ['971','972','973','974','976'].reduce((total, code) => total + Math.max(0, num(state.map.values?.[code])), 0);
     svg.appendChild(mapSvgEl('rect', { x:1160, y:80, width:400, height:260, rx: 18, fill: '#f7faf8', stroke: forest, 'stroke-width': 1.5 }));
-    mapAddText(svg, 'TOTAL OPÉRATIONS', 1192, 120, { fill: forest, size: 14, weight: 900 });
+    mapAddText(svg, `TOTAL ${mapU(2)}`, 1192, 120, { fill: forest, size: 14, weight: 900 });
     mapAddText(svg, frSmart(nationalTotal), 1192, 185, { fill: forest, size: 48, weight: 900 });
-    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1192, 214, { fill:text, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1192, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
+    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, state.map.unit&&state.map.unit!=='operations'?`Opérations cartographiées : ${frSmart(state.map.dataMappedCount)} / ${frSmart(filtered)}`:`Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1192, 214, { fill:text, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1192, 236, { fill:'#9a4b2f', size:10.5, weight:700 });const nm=Math.max(0,num(state.map.dataNoMetric));if(nm>0)mapAddText(svg, `${frSmart(nm)} opération${nm>1?'s':''} sans ${mapU(1)} renseigné${nm>1?'s':''}`, 1192, missing>0?252:236, { fill:'#9a4b2f', size:10.5, weight:700 });}
     mapAddText(svg, `Île-de-France : ${frSmart(idfTotal)}`, 1192, dataRuntime.connected?262:220, { fill: text, size: 13, weight: 700 });
     if (dromTotal > 0) mapAddText(svg, `DROM saisis : ${frSmart(dromTotal)} (hors carte principale)`, 1192, dataRuntime.connected?286:248, { fill: '#557567', size: 11, weight: 600 });
     mapAddText(svg, 'Fond blanc · contours départementaux vert forêt', 1192, dataRuntime.connected?310:286, { fill: '#557567', size: 10, weight: 600 });
@@ -4336,9 +4354,9 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const dromTotal = dromRegions.reduce((total, region) => total + Math.max(0, num(totals[region.name])), 0);
 
     svg.appendChild(mapSvgEl('rect', { x:1160, y:80, width:400, height:320, rx:18, fill:'#f7faf8', stroke:forest, 'stroke-width':1.5 }));
-    mapAddText(svg, 'TOTAL OPÉRATIONS', 1192, 120, { fill:forest, size:14, weight:900 });
+    mapAddText(svg, `TOTAL ${mapU(2)}`, 1192, 120, { fill:forest, size:14, weight:900 });
     mapAddText(svg, frSmart(nationalTotal), 1192, 185, { fill:forest, size:48, weight:900 });
-    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, `Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1192, 214, { fill:textColor, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1192, 236, { fill:'#9a4b2f', size:10.5, weight:700 });}
+    if(dataRuntime.connected){const filtered=Math.max(0,num(state.map.dataConnectedCount));const missing=Math.max(0,num(state.map.dataUnmappedCount));mapAddText(svg, state.map.unit&&state.map.unit!=='operations'?`Opérations cartographiées : ${frSmart(state.map.dataMappedCount)} / ${frSmart(filtered)}`:`Cartographiées : ${frSmart(nationalTotal)} / ${frSmart(filtered)}`, 1192, 214, { fill:textColor, size:11, weight:800 });if(missing>0)mapAddText(svg, `${frSmart(missing)} opération${missing>1?'s':''} sans département reconnu`, 1192, 236, { fill:'#9a4b2f', size:10.5, weight:700 });const nm=Math.max(0,num(state.map.dataNoMetric));if(nm>0)mapAddText(svg, `${frSmart(nm)} opération${nm>1?'s':''} sans ${mapU(1)} renseigné${nm>1?'s':''}`, 1192, missing>0?252:236, { fill:'#9a4b2f', size:10.5, weight:700 });}
     mapAddText(svg, 'VUE PAR RÉGION', 1192, dataRuntime.connected?266:225, { fill:forest, size:13, weight:900 });
     mapAddText(svg, 'Départements regroupés automatiquement', 1192, dataRuntime.connected?290:250, { fill:textColor, size:11, weight:600 });
     mapAddText(svg, 'Limites départementales masquées', 1192, dataRuntime.connected?312:272, { fill:textColor, size:11, weight:600 });
@@ -5181,6 +5199,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         ? (t.dataset.allowBlank === '1' && String(t.value).trim() === '' ? null : num(t.value))
         : t.value;
       setByPath(state, t.dataset.bind, value);
+      // V29.25 : TOP N — le menu (TOP 3…20) et le champ libre restent synchronisés
+      if (/\.topN$/.test(t.dataset.bind)) document.querySelectorAll(`[data-bind="${t.dataset.bind}"]`).forEach(el => { if (el === t) return; const v = String(Math.round(Number(value)) || ''); if (el.tagName === 'SELECT') { if (v && ![...el.options].some(o => o.value === v)) el.add(new Option(`TOP ${v} (personnalisé)`, v)); el.value = v; } else el.value = v; });
       saveState();
       if (t.dataset.bind === 'equipments.metrics.thermalMetric' || t.dataset.bind === 'equipments.metrics.summerMetric') {
         renderControls();
@@ -5249,11 +5269,22 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       toast(state.map.regionZoom === 'all' ? 'Zoom cartographique : France entière.' : `Zoom cartographique : ${state.map.regionZoom}.`);
       return;
     }
+    if (t.dataset.mapUnit !== undefined) {
+      const prev = state.map.unit || 'operations', next = MAP_UNITS[t.value] ? t.value : 'operations';
+      if (prev !== next) {
+        const swap = txt => { const [a, b, c] = MAP_UNITS[prev], [x, y, z] = MAP_UNITS[next]; return String(txt || '').split(c).join(z).split(b).join(y).split(b.charAt(0).toUpperCase() + b.slice(1)).join(y.charAt(0).toUpperCase() + y.slice(1)).split(a).join(x); };
+        state.map.unit = next; state.map.title = swap(state.map.title); state.map.subtitle = swap(state.map.subtitle);
+        if (dataRuntime.connected) { const ops = dataOpsForModel(state.map), cov = dataMapCoverage(ops); state.map.values = dataAggregateMap(ops, next); state.map.dataNoMetric = dataMapNoMetric(ops, next); state.map.dataMappedCount = cov.mapped; state.map.dataUnmappedCount = cov.unmapped.length; state.map.dataConnectedCount = cov.total; }
+        else toast(`Unité : ${MAP_UNITS[next][1]}. Saisissez ou collez les valeurs dans cette unité.`);
+        saveTabData(activeTab); saveState(); renderControls(); renderSlide();
+      }
+      return;
+    }
     if (t.dataset.mapLevel !== undefined) {
       const previous = state.map.level;
       state.map.level = t.value === 'region' ? 'region' : 'department';
-      const depSubtitle = 'Répartition des opérations par département';
-      const regSubtitle = 'Répartition des opérations par région';
+      const depSubtitle = `Répartition des ${mapU(1)} par département`;
+      const regSubtitle = `Répartition des ${mapU(1)} par région`;
       if (!state.map.subtitle || state.map.subtitle === depSubtitle || state.map.subtitle === regSubtitle) state.map.subtitle = state.map.level === 'region' ? regSubtitle : depSubtitle;
       saveState();
       renderControls();
@@ -6238,7 +6269,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }
 
     if (tabType(activeTab) === 'stakeholderSplit') {
-      const items = sortedPositiveItems(state.stakeholderSplit.items);
+      const items = stakeholderItems();
       const total = items.reduce((s,item)=>s+item.value,0);
       const share = value => total>0 ? value/total*100 : 0;
       cHeader(ctx, state.stakeholderSplit.title, state.stakeholderSplit.subtitle, state.stakeholderSplit.note);
@@ -6246,7 +6277,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       cDonut(ctx,items,335,500,205,88);
       ct(ctx,frSmart(total),335,492,42,900,EXPORT_GREEN,'center','middle');
       ct(ctx,'opérations au total',335,530,14,700,EXPORT_MUTED,'center','middle');
-      items.slice(0,6).forEach((item,i)=>{const y=330+i*72;cr(ctx,610,y-14,18,18,5,COLORS[i%COLORS.length]);ct(ctx,item.name,648,y,18,900,EXPORT_TEXT,'left','middle');ct(ctx,`${frSmart(item.value)} opérations (${fr(share(item.value),1)} %)`,648,y+25,13,600,EXPORT_MUTED);});
+      items.slice(0,7).forEach((item,i)=>{const y=(items.length>4?290:330)+i*(items.length>4?62:72);cr(ctx,610,y-14,18,18,5,COLORS[i%COLORS.length]);ct(ctx,item.name,648,y,18,900,EXPORT_TEXT,'left','middle');ct(ctx,`${frSmart(item.value)} opérations (${fr(share(item.value),1)} %)`,648,y+25,13,600,EXPORT_MUTED);});
       cr(ctx,980,190,565,188,18,'#f8fbf9',EXPORT_GREEN,1.4);ct(ctx,'TOTAL OPÉRATIONS',1015,230,13,900,EXPORT_GREEN);ct(ctx,frSmart(total),1015,300,52,900,EXPORT_GREEN);ct(ctx,'Somme des catégories renseignées',1015,340,13,600,EXPORT_TEXT);
       const top=items.slice(0,2);
       top.forEach((item,i)=>{const x=980+i*287;cr(ctx,x,405,270,205,18,'#fff',EXPORT_GREEN,1.2);ct(ctx,item.name.toUpperCase(),x+25,446,12,900,EXPORT_GREEN);ct(ctx,frSmart(item.value),x+25,515,46,900,EXPORT_GREEN);ct(ctx,`Soit ${fr(share(item.value),1)} % du total`,x+25,555,13,700,EXPORT_TEXT);});
@@ -6563,7 +6594,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     const ctx = canvas.getContext('2d');
     ctx.save();
     ctx.scale(2.4, 2.4);
-    cHeader(ctx, state.map.title, state.map.subtitle, `Une bulle = le nombre d’opérations renseignées par ${state.map.level === 'region' ? 'région' : 'département'}`);
+    cHeader(ctx, state.map.title, state.map.subtitle, `Une bulle = le nombre ${state.map.unit==='dwellings'?'de logements':state.map.unit==='buildings'?'de bâtiments':'d’opérations'} ${state.map.unit&&state.map.unit!=='operations'?'renseignés':'renseignées'} par ${state.map.level === 'region' ? 'région' : 'département'}`);
 
     const drawMapImage = image => {
       // Même emplacement que .map-slide-canvas à l'écran.
@@ -7320,7 +7351,13 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     }catch{return null;}
   }
   let dataLaunchScope=dataReadLaunchScope();
+  // V29.25 : case « Limiter au périmètre de l'Observatoire ». Décochée : toutes les opérations reçues (périmètre filtré
+  // + contrats hors filtre transmis par l'Observatoire ≥ V6.67, ou toute la source chargée) ; réglage gardé sur ce poste.
+  const DATA_SCOPE_ALL_KEY='obslide.perimetre.tous.v1';
+  let dataScopeAll=(()=>{try{return localStorage.getItem(DATA_SCOPE_ALL_KEY)==='1';}catch{return false;}})();
+  function dataSetScopeAll(v){ dataScopeAll=!!v; try{ if(dataScopeAll) localStorage.setItem(DATA_SCOPE_ALL_KEY,'1'); else localStorage.removeItem(DATA_SCOPE_ALL_KEY); }catch{} }
   function dataApplyLaunchScope(ops){
+    if(dataScopeAll)return ops||[];
     if(!dataLaunchScope||!dataLaunchScope._codeSet||!dataLaunchScope._codeSet.size)return ops||[];
     return (ops||[]).filter(o=>dataLaunchScope._codeSet.has(dataNorm(o?.code)));
   }
@@ -7369,11 +7406,15 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     let ops=[];
     try{ops=Array.isArray(d.operationRows)?dataRowsToOperations(d.operationRows):(Array.isArray(d.operations)?d.operations:[]);}
     catch(err){console.error('Obslide : opérations de l’Observatoire',err);problems.push(`opérations illisibles (${err.message||err})`);}
+    let others=[];
+    try{ if(Array.isArray(d.otherOperationRows)&&d.otherOperationRows.length) others=dataRowsToOperations(d.otherOperationRows); }
+    catch(err){console.error('Obslide : contrats hors périmètre de l’Observatoire',err);problems.push(`contrats hors périmètre illisibles (${err.message||err})`);}
+    dataRuntime.otherReceived=Array.isArray(d.otherOperationRows); dataRuntime.otherCount=others.length;
     if(ops.length){
       try{
         dataSnapshotManual();
         dataRuntime.connected=true;dataRuntime.mode='observatoire';dataRuntime.sourceUrl='';dataRuntime.sourceTab='OPERATIONS';
-        dataRuntime.operations=ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};dataRuntime.anonymized=!!d.anonymized;
+        dataRuntime.operations=others.length?[...ops,...others]:ops;dataRuntime.filtered=[...ops];dataRuntime.filters={};dataRuntime.anonymized=!!d.anonymized;
         // Les opérations reçues sont déjà celles du périmètre : il est recalé sur leurs codes (pseudonymes compris).
         dataLaunchScope={...(dataLaunchScope||{}),summary:d.summary||dataLaunchScope?.summary||'',operationCodes:ops.map(o=>String(o.code||'')).filter(Boolean)};
         dataLaunchScope._codeSet=new Set(dataLaunchScope.operationCodes.map(v=>dataNorm(v)));
@@ -7393,7 +7434,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   }
   // Accès pour les slides Exigences (requirements-slides.js).
   window.OBSLIDE_LAUNCH_SCOPE={
-    active:()=>!!(dataLaunchScope&&dataLaunchScope._codeSet&&dataLaunchScope._codeSet.size),
+    active:()=>!dataScopeAll&&!!(dataLaunchScope&&dataLaunchScope._codeSet&&dataLaunchScope._codeSet.size),
     has:code=>!!dataLaunchScope?._codeSet?.has(dataNorm(code)),
     summary:()=>dataLaunchScope?(dataLaunchScope.summary||`${dataLaunchScope.operationCodes.length} opérations transmises`):'',
     count:()=>dataLaunchScope?.operationCodes?.length||0,
@@ -7488,11 +7529,13 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataRestoreManual(){let snap=dataRuntime.manualSnapshot;try{if(!snap)snap=JSON.parse(localStorage.getItem(DATA_MANUAL_SNAPSHOT_KEY)||'null');}catch{}if(!snap)return;DATA_CONNECTED_TYPES.forEach(type=>{if(snap[type])state[type]=clone(snap[type]);});Object.entries(snap.instances||{}).forEach(([id,d])=>{if(state.presentation.instanceData?.[id])state.presentation.instanceData[id]=clone(d);});dataRuntime.manualSnapshot=null;try{localStorage.removeItem(DATA_MANUAL_SNAPSHOT_KEY);}catch{}saveState();}
   function dataFilteredOperations(){return [...dataRuntime.operations];}
   function dataAggregateTunnel(ops){const counts={notStarted:0,incomplete:0,planned:0,analysis:0,visit:0,compliant:0};let cancelled=0,sold=0;ops.forEach(o=>{if(o.status==='cancelled')cancelled++;else if(counts[o.status]!==undefined)counts[o.status]++;if(o.sold)sold++;});return {counts,cancelled,sold};}
-  function dataAggregateMap(ops){
+  function dataAggregateMap(ops,unit='operations'){
     const values={};
-    ops.forEach(o=>{const code=dataDepartment(o.department);if(code&&DEPARTMENTS.some(d=>d.code===code))values[code]=(values[code]||0)+1;});
+    ops.forEach(o=>{const code=dataDepartment(o.department);if(!code||!DEPARTMENTS.some(d=>d.code===code))return;const v=unit==='dwellings'?dataNumber(o.dwellings):unit==='buildings'?dataNumber(o.buildings):1;if(v>0)values[code]=(values[code]||0)+v;});
     return values;
   }
+  // opérations cartographiées sans logements / bâtiments renseignés (unité ≠ opérations)
+  function dataMapNoMetric(ops,unit){if(unit!=='dwellings'&&unit!=='buildings')return 0;let n=0;(ops||[]).forEach(o=>{const code=dataDepartment(o.department);if(code&&DEPARTMENTS.some(d=>d.code===code)&&!(dataNumber(unit==='dwellings'?o.dwellings:o.buildings)>0))n++;});return n;}
   function dataMapCoverage(ops){
     let mapped=0;const unmapped=[];
     (ops||[]).forEach(o=>{const code=dataDepartment(o.department);if(code&&DEPARTMENTS.some(d=>d.code===code))mapped++;else unmapped.push(o);});
@@ -7597,7 +7640,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if(!model || focused.supported(type))return;if(type==='tunnel')dataEnsureTunnelStatuses(model);const ops=dataFilterOps(baseOps||dataRuntime.operations,dataSlideFilter(model));
     model.dataConnectedCount=ops.length;
     if(type==='tunnel'){const a=dataAggregateTunnel(ops);(model.statuses||[]).forEach(s=>{if(a.counts[s.key]!==undefined)s.value=a.counts[s.key];});model.cancelled=a.cancelled;model.sold=a.sold;}
-    else if(type==='map'){const coverage=dataMapCoverage(ops);model.values=dataAggregateMap(ops);model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;model.dataConnectedCount=coverage.total;}
+    else if(type==='map'){const coverage=dataMapCoverage(ops);model.values=dataAggregateMap(ops,model.unit);model.dataNoMetric=dataMapNoMetric(ops,model.unit);model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;model.dataConnectedCount=coverage.total;}
     else if(type==='socialZoning'){model.dataConnectedCount=ops.length; if(!model.zoneFilter) model.zoneFilter='all'; if(!model.scope) model.scope='national';}
     else if(type==='cityList'){const c=dataAggregateCities(ops,dataRuntime.anonymized);model.items=c.items;model.missing=c.missing;model.merged=c.merged;model.page=1;}
     else if(type==='communeMap'){const c=dataAggregateCommunes(ops,dataRuntime.anonymized);model.items=c.items;model.missing=c.missing;model.merged=c.merged;}
@@ -7616,7 +7659,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     else if(type==='dpe'){const eb=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepBefore),ea=dataMeanFromRows(ops,DATA_FIELD_ALIASES.cepAfter),esb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyBefore),esa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeEnergyAfter),gsb=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesBefore),gsa=dataDpeMeanScore(ops,DATA_FIELD_ALIASES.dpeGesAfter);if(eb!==null)model.before.energy=eb;if(ea!==null)model.after.energy=ea;if(esb!==null)model.before.energyScore=esb;if(esa!==null)model.after.energyScore=esa;if(gsb!==null)model.before.gesScore=gsb;if(gsa!==null)model.after.gesScore=gsa;}
   }
   function dataSyncViews(){if(!dataRuntime.connected)return;dataRuntime.filtered=dataApplyLaunchScope(dataRuntime.operations);DATA_CONNECTED_TYPES.forEach(type=>{if(state[type])dataApplyToModel(type,state[type],dataRuntime.operations);});Object.entries(state.presentation.instanceData||{}).forEach(([id,model])=>{const type=state.presentation.instances?.[id]||id;if(DATA_CONNECTED_TYPES.includes(type))dataApplyToModel(type,model,dataRuntime.operations);});loadTabData(activeTab);if(DATA_CONNECTED_TYPES.includes(tabType(activeTab)))dataApplyToModel(tabType(activeTab),state[tabType(activeTab)],dataRuntime.operations);dataUpdateBadge();dataUpdateFilterUI();saveState();renderControls();renderSlide();}
-  function dataUpdateBadge(){const dot=document.getElementById('dataSourceDot'),label=document.getElementById('dataSourceLabel');if(dot)dot.classList.toggle('is-live',dataRuntime.connected);if(label)label.textContent=dataRuntime.connected?`${dataRuntime.operations.length} opérations`:'Données';}
+  function dataUpdateBadge(){const dot=document.getElementById('dataSourceDot'),label=document.getElementById('dataSourceLabel');if(dot)dot.classList.toggle('is-live',dataRuntime.connected);if(label)label.textContent=dataRuntime.connected?`${dataApplyLaunchScope(dataRuntime.operations).length} opérations`:'Données';}
   function dataPopulateFilters(){
     const el=document.getElementById('dataFilteredCount');
     if(el)el.textContent=`${dataRuntime.operations.length} opération${dataRuntime.operations.length>1?'s':''}`;
@@ -7712,7 +7755,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     dataApplyToModel(type,model,dataRuntime.operations);
     if(type==='map'){
       const ops=dataOpsForModel(model),coverage=dataMapCoverage(ops);
-      model.values=dataAggregateMap(ops);model.dataConnectedCount=coverage.total;model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;
+      model.values=dataAggregateMap(ops,model.unit);model.dataNoMetric=dataMapNoMetric(ops,model.unit);model.dataConnectedCount=coverage.total;model.dataMappedCount=coverage.mapped;model.dataUnmappedCount=coverage.unmapped.length;
     }
     saveTabData(activeTab);saveState();renderSlide();
   }
