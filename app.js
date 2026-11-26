@@ -1569,12 +1569,13 @@ Paris\t7">${esc(state.map.paste || '')}</textarea></div>
     { key: 'ln', short: 'LN', label: 'Logement neuf', color: '#0f7b47' },
     { key: 'lr', short: 'LR', label: 'Logement rénovation', color: '#75aa43' },
     { key: 'tn', short: 'TN', label: 'Tertiaire neuf', color: '#0f6771' },
-    { key: 'tr', short: 'TR', label: 'Tertiaire rénovation', color: '#f2a000' }
+    { key: 'tr', short: 'TR', label: 'Tertiaire rénovation', color: '#f2a000' },
+    { key: 'te', short: 'TE', label: 'Tertiaire exploitation', color: '#7b5ea7' } // V29.26
   ];
 
   function evolutionRowsSorted() {
     return [...(state.evolution?.rows || [])]
-      .map(row => ({ year: String(row.year ?? '').trim(), ln: num(row.ln), lr: num(row.lr), tn: num(row.tn), tr: num(row.tr) }))
+      .map(row => ({ year: String(row.year ?? '').trim(), ln: num(row.ln), lr: num(row.lr), tn: num(row.tn), tr: num(row.tr), te: num(row.te) }))
       .filter(row => row.year)
       .sort((a, b) => {
         const na = Number(rowYearNumeric(a.year));
@@ -1653,6 +1654,7 @@ Paris\t7">${esc(state.map.paste || '')}</textarea></div>
     if (/^(lr|bee lr)$/.test(s) || (s.includes('logement') && (s.includes('renovation') || s.includes('reno')))) return 'lr';
     if (/^(tn|bee tn)$/.test(s) || (s.includes('tertiaire') && s.includes('neuf'))) return 'tn';
     if (/^(tr|bee tr)$/.test(s) || (s.includes('tertiaire') && (s.includes('renovation') || s.includes('reno')))) return 'tr';
+    if (/^(te|bee te)$/.test(s) || (s.includes('tertiaire') && s.includes('exploitation'))) return 'te';
     return null;
   }
 
@@ -1706,11 +1708,11 @@ Paris\t7">${esc(state.map.paste || '')}</textarea></div>
     }
     const importedKeys = Object.keys(seriesRows);
     if (!importedKeys.length) {
-      throw new Error('Aucun référentiel reconnu. Utilise par exemple BEE Logement Neuf, BEE Logement Rénovation, BEE Tertiaire Neuf ou BEE Tertiaire Rénovation.');
+      throw new Error('Aucun référentiel reconnu. Utilise par exemple BEE Logement Neuf, BEE Logement Rénovation, BEE Tertiaire Neuf, BEE Tertiaire Rénovation ou BEE Tertiaire Exploitation.');
     }
 
     const rows = validYearIndexes.map(({ year, i }) => {
-      const row = { year, ln: 0, lr: 0, tn: 0, tr: 0 };
+      const row = { year, ln: 0, lr: 0, tn: 0, tr: 0, te: 0 };
       importedKeys.forEach(key => {
         row[key] = evolutionParseNumber(seriesRows[key][i + 1]);
       });
@@ -1725,7 +1727,7 @@ Paris\t7">${esc(state.map.paste || '')}</textarea></div>
       const parsed = parseEvolutionSheetPaste(state.evolution.importPaste || '');
       state.evolution.rows = parsed.rows;
       const present = new Set(parsed.importedKeys);
-      ['ln','lr','tn','tr'].forEach(key => { state.evolution.visible[key] = present.has(key); });
+      ['ln','lr','tn','tr','te'].forEach(key => { state.evolution.visible[key] = present.has(key); });
       saveState();
       renderControls();
       renderSlide();
@@ -2808,6 +2810,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
             ${toggleField('Logement rénovation', 'evolution.visible.lr')}
             ${toggleField('Tertiaire neuf', 'evolution.visible.tn')}
             ${toggleField('Tertiaire rénovation', 'evolution.visible.tr')}
+            ${toggleField('Tertiaire exploitation', 'evolution.visible.te')}
           </div>
           <p class="help">Décoche un référentiel pour le masquer complètement de la slide.</p>
         </div>
@@ -2830,7 +2833,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
           <p class="help">Tu peux aussi modifier chaque valeur directement ici. Les années sont triées automatiquement dans la slide.</p>
           <div class="evolution-control-table">
             <div class="evolution-control-header">
-              <span>Année</span><span>LN</span><span>LR</span><span>TN</span><span>TR</span><span></span>
+              <span>Année</span><span>LN</span><span>LR</span><span>TN</span><span>TR</span><span>TE</span><span></span>
             </div>
             ${(state.evolution.rows || []).map((row, index) => `
               <div class="evolution-control-row">
@@ -2839,6 +2842,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
                 <input type="number" min="0" step="1" value="${esc(row.lr ?? 0)}" data-evolution-value="${index}" data-series="lr">
                 <input type="number" min="0" step="1" value="${esc(row.tn ?? 0)}" data-evolution-value="${index}" data-series="tn">
                 <input type="number" min="0" step="1" value="${esc(row.tr ?? 0)}" data-evolution-value="${index}" data-series="tr">
+                <input type="number" min="0" step="1" value="${esc(row.te ?? 0)}" data-evolution-value="${index}" data-series="te">
                 <button type="button" class="btn btn-danger btn-small" data-evolution-remove="${index}">Suppr.</button>
               </div>`).join('')}
           </div>
@@ -5451,7 +5455,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
         const years = (state.evolution.rows || []).map(row => rowYearNumeric(row.year)).filter(v => !Number.isNaN(v));
         return years.length ? Math.max(...years) + 1 : new Date().getFullYear();
       })();
-      state.evolution.rows.push({ year: nextYear, ln: 0, lr: 0, tn: 0, tr: 0 });
+      state.evolution.rows.push({ year: nextYear, ln: 0, lr: 0, tn: 0, tr: 0, te: 0 });
       saveState(); renderControls(); renderSlide();
       return;
     }
@@ -7638,8 +7642,8 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataAggregateMatrix(ops,beforeKey,afterKey){const vectors=['Gaz','Électricité','RCU','Hybride','Bois / autre'];const values=Array.from({length:5},()=>Array(5).fill(0));ops.forEach(o=>{const a=dataVectorBucket(o[beforeKey]),b=dataVectorBucket(o[afterKey]);if(!a||!b)return;values[vectors.indexOf(a)][vectors.indexOf(b)]++;});return {vectors,values};}
   function dataMeanFromRows(ops,aliases){const vals=[];ops.forEach(o=>(o.rawRows||[o.raw]).forEach(r=>{const hs=Object.keys(r||{});const idx=dataResolveHeader(hs,aliases);if(idx>=0){const raw=r[hs[idx]], n=dataNumber(raw);if(String(raw??'').trim()!==''&&Number.isFinite(n))vals.push(n);}}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
   function dataPercentItems(ops,key){const arr=dataAggregateNamed(ops,o=>o[key]);const total=arr.reduce((s,x)=>s+x.value,0)||1;return arr.slice(0,8).map(x=>({name:x.name,value:x.value/total*100}));}
-  function dataReferentialSeries(ref){const s=dataNorm(ref);if(/tert.*renov/.test(s))return'tr';if(/tert.*neuf/.test(s))return'tn';if(/logement.*renov|bee lr/.test(s))return'lr';return'ln';}
-  function dataAggregateEvolution(ops){const m=new Map();ops.forEach(o=>{if(!o.year)return;const y=Number(o.year);if(!m.has(y))m.set(y,{year:y,ln:0,lr:0,tn:0,tr:0});m.get(y)[dataReferentialSeries(o.referential)]++;});return [...m.values()].sort((a,b)=>a.year-b.year);}
+  function dataReferentialSeries(ref){const s=dataNorm(ref);if(/tert.*exploit/.test(s))return'te';if(/tert.*renov/.test(s))return'tr';if(/tert.*neuf/.test(s))return'tn';if(/logement.*renov|bee lr/.test(s))return'lr';return'ln';}
+  function dataAggregateEvolution(ops){const m=new Map();ops.forEach(o=>{if(!o.year)return;const y=Number(o.year);if(!m.has(y))m.set(y,{year:y,ln:0,lr:0,tn:0,tr:0,te:0});m.get(y)[dataReferentialSeries(o.referential)]++;});return [...m.values()].sort((a,b)=>a.year-b.year);}
   function dataDpeMeanScore(ops,keyAliases){const vals=[];ops.forEach(o=>(o.rawRows||[o.raw]).forEach(r=>{const hs=Object.keys(r||{}),i=dataResolveHeader(hs,keyAliases);if(i>=0){const v=r[hs[i]],score=dataDpeScore(v)||dataNumber(v);if(score>=1&&score<=7)vals.push(score);}}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
   function dataEnsureTunnelStatuses(model){
     if(!model)return;
@@ -7668,7 +7672,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
     else if(type==='performanceList'){model.items=dataAggregateTags(ops,'performance');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
     else if(type==='labels'){model.labels=dataAggregateTags(ops,'mention');model.performances=dataAggregateTags(ops,'performance');}
-    else if(type==='evolution'){model.rows=dataAggregateEvolution(ops);const present=new Set(model.rows.flatMap(r=>['ln','lr','tn','tr'].filter(k=>r[k]>0)));model.visible={ln:present.has('ln'),lr:present.has('lr'),tn:present.has('tn'),tr:present.has('tr')};}
+    else if(type==='evolution'){model.rows=dataAggregateEvolution(ops);const present=new Set(model.rows.flatMap(r=>['ln','lr','tn','tr','te'].filter(k=>r[k]>0)));model.visible={ln:present.has('ln'),lr:present.has('lr'),tn:present.has('tn'),tr:present.has('tr'),te:present.has('te')};}
     else if(type==='heatingMatrix'){const a=dataAggregateMatrix(ops,'heatingBefore','heatingAfter');model.vectors=a.vectors;model.values=a.values;}
     else if(type==='ecsMatrix'){const a=dataAggregateMatrix(ops,'ecsBefore','ecsAfter');model.vectors=a.vectors;model.values=a.values;}
     else if(type==='equipments'){model.heat=dataPercentItems(ops,'heatingModeAfter').length?dataPercentItems(ops,'heatingModeAfter'):dataPercentItems(ops,'heatingAfter');model.ecs=dataPercentItems(ops,'ecs').length?dataPercentItems(ops,'ecs'):dataPercentItems(ops,'ecsAfter');model.cooling=dataPercentItems(ops,'cooling');model.ventilation=dataPercentItems(ops,'ventilation');const mm=model.metrics||{};[['bbioInitial',DATA_FIELD_ALIASES.bbio],['bbioMax',DATA_FIELD_ALIASES.bbioMax],['cep',DATA_FIELD_ALIASES.cep],['cepMax',DATA_FIELD_ALIASES.cepMax],['ubatInitial',DATA_FIELD_ALIASES.ubatBefore],['ubat',DATA_FIELD_ALIASES.ubatAfter],['dh',DATA_FIELD_ALIASES.dh],['dhMax',DATA_FIELD_ALIASES.dhMax],['tic',DATA_FIELD_ALIASES.tic],['ticRef',DATA_FIELD_ALIASES.ticRef]].forEach(([k,a])=>{const v=dataMeanFromRows(ops,a);if(v!==null)mm[k]=v;});mm.bbioGain=Math.max(0,(mm.bbioMax||0)-(mm.bbioInitial||0));mm.cepGain=Math.max(0,(mm.cepMax||0)-(mm.cep||0));model.metrics=mm;}

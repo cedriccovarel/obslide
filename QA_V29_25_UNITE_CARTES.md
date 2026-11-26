@@ -43,3 +43,8 @@ Observatoire V6.67 (dépôt observatoire-prestaterre-beta, non poussé) : `gener
 
 Cause : la V6.67 envoyait à chaque ouverture du Générateur tous les contrats hors périmètre (milliers de lignes), convertis par Obslide → onglets figés. Désormais l'Observatoire n'envoie que le périmètre + `othersAvailable` ; Obslide demande `obslide-need-others` seulement quand la case est décochée (ou si « sans périmètre » est mémorisé), reçoit `newosb-generator-others`, dédoublonne par code. Case grisée pendant le chargement, délai 60 s (périmètre conservé si pas de réponse). Envoi direct `otherOperationRows` (V6.67) toujours accepté.
 Essais : pont simulé (4 + 2) → demande envoyée seulement au décochage, 4 → 6 → 4 ; vraie V6.67.1 en démonstration servie en local → ouverture identique à V6.66, décochage OK, aucune erreur ; Observatoire 251 tests OK.
+
+## V29.25.2 — Tertiaire exploitation dans « Évolution des opérations » (26/11/2026)
+
+Cause : seules 4 séries existaient (LN, LR, TN, TR) ; les opérations « BEE Tertiaire Exploitation » tombaient dans le cas par défaut et étaient **comptées en Logement neuf**. Ajout de la série TE « Tertiaire exploitation » (violet #7b5ea7) : agrégation des données connectées, collage Google Sheets (« BEE Tertiaire Exploitation » / « TE »), saisie manuelle (colonne TE), case d'affichage, légende ; export PNG/SVG/PPTX par la même liste de séries.
+Essai : fichier fictif (4 opérations LN/LR/TN/TR + 2 TE en 2023 et 2024) → courbe TE 2023 = 1, 2024 = 1, Logement neuf n'inclut plus ces 2 opérations, aucune erreur.
