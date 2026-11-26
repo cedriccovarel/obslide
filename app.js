@@ -2804,6 +2804,11 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     if (tabType(activeTab) === 'evolution') {
       controls.innerHTML = `
         <div class="control-section">
+          <h3>Année utilisée</h3>
+          <div class="field"><select data-evolution-basis="1">${[['auto','Automatique (comme l’Observatoire)'],['certification','Année de certification'],['created','Année de création']].map(([k,l])=>`<option value="${k}"${(state.evolution.yearBasis||'auto')===k?' selected':''}>${l}</option>`).join('')}</select></div>
+          <p class="help">Certification : « Date de décision CD », sinon « Date de décision de certification ». Création : « Date de création ». Données connectées uniquement.</p>
+        </div>
+        <div class="control-section">
           <h3>Référentiels affichés</h3>
           <div class="toggle-grid">
             ${toggleField('Logement neuf', 'evolution.visible.ln')}
@@ -3526,7 +3531,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
           <section class="card evolution-kpi-card compact">
             <div class="evolution-kpi-label">Total période</div>
             <div class="evolution-kpi-value">${frSmart(total)}</div>
-            <div class="evolution-kpi-note">opérations cumulées</div>
+            <div class="evolution-kpi-note">opérations cumulées${dataRuntime.connected&&state.evolution.basisUsed?` · année de ${state.evolution.basisUsed==='certification'?'certification':'création'}`:''}${dataRuntime.connected&&state.evolution.undated>0?`<br>${frSmart(state.evolution.undated)} sans année (hors courbe)`:''}</div>
           </section>
         </div>
         <section class="card evolution-chart-card evolution-chart-card-large">
@@ -5272,6 +5277,12 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
       renderControls();
       renderSlide();
       toast(state.map.regionZoom === 'all' ? 'Zoom cartographique : France entière.' : `Zoom cartographique : ${state.map.regionZoom}.`);
+      return;
+    }
+    if (t.dataset.evolutionBasis !== undefined) {
+      state.evolution.yearBasis = ['certification','created'].includes(t.value) ? t.value : 'auto';
+      if (dataRuntime.connected) dataApplyToModel('evolution', state.evolution);
+      saveTabData(activeTab); saveState(); renderControls(); renderSlide();
       return;
     }
     if (t.dataset.mapUnit !== undefined) {
@@ -7523,24 +7534,39 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   // V29.10 : les cellules Salesforce « BEE+<br>Option TFPB » : un retour à la ligne par <br>, jamais affiché tel quel.
   function dataRawValue(row, field){ const v = field ? row[field] : ''; return typeof v === 'string' ? v.replace(/\s*(?:<br\s*\/?>|&lt;br\s*\/?&gt;)\s*/gi, '\n').trim() : v; }
   function dataFirstNonEmpty(values){ for(const v of values){ if(String(v??'').trim()!=='') return v; } return ''; }
-  function dataDateYear(v){ const s=String(v??'').trim(); const m=s.match(/\b(20\d{2}|19\d{2})\b/); return m?Number(m[1]):0; }
+  // V29.25.3 : même lecture que l'Observatoire (NEWOSB_RULES.parseDateYear) : jj/mm/aa, jj/mm/aaaa, aaaa-mm-jj, numéro de série Excel, objets Date.
+  function dataDateYear(v){
+    if(v===null||v===undefined) return 0;
+    if(v instanceof Date) return isNaN(v)?0:v.getFullYear();
+    const serial=n=>new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000).getUTCFullYear();
+    if(typeof v==='number'){ if(v>=1900&&v<=2100) return Math.round(v); if(v>20000&&v<80000) return serial(v); return 0; }
+    const s=String(v).trim(); if(!s||/^(nc|n\/a|na|-|—|#n\/a|non communiqué|inconnu)$/i.test(s)) return 0; let m;
+    if((m=s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/))) return Number(m[1]);
+    if((m=s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})(?!\d)/))){ let y=Number(m[3]); if(m[3].length===2) y+=y<=69?2000:1900; return y; }
+    if(/^\d{5}(?:[.,]\d+)?$/.test(s)){ const n=Number(s.replace(',','.')); if(n>20000&&n<80000) return serial(n); }
+    const ys=s.match(/(?<!\d)(19\d{2}|20\d{2})(?!\d)/g)||[]; return ys.length===1?Number(ys[0]):0;
+  }
+  // en-tête exact, sinon unique en suffixe (même règle que NEWOSB_RULES.resolveExactHeader de l'Observatoire)
+  function dataExactHeader(headers,label){ const t=dataNorm(label), list=headers.filter(h=>String(h||'').trim()); const ex=list.find(h=>dataNorm(h)===t); if(ex) return ex; const ends=list.filter(h=>dataNorm(h).endsWith(' '+t)); return ends.length===1?ends[0]:null; }
   function dataBoolish(v){ const s=dataNorm(v); return /^(1|oui|yes|true|x|vrai)$/.test(s); }
   function dataDpeScore(v){ const s=String(v??'').trim().toUpperCase(); const m=s.match(/[A-G]/); return m ? 'ABCDEFG'.indexOf(m[0])+1 : 0; }
   function dataRowsToOperations(rows){
     if(!Array.isArray(rows)||!rows.length)return[];
     const headers=Object.keys(rows[0]||{}), fields={};
     Object.entries(DATA_FIELD_ALIASES).forEach(([k,a])=>{const i=dataResolveHeader(headers,a);fields[k]=i>=0?headers[i]:null;});
+    const certHdr=dataExactHeader(headers,'Date de décision CD')||dataExactHeader(headers,'Date de décision de certification'), createdHdr=dataExactHeader(headers,'Date de création')||fields.createdDate;
     const mapped=rows.map((r,i)=>{
       const rawStatus=String(dataRawValue(r,fields.status)||'');
       const year=dataNumber(dataRawValue(r,fields.year))||dataDateYear(dataRawValue(r,fields.createdDate));
       let nature=String(dataRawValue(r,fields.nature)||'').trim();
       if(fields.nature && dataNorm(fields.nature)==='renovation') nature=dataBoolish(dataRawValue(r,fields.nature))?'Rénovation':''; if(!nature){const rr=dataNorm(dataRawValue(r,fields.referential));nature=/renov/.test(rr)?'Rénovation':(/neuf/.test(rr)?'Neuf':'');}
       const code=String(dataRawValue(r,fields.code)||`OPE-${i+1}`).trim();
-      return {code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataFirstNonEmpty([dataRawValue(r,fields.department),dataRawValue(r,fields.postalCode),dataRawValue(r,fields.address)])),postalCode:String(dataRawValue(r,fields.postalCode)||'').trim(),city:String(dataRawValue(r,fields.city)||'').trim(),insee:String(dataRawValue(r,fields.insee)||'').trim(),socialZone:socialZoneNormalizeLabel(dataRawValue(r,fields.socialZone)||''),longitude:Number(dataRawValue(r,fields.longitude))||null,latitude:Number(dataRawValue(r,fields.latitude))||null,address:String(dataRawValue(r,fields.address)||'').trim(),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
+      const certYear=certHdr?dataDateYear(r[certHdr]):0, createdYear=createdHdr?dataDateYear(r[createdHdr]):0;
+      return {certYear,createdYear,code,name:String(dataRawValue(r,fields.name)||`Opération ${i+1}`).trim(),department:dataDepartment(dataFirstNonEmpty([dataRawValue(r,fields.department),dataRawValue(r,fields.postalCode),dataRawValue(r,fields.address)])),postalCode:String(dataRawValue(r,fields.postalCode)||'').trim(),city:String(dataRawValue(r,fields.city)||'').trim(),insee:String(dataRawValue(r,fields.insee)||'').trim(),socialZone:socialZoneNormalizeLabel(dataRawValue(r,fields.socialZone)||''),longitude:Number(dataRawValue(r,fields.longitude))||null,latitude:Number(dataRawValue(r,fields.latitude))||null,address:String(dataRawValue(r,fields.address)||'').trim(),referential:String(dataRawValue(r,fields.referential)||'Non précisé').trim(),moa:String(dataRawValue(r,fields.moa)||'Non précisé').trim(),moaType:String(dataRawValue(r,fields.moaType)||'').trim(),status:dataStatus(rawStatus),rawStatus,sold:/sold/.test(dataNorm(rawStatus)),dwellings:dataNumber(dataRawValue(r,fields.dwellings)),buildings:dataNumber(dataRawValue(r,fields.buildings)),year:year||'',nature,heatingBefore:String(dataRawValue(r,fields.heatingBefore)||'').trim(),heatingAfter:String(dataRawValue(r,fields.heatingAfter)||'').trim(),heatingModeAfter:String(dataRawValue(r,fields.heatingModeAfter)||'').trim(),ecsBefore:String(dataRawValue(r,fields.ecsBefore)||'').trim(),ecsAfter:String(dataRawValue(r,fields.ecsAfter)||'').trim(),ecs:String(dataRawValue(r,fields.ecs)||'').trim(),cooling:String(dataRawValue(r,fields.cooling)||'').trim(),ventilation:String(dataRawValue(r,fields.ventilation)||'').trim(),structure:String(dataRawValue(r,fields.structure)||'').trim(),roofInsulation:String(dataRawValue(r,fields.roofInsulation)||'').trim(),wallInsulation:String(dataRawValue(r,fields.wallInsulation)||'').trim(),floorInsulation:String(dataRawValue(r,fields.floorInsulation)||'').trim(),windowMaterial:String(dataRawValue(r,fields.windowMaterial)||'').trim(),mentions:String(dataRawValue(r,fields.mentions)||'').trim(),performance:String(dataRawValue(r,fields.performance)||'').trim(),profile:String(dataRawValue(r,fields.profile)||'').trim(),raw:r,rawRows:[r],fields};
     }).filter(o=>o.code||o.name);
     // Une opération peut apparaître sur plusieurs lignes/bâtiments : on la compte une seule fois.
     const grouped=new Map();
-    mapped.forEach(o=>{const k=dataNorm(o.code)||dataNorm(o.name);if(!grouped.has(k)){grouped.set(k,o);return;}const g=grouped.get(k);g.rawRows.push(...o.rawRows);['name','department','postalCode','city','insee','socialZone','address','referential','moa','moaType','nature','heatingBefore','heatingAfter','heatingModeAfter','ecsBefore','ecsAfter','ecs','cooling','ventilation','structure','roofInsulation','wallInsulation','floorInsulation','windowMaterial','mentions','performance','profile','rawStatus'].forEach(key=>{if(!String(g[key]??'').trim()&&String(o[key]??'').trim())g[key]=o[key];});if(!g.year&&o.year)g.year=o.year;if(!g.dwellings&&o.dwellings)g.dwellings=o.dwellings;if(!g.buildings&&o.buildings)g.buildings=o.buildings;if(g.status==='notStarted'&&o.status!=='notStarted')g.status=o.status;g.sold=g.sold||o.sold;});
+    mapped.forEach(o=>{const k=dataNorm(o.code)||dataNorm(o.name);if(!grouped.has(k)){grouped.set(k,o);return;}const g=grouped.get(k);g.rawRows.push(...o.rawRows);['name','department','postalCode','city','insee','socialZone','address','referential','moa','moaType','nature','heatingBefore','heatingAfter','heatingModeAfter','ecsBefore','ecsAfter','ecs','cooling','ventilation','structure','roofInsulation','wallInsulation','floorInsulation','windowMaterial','mentions','performance','profile','rawStatus'].forEach(key=>{if(!String(g[key]??'').trim()&&String(o[key]??'').trim())g[key]=o[key];});if(!g.year&&o.year)g.year=o.year;if(!g.certYear&&o.certYear)g.certYear=o.certYear;if(!g.createdYear&&o.createdYear)g.createdYear=o.createdYear;if(!g.dwellings&&o.dwellings)g.dwellings=o.dwellings;if(!g.buildings&&o.buildings)g.buildings=o.buildings;if(g.status==='notStarted'&&o.status!=='notStarted')g.status=o.status;g.sold=g.sold||o.sold;});
     return [...grouped.values()];
   }
   function dataParseCSV(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'){if(quoted&&n==='"'){field+='"';i++;}else quoted=!quoted;}else if((c===','||c===';'||c==='\t')&&!quoted){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field='';}else field+=c;}row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);if(!rows.length)return[];const headers=rows[0].map(x=>String(x).trim());return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));}
@@ -7643,7 +7669,10 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
   function dataMeanFromRows(ops,aliases){const vals=[];ops.forEach(o=>(o.rawRows||[o.raw]).forEach(r=>{const hs=Object.keys(r||{});const idx=dataResolveHeader(hs,aliases);if(idx>=0){const raw=r[hs[idx]], n=dataNumber(raw);if(String(raw??'').trim()!==''&&Number.isFinite(n))vals.push(n);}}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
   function dataPercentItems(ops,key){const arr=dataAggregateNamed(ops,o=>o[key]);const total=arr.reduce((s,x)=>s+x.value,0)||1;return arr.slice(0,8).map(x=>({name:x.name,value:x.value/total*100}));}
   function dataReferentialSeries(ref){const s=dataNorm(ref);if(/tert.*exploit/.test(s))return'te';if(/tert.*renov/.test(s))return'tr';if(/tert.*neuf/.test(s))return'tn';if(/logement.*renov|bee lr/.test(s))return'lr';return'ln';}
-  function dataAggregateEvolution(ops){const m=new Map();ops.forEach(o=>{if(!o.year)return;const y=Number(o.year);if(!m.has(y))m.set(y,{year:y,ln:0,lr:0,tn:0,tr:0,te:0});m.get(y)[dataReferentialSeries(o.referential)]++;});return [...m.values()].sort((a,b)=>a.year-b.year);}
+  // V29.25.3 : même axe que « Évolution des projets » de l'Observatoire — automatique = certification si au moins une opération en a une, sinon création
+  function dataEvolutionBasis(ops,choice){ if(choice==='certification'||choice==='created') return choice; return (ops||[]).some(o=>o.certYear)?'certification':'created'; }
+  function dataEvolutionYear(o,basis){ return basis==='certification'?(o.certYear||0):(o.createdYear||Number(o.year)||0); }
+  function dataAggregateEvolution(ops,basis='created'){const m=new Map();ops.forEach(o=>{const yy=dataEvolutionYear(o,basis);if(!yy)return;const y=Number(yy);if(!m.has(y))m.set(y,{year:y,ln:0,lr:0,tn:0,tr:0,te:0});m.get(y)[dataReferentialSeries(o.referential)]++;});return [...m.values()].sort((a,b)=>a.year-b.year);}
   function dataDpeMeanScore(ops,keyAliases){const vals=[];ops.forEach(o=>(o.rawRows||[o.raw]).forEach(r=>{const hs=Object.keys(r||{}),i=dataResolveHeader(hs,keyAliases);if(i>=0){const v=r[hs[i]],score=dataDpeScore(v)||dataNumber(v);if(score>=1&&score<=7)vals.push(score);}}));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;}
   function dataEnsureTunnelStatuses(model){
     if(!model)return;
@@ -7672,7 +7701,7 @@ Exemple 2	9">${esc(model.importPaste || '')}</textarea></div>
     else if(type==='mentionList'){model.items=dataAggregateTags(ops,'mention');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
     else if(type==='performanceList'){model.items=dataAggregateTags(ops,'performance');model.connectedTotals={dwellings:ops.reduce((s,o)=>s+Math.max(0,num(o.dwellings)),0),buildings:ops.reduce((s,o)=>s+Math.max(0,num(o.buildings)),0)};}
     else if(type==='labels'){model.labels=dataAggregateTags(ops,'mention');model.performances=dataAggregateTags(ops,'performance');}
-    else if(type==='evolution'){model.rows=dataAggregateEvolution(ops);const present=new Set(model.rows.flatMap(r=>['ln','lr','tn','tr','te'].filter(k=>r[k]>0)));model.visible={ln:present.has('ln'),lr:present.has('lr'),tn:present.has('tn'),tr:present.has('tr'),te:present.has('te')};}
+    else if(type==='evolution'){const basis=dataEvolutionBasis(ops,model.yearBasis);model.basisUsed=basis;model.undated=ops.filter(o=>!dataEvolutionYear(o,basis)).length;model.rows=dataAggregateEvolution(ops,basis);const present=new Set(model.rows.flatMap(r=>['ln','lr','tn','tr','te'].filter(k=>r[k]>0)));model.visible={ln:present.has('ln'),lr:present.has('lr'),tn:present.has('tn'),tr:present.has('tr'),te:present.has('te')};}
     else if(type==='heatingMatrix'){const a=dataAggregateMatrix(ops,'heatingBefore','heatingAfter');model.vectors=a.vectors;model.values=a.values;}
     else if(type==='ecsMatrix'){const a=dataAggregateMatrix(ops,'ecsBefore','ecsAfter');model.vectors=a.vectors;model.values=a.values;}
     else if(type==='equipments'){model.heat=dataPercentItems(ops,'heatingModeAfter').length?dataPercentItems(ops,'heatingModeAfter'):dataPercentItems(ops,'heatingAfter');model.ecs=dataPercentItems(ops,'ecs').length?dataPercentItems(ops,'ecs'):dataPercentItems(ops,'ecsAfter');model.cooling=dataPercentItems(ops,'cooling');model.ventilation=dataPercentItems(ops,'ventilation');const mm=model.metrics||{};[['bbioInitial',DATA_FIELD_ALIASES.bbio],['bbioMax',DATA_FIELD_ALIASES.bbioMax],['cep',DATA_FIELD_ALIASES.cep],['cepMax',DATA_FIELD_ALIASES.cepMax],['ubatInitial',DATA_FIELD_ALIASES.ubatBefore],['ubat',DATA_FIELD_ALIASES.ubatAfter],['dh',DATA_FIELD_ALIASES.dh],['dhMax',DATA_FIELD_ALIASES.dhMax],['tic',DATA_FIELD_ALIASES.tic],['ticRef',DATA_FIELD_ALIASES.ticRef]].forEach(([k,a])=>{const v=dataMeanFromRows(ops,a);if(v!==null)mm[k]=v;});mm.bbioGain=Math.max(0,(mm.bbioMax||0)-(mm.bbioInitial||0));mm.cepGain=Math.max(0,(mm.cepMax||0)-(mm.cep||0));model.metrics=mm;}

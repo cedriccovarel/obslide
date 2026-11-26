@@ -48,3 +48,10 @@ Essais : pont simulé (4 + 2) → demande envoyée seulement au décochage, 4 �
 
 Cause : seules 4 séries existaient (LN, LR, TN, TR) ; les opérations « BEE Tertiaire Exploitation » tombaient dans le cas par défaut et étaient **comptées en Logement neuf**. Ajout de la série TE « Tertiaire exploitation » (violet #7b5ea7) : agrégation des données connectées, collage Google Sheets (« BEE Tertiaire Exploitation » / « TE »), saisie manuelle (colonne TE), case d'affichage, légende ; export PNG/SVG/PPTX par la même liste de séries.
 Essai : fichier fictif (4 opérations LN/LR/TN/TR + 2 TE en 2023 et 2024) → courbe TE 2023 = 1, 2024 = 1, Logement neuf n'inclut plus ces 2 opérations, aucune erreur.
+
+## V29.25.3 — « Évolution des opérations » alignée sur l'Observatoire (26/11/2026)
+
+Signalé : total période 1 626 au lieu de 1 630, 2023 LR 61 / 63 entre Observatoire et Obslide.
+Causes : (1) Obslide ne lisait que les dates contenant une année à 4 chiffres → « 15/03/23 » et les numéros de série Excel (45000) donnaient « sans année » et sortaient de la courbe ; (2) axe différent : Obslide = colonne Année ou date de création, Observatoire = année de certification (« Date de décision CD », sinon « Date de décision de certification »), création seulement si aucune opération n'en a.
+Correctifs : `dataDateYear` = même lecture que NEWOSB_RULES.parseDateYear (jj/mm/aa, jj/mm/aaaa, aaaa-mm-jj, série Excel, Date) — profite aussi au filtre Année ; en-têtes certification / création résolus comme l'Observatoire (exact, sinon suffixe unique) ; réglage « Année utilisée » : Automatique (défaut, comme l'Observatoire) / Certification / Création ; sous le total : axe utilisé et « N sans année (hors courbe) ».
+Essai (5 opérations : 15/03/23, 45000, 2022-05-01, 01/01/2021, vide ; 2 dates CD) : auto = certification, 2 opérations (2023, 2024), 3 sans année ; création = 4 (2021–2023), 1 sans année ; avant le correctif, création = 2. Non-régression : fichier sans colonne de certification → axe création, mêmes totaux.
