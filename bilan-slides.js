@@ -87,11 +87,18 @@
       const index = workbook.sheets.findIndex(sheet => sheet.name === name);
       if (index < 0) throw new Error(`Feuille manquante : « ${name} ».`);
       const { matrix, formulasWithoutValue } = await workbook.readSheet(index);
+      const sheet = sheetFrom(name, expected, matrix);
+      if (formulasWithoutValue) throw new Error(`Enregistre les résultats des formules dans « ${name} » depuis Excel avant l’import.`);
+      sheets[name] = sheet;
+    }
+    return { name: file.name, sheets };
+  }
+  // contrôle et lecture d'une feuille (classeur importé ou tableau collé)
+  function sheetFrom(name, expected, matrix) {
       const [first, ...entries] = matrix.filter(row => row?.some(cell => text(cell)));
       if (!first || !entries.length || expected.some((value, col) => text(first[col]) !== value)) {
         throw new Error(`En-têtes ou données illisibles dans « ${name} ».`);
       }
-      if (formulasWithoutValue) throw new Error(`Enregistre les résultats des formules dans « ${name} » depuis Excel avant l’import.`);
       const header = Array.from(first, text);
       const textColumns = name === 'Bilan général' || ['Annulations croisées', 'Mentions AB et AC', 'Clients x MOA', 'Synthèse certifications', 'Clients'].includes(name) ? 2 : 1;
       const rows = entries.map(row => Array.from(header, (_, col) => {
@@ -101,9 +108,52 @@
         return col >= textColumns && numeric(value) ? Number(value) : value;
       }));
       if (name === 'Synthèse certifications') for (const row of rows) if (numeric(text(row[1]))) row[1] = Number(row[1]);
-      sheets[name] = { header, rows };
+      return { header, rows };
+  }
+  // onglets du bilan lus par chaque diapositive (proposés en premier au collage)
+  const SHEETS_FOR = {
+    bilanSummary: ['Bilan général'],
+    bilanQuality: ['Qualité tailles', 'Couverture'],
+    abandonRate: ['Annulations années', 'Annulations référentiels', 'Annulations croisées'],
+    moaVolume: ['Familles MOA', 'Clients', 'Clients x MOA', 'Top 25 clients'],
+    certEvolution: ['Synthèse certifications', 'Décisions annuelles', 'Créations annuelles', 'Parts annuelles', ...FAMILIES],
+    labels: [...FAMILIES, 'Mentions AB et AC'],
+    opSize: ['Taille par référentiel', 'Centiles logements', 'Centiles bâtiments', 'Centiles surfaces']
+  };
+  // cellule copiée depuis Excel (format français) → valeur telle que lue dans le classeur : « 1 234,5 » → 1234.5 ; « 12,3 % » → 0.123
+  function pastedCell(value) {
+    const v = text(value).replace(/[\s\u00a0\u202f]/g, '');
+    const pc = /^(-?\d+(?:[.,]\d+)?)%$/.exec(v);
+    if (pc) return String(Number(pc[1].replace(',', '.')) / 100);
+    return /^-?\d+(?:[.,]\d+)?$/.test(v) ? v.replace(',', '.') : text(value);
+  }
+  // collage d'un onglet du bilan copié depuis Excel : remplace cet onglet, les autres onglets du bilan affiché sont conservés
+  function pasteSheet(book, name, raw) {
+    const def = SHEETS.find(s => s[0] === name);
+    if (!def) throw new Error(`Onglet inconnu : « ${name} ».`);
+    const grid = tsv(raw).map(row => row.map(pastedCell));
+    if (!grid.length) throw new Error('Colle d’abord le tableau copié depuis Excel.');
+    const expected = def[1], first = grid[0] || [];
+    const hasHeader = expected.every((value, col) => text(first[col]) === value);
+    if (!hasHeader) {
+      if (expected.length < 2 || /^Centiles /.test(name)) throw new Error(`Copie aussi la ligne d’en-têtes de l’onglet « ${name} » (${expected.join(' ⇥ ')}…).`);
+      if (first.length < expected.length) throw new Error(`Colonnes attendues pour « ${name} » : ${expected.join(' ⇥ ')}.`);
+      grid.unshift([...expected, ...first.slice(expected.length).map((_, i) => 'Colonne ' + (expected.length + i + 1))]);
     }
-    return { name: file.name, sheets };
+    const sheet = sheetFrom(name, expected, grid);
+    return { name: book?.name || 'Tableaux collés', sheets: { ...(book?.sheets || {}), [name]: sheet }, pasted: { ...(book?.pasted || {}), [name]: sheet.rows.length } };
+  }
+  function sheetPasteControls(type, c, book, h) {
+    const mine = SHEETS_FOR[type] || [], others = SHEETS.map(s => s[0]).filter(n => !mine.includes(n));
+    const cur = c.pasteSheet && SHEETS.some(s => s[0] === c.pasteSheet) ? c.pasteSheet : mine[0];
+    const exp = (SHEETS.find(s => s[0] === cur) || [, []])[1];
+    const opt = n => `<option value="${h.esc(n)}"${n === cur ? ' selected' : ''}>${h.esc(n)}${book?.sheets?.[n] ? (book.pasted?.[n] != null ? ' · collé' : ' · classeur') : ' · absent'}</option>`;
+    return `<div class="control-section bilan-paste"><h3>Coller un tableau Excel</h3>
+      <p class="help">Copie l’onglet dans Excel (en-têtes compris) et colle-le ici : il remplace cet onglet du bilan, sans réimporter le classeur. La diapositive est recalculée dès le collage.</p>
+      <div class="field"><label>Onglet du bilan</label><select data-bilan-paste-sheet="${type}"><optgroup label="Lus par cette diapositive">${mine.map(opt).join('')}</optgroup><optgroup label="Autres onglets">${others.map(opt).join('')}</optgroup></select></div>
+      <div class="field"><textarea rows="7" data-bilan-paste="${type}" placeholder="${h.esc(exp.join('\t'))}">${h.esc(c.pasteText || '')}</textarea></div>
+      <div class="evolution-import-actions"><button type="button" class="btn btn-primary" data-bilan-paste-apply="${type}">Appliquer le tableau</button></div>
+      <p class="help" data-bilan-paste-status role="status"></p></div>`;
   }
 
   const rows = (book, name) => book?.sheets?.[name]?.rows || [];
@@ -136,7 +186,8 @@
     const select = (label, key, values) => selectField(label, p(key), choices(values));
     const toggle = (label, key) => toggleField(label, p(key));
     let content = VARIANTS.includes(type) ? toggle('Utiliser le bilan Excel', 'enabled') : '';
-    if (!usesWorkbook(type, model)) return `<div class="control-section"><h3>Source de la diapositive</h3>${content}</div>`;
+    const paste = SHEETS_FOR[type] ? sheetPasteControls(type, c, book, h) : '';
+    if (!usesWorkbook(type, model)) return `<div class="control-section"><h3>Source de la diapositive</h3>${content}</div>${paste}`;
     if (ownData(type)) return annulControls(type, c, h) + textControls(type, c, book, h);
     content += book ? `<p class="help">Classeur : ${esc(book.name)}</p>` : '<p class="help">Utilise « Importer le bilan Excel » pour charger les données.</p>';
     const page = () => field('Page du tableau', p('page'), 'number', { min: 1, step: 1 });
@@ -194,7 +245,7 @@
         content += select('Mesure de taille', 'measure', [['logements', 'Logements'], ['bâtiments', 'Bâtiments'], ['surfaces', 'Surfaces tertiaires (m²)']]);
       }
     }
-    return `<div class="control-section"><h3>Bilan Excel</h3>${content}</div>` + textControls(type, c, book, h);
+    return `<div class="control-section"><h3>Bilan Excel</h3>${content}</div>` + paste + textControls(type, c, book, h);
   }
 
   function textControls(type, c, book, h) {
@@ -901,5 +952,5 @@
       ${note?.trim() ? `<p class="bilan-note">${h.esc(note)}</p>` : ''}</div>`;
   }
 
-  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul };
+  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul, pasteSheet, SHEETS_FOR };
 })();

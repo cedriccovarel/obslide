@@ -2069,3 +2069,9 @@ body.presentation-mode .global-filter-strip{display:none!important}
 .slide-filter-scope-limit{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0b5d43;white-space:nowrap;margin-right:10px;cursor:pointer}
 .slide-filter-scope-limit input{accent-color:#0b5d43}.slide-filter-scope-limit:has(input:disabled){opacity:.55;cursor:not-allowed}
 .slide-filter-launch-scope.is-off{opacity:.55}
+/* V29.26.0 — collages : source « tableau collé », onglets du bilan, listes */
+[data-source-url][hidden],[data-source-paste][hidden]{display:none!important}
+#dataPaste{width:100%;min-height:120px;font:12px/1.4 ui-monospace,Menlo,monospace;padding:8px;border:1px solid #c9d6cf;border-radius:8px;resize:vertical}
+.data-paste-note{margin:6px 0 0;font-size:12px;color:#526c61}
+.list-paste{margin-top:8px}.list-paste summary{cursor:pointer;font-size:13px;font-weight:600;color:#22825a}
+.list-paste textarea,.bilan-paste textarea{width:100%;font:12px/1.4 ui-monospace,Menlo,monospace}

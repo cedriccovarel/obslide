@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#06402B" />
-  <title>OBSLIDE V29.25.3 · Générateur de slides</title>
+  <title>OBSLIDE V29.26.0 · Générateur de slides</title>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/favicon.png" />
-  <link rel="stylesheet" href="style.css?v=29.25.3" />
+  <link rel="stylesheet" href="style.css?v=29.26.0" />
   <link rel="stylesheet" href="nexity-map.css?v=29.7.18" />
 </head>
 <body class="auth-locked">
@@ -164,9 +164,10 @@
       <div class="data-modal-grid">
         <div class="data-source-card">
           <label>Mode</label>
-          <select id="dataMode"><option value="demo">Démonstration intégrée</option><option value="appsScript">Google Apps Script (JSON)</option><option value="googleSheet">Google Sheet public (CSV)</option></select>
-          <label>URL de la source</label><input id="dataUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec ou URL Google Sheet">
-          <label>Nom de l’onglet Google Sheet</label><input id="dataTab" type="text" value="OPERATIONS">
+          <select id="dataMode"><option value="demo">Démonstration intégrée</option><option value="appsScript">Google Apps Script (JSON)</option><option value="googleSheet">Google Sheet public (CSV)</option><option value="paste">Tableau collé depuis Excel</option></select>
+          <label data-source-url>URL de la source</label><input data-source-url id="dataUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec ou URL Google Sheet">
+          <label data-source-url>Nom de l’onglet Google Sheet</label><input data-source-url id="dataTab" type="text" value="OPERATIONS">
+          <label data-source-paste hidden for="dataPaste">Tableau d’opérations copié depuis Excel (ligne d’en-têtes comprise, mêmes colonnes que l’onglet OPERATIONS)</label><textarea data-source-paste hidden id="dataPaste" rows="7" placeholder="Code interne&#9;Nom opération&#9;Contrat: Statut&#9;…"></textarea><p data-source-paste hidden class="data-paste-note">Le tableau reste dans cette page : il n’est pas enregistré dans le navigateur (recolle-le à la prochaine ouverture). Toutes les slides calculées depuis les opérations l’utilisent.</p>
           <div class="data-actions"><button id="dataConnectBtn" class="btn btn-primary" type="button">Connecter / actualiser</button><button id="dataDisconnectBtn" class="btn btn-secondary" type="button">Revenir au mode manuel</button></div><div class="data-resource-actions"><button id="dataShowGsBtn" class="btn btn-secondary btn-small" type="button">Code .gs</button><button id="dataCopyColumnsBtn" class="btn btn-secondary btn-small" type="button">Colonnes Excel</button><button id="dataHelpBtn" class="btn btn-secondary btn-small" type="button">Aide connexion</button></div>
           <label for="operationsFile">Importer OPERATIONS depuis un fichier local</label>
           <input id="operationsFile" type="file" accept=".csv,.tsv,.xlsx">
@@ -212,9 +213,9 @@
   <script src="obslide-pptx.js?v=1.1.0"></script>
   <script src="google-slides-export.js?v=29.8.0"></script>
   <script src="analytics-slides.js?v=29.23.1"></script>
-  <script src="bilan-slides.js?v=29.25.3"></script>
+  <script src="bilan-slides.js?v=29.26.0"></script>
   <script src="bilan-editor.js?v=29.22.0"></script>
   <script src="focused-slides.js?v=29.23.1"></script>
-  <script src="app.js?v=29.25.3"></script>
+  <script src="app.js?v=29.26.0"></script>
 </body>
 </html>
