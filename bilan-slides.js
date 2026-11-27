@@ -143,14 +143,36 @@
     const sheet = sheetFrom(name, expected, grid);
     return { name: book?.name || 'Tableaux collés', sheets: { ...(book?.sheets || {}), [name]: sheet }, pasted: { ...(book?.pasted || {}), [name]: sheet.rows.length } };
   }
+  // onglets réellement lus par le graphique avec les réglages actuels (le premier est proposé par défaut au collage)
+  function readSheets(type, c) {
+    if (type === 'certEvolution') {
+      const annual = c.basis === 'decision' ? 'Décisions annuelles' : 'Créations annuelles';
+      if (c.series === 'detail') return [c.detail || FAMILIES[0], annual];
+      return c.unit === 'share' && c.series !== 'contracts' && c.basis !== 'decision' ? [annual, 'Parts annuelles'] : [annual];
+    }
+    if (type === 'abandonRate') return [{ year: 'Annulations années', reference: 'Annulations référentiels', matrix: 'Annulations croisées' }[c.view] || 'Annulations années'];
+    if (type === 'opSize') return ['Taille par référentiel', ...(['curve', 'centiles'].includes(c.view) ? ['Centiles ' + (c.measure || 'logements')] : [])];
+    return SHEETS_FOR[type] || [];
+  }
+  // après un collage : aligne les réglages du graphique sur l'onglet collé, ou explique pourquoi il n'est pas lu
+  function alignToSheet(type, b, sheet) {
+    if (type === 'certEvolution') {
+      if (sheet === 'Créations annuelles' && b.basis === 'decision') { b.basis = 'creation'; if (b.series === 'detail') b.series = 'labels'; return 'Axe temporel passé en « année de création » pour afficher ce tableau.'; }
+      if (sheet === 'Décisions annuelles' && b.basis !== 'decision') { b.basis = 'decision'; return 'Axe temporel passé en « année de décision » pour afficher ce tableau.'; }
+      if (sheet === 'Parts annuelles') { const m = []; if (b.basis === 'decision') { b.basis = 'creation'; m.push('axe « année de création »'); } if (b.unit !== 'share') { b.unit = 'share'; m.push('valeur « part annuelle »'); } if (b.series === 'contracts' || b.series === 'detail') { b.series = 'labels'; m.push('séries « Labels »'); } return m.length ? `Réglages adaptés pour afficher ce tableau : ${m.join(', ')}.` : ''; }
+      if (FAMILIES.includes(sheet)) { b.series = 'detail'; b.detail = sheet; b.page = 1; return `Séries passées en « Détail par famille » (${sheet}).`; }
+    }
+    const read = readSheets(type, { ...(defaults[type]?.bilan || {}), ...b });
+    return read.includes(sheet) ? '' : `Tableau enregistré, mais le graphique ne lit pas cet onglet avec les réglages actuels : il lit « ${read.join(' », « ')} ».`;
+  }
   function sheetPasteControls(type, c, book, h) {
-    const mine = SHEETS_FOR[type] || [], others = SHEETS.map(s => s[0]).filter(n => !mine.includes(n));
-    const cur = c.pasteSheet && SHEETS.some(s => s[0] === c.pasteSheet) ? c.pasteSheet : mine[0];
+    const read = readSheets(type, c), mine = [...new Set([...read, ...(SHEETS_FOR[type] || [])])], others = SHEETS.map(s => s[0]).filter(n => !mine.includes(n));
+    const cur = c.pasteSheet && SHEETS.some(s => s[0] === c.pasteSheet) ? c.pasteSheet : read[0] || mine[0];
     const exp = (SHEETS.find(s => s[0] === cur) || [, []])[1];
     const opt = n => `<option value="${h.esc(n)}"${n === cur ? ' selected' : ''}>${h.esc(n)}${book?.sheets?.[n] ? (book.pasted?.[n] != null ? ' · collé' : ' · classeur') : ' · absent'}</option>`;
     return `<div class="control-section bilan-paste"><h3>Coller un tableau Excel</h3>
       <p class="help">Copie l’onglet dans Excel (en-têtes compris) et colle-le ici : il remplace cet onglet du bilan, sans réimporter le classeur. La diapositive est recalculée dès le collage.</p>
-      <div class="field"><label>Onglet du bilan</label><select data-bilan-paste-sheet="${type}"><optgroup label="Lus par cette diapositive">${mine.map(opt).join('')}</optgroup><optgroup label="Autres onglets">${others.map(opt).join('')}</optgroup></select></div>
+      <div class="field"><label>Onglet du bilan</label><select data-bilan-paste-sheet="${type}"><optgroup label="Lus par le graphique (réglages actuels)">${read.map(opt).join('')}</optgroup>${mine.length > read.length ? `<optgroup label="Autres onglets de cette diapositive">${mine.filter(n => !read.includes(n)).map(opt).join('')}</optgroup>` : ''}<optgroup label="Autres onglets">${others.map(opt).join('')}</optgroup></select></div>
       <div class="field"><textarea rows="7" data-bilan-paste="${type}" placeholder="${h.esc(exp.join('\t'))}">${h.esc(c.pasteText || '')}</textarea></div>
       <div class="evolution-import-actions"><button type="button" class="btn btn-primary" data-bilan-paste-apply="${type}">Appliquer le tableau</button></div>
       <p class="help" data-bilan-paste-status role="status"></p></div>`;
@@ -952,5 +974,5 @@
       ${note?.trim() ? `<p class="bilan-note">${h.esc(note)}</p>` : ''}</div>`;
   }
 
-  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul, pasteSheet, SHEETS_FOR };
+  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul, pasteSheet, SHEETS_FOR, readSheets, alignToSheet };
 })();

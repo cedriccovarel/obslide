@@ -10,3 +10,7 @@ Demande : certaines slides (bilans, Certifications…) n'acceptaient pas le coll
 ## Non-régression
 - Import du classeur réel « Bilan consolidé de l'Observatoire.xlsx » : 28 feuilles, mêmes valeurs qu'en V29.25.3 (contrôle des en-têtes puis des formules non calculées, dans le même ordre).
 - Banc : scratchpad ob/paste26.mjs, paste26b.mjs, imp26.mjs (données fictives pour les collages).
+
+## V29.26.1 — collage sans effet sur « Évolution des certifications »
+Cause : sans choix explicite, le collage partait dans le 1er onglet de la liste (« Synthèse certifications »), que le graphique ne lit pas, alors que le menu en affichait un autre. Et un collage de « Créations annuelles » restait invisible si l'axe était sur la décision.
+Correctifs : le collage va dans l'onglet affiché ; l'onglet proposé par défaut est celui lu par le graphique avec les réglages actuels (OBSBilan.readSheets : Créations / Décisions annuelles selon l'axe, Parts annuelles, onglet de famille en détail ; annulations selon la vue ; taille + centiles) ; après collage, les réglages s'alignent sur l'onglet collé (OBSBilan.alignToSheet : axe, valeur « part », séries « détail par famille ») ; un onglet non lu par le graphique est signalé. Banc : ob/paste26c.mjs.
