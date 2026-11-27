@@ -138,6 +138,11 @@
     if (!hasHeader) {
       if (expected.length < 2 || /^Centiles /.test(name)) throw new Error(`Copie aussi la ligne d’en-têtes de l’onglet « ${name} » (${expected.join(' ⇥ ')}…).`);
       if (first.length < expected.length) throw new Error(`Colonnes attendues pour « ${name} » : ${expected.join(' ⇥ ')}.`);
+      // 1re ligne sans aucun nombre hors 1re colonne = une ligne d'en-têtes qui ne correspond pas : jamais remplacée en silence
+      if (first.slice(1).every(cell => !/^-?\d+(?:\.\d+)?$/.test(text(cell)))) {
+        const other = sheetOfHeader(first);
+        throw new Error(other ? `Ce tableau a les en-têtes de l’onglet « ${other} », pas de « ${name} ».` : `En-têtes non reconnus pour « ${name} » : attendu ${expected.join(' ⇥ ')}.`);
+      }
       grid.unshift([...expected, ...first.slice(expected.length).map((_, i) => 'Colonne ' + (expected.length + i + 1))]);
     }
     const sheet = sheetFrom(name, expected, grid);
@@ -164,6 +169,16 @@
     }
     const read = readSheets(type, { ...(defaults[type]?.bilan || {}), ...b });
     return read.includes(sheet) ? '' : `Tableau enregistré, mais le graphique ne lit pas cet onglet avec les réglages actuels : il lit « ${read.join(' », « ')} ».`;
+  }
+  // onglet(s) dont la ligne d'en-têtes correspond exactement au tableau collé
+  function sheetsOfHeader(row) { const r = (row || []).map(text); return SHEETS.filter(([n, exp]) => exp.length > 1 && exp.every((v, i) => r[i] === v)).map(([n]) => n); }
+  const sheetOfHeader = row => sheetsOfHeader(row)[0] || null;
+  // onglet de destination d'un collage : reconnu d'après les en-têtes collés (parmi les onglets de même en-tête, celui lu par le graphique), sinon l'onglet choisi
+  function targetSheet(type, c, chosen, raw) {
+    const first = tsv(raw)[0], cands = first ? sheetsOfHeader(first.map(pastedCell)) : [];
+    if (!cands.length || cands.includes(chosen)) return chosen;
+    const read = readSheets(type, c), mine = SHEETS_FOR[type] || [];
+    return cands.find(n => read.includes(n)) || cands.find(n => mine.includes(n)) || cands[0];
   }
   function sheetPasteControls(type, c, book, h) {
     const read = readSheets(type, c), mine = [...new Set([...read, ...(SHEETS_FOR[type] || [])])], others = SHEETS.map(s => s[0]).filter(n => !mine.includes(n));
@@ -974,5 +989,5 @@
       ${note?.trim() ? `<p class="bilan-note">${h.esc(note)}</p>` : ''}</div>`;
   }
 
-  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul, pasteSheet, SHEETS_FOR, readSheets, alignToSheet };
+  window.OBSBilan = { TEMPLATES, TYPES, DECK, ANNUL, defaults, usesWorkbook, importWorkbook, controls, html, parseAnnul, pasteSheet, SHEETS_FOR, readSheets, alignToSheet, targetSheet };
 })();

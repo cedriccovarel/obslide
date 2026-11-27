@@ -1415,7 +1415,9 @@ const MAP_GEOJSON_URLS = [
     const m = state[type]; if (!m) return;
     m.bilan = m.bilan || {};
     const shown = controls.querySelector(`[data-bilan-paste-sheet="${type}"]`)?.value; // onglet affiché dans le menu (sinon : celui lu par le graphique)
-    const sheet = shown || m.bilan.pasteSheet || bilan.readSheets(type, { ...(bilan.defaults[type]?.bilan || {}), ...m.bilan })[0] || (bilan.SHEETS_FOR[type] || [])[0], raw = m.bilan.pasteText || '';
+    const cfg = { ...(bilan.defaults[type]?.bilan || {}), ...m.bilan }, raw = m.bilan.pasteText || '';
+    const chosen = shown || m.bilan.pasteSheet || bilan.readSheets(type, cfg)[0] || (bilan.SHEETS_FOR[type] || [])[0];
+    const sheet = raw.trim() ? bilan.targetSheet(type, cfg, chosen, raw) : chosen; // onglet reconnu d'après les en-têtes collés
     const status = controls.querySelector('[data-bilan-paste-status]');
     if (!raw.trim()) { if (status) status.textContent = ''; if (!live) toast('Colle d’abord le tableau copié depuis Excel.'); return; }
     try {
@@ -1426,10 +1428,11 @@ const MAP_GEOJSON_URLS = [
       saveState(); renderSlide();
       const n = state.bilanWorkbook.sheets[sheet].rows.length;
       if (wasOff || changedSettings || !live) renderControls();
-      const msg = `Onglet « ${sheet} » collé : ${n} ligne(s) lue(s).${note ? ' ' + note : ''}`;
+      if (sheet !== chosen) { m.bilan.pasteSheet = sheet; if (!changedSettings) renderControls(); }
+      const msg = `${sheet !== chosen ? `En-têtes de « ${sheet} » reconnus (le menu indiquait « ${chosen} »). ` : ''}Onglet « ${sheet} » collé : ${n} ligne(s) lue(s).${note ? ' ' + note : ''}`;
       const st = controls.querySelector('[data-bilan-paste-status]');
       if (st) st.textContent = msg;
-      if (!live || changedSettings) toast(msg);
+      if (!live || changedSettings || sheet !== chosen) toast(msg);
     } catch (error) {
       if (status) status.textContent = error.message; else if (!live) toast(error.message);
     }
